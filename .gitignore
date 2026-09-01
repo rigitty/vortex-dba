@@ -23,3 +23,6 @@ logs/
 
 # State Database
 data/
+
+# Personal notes
+COMMANDS.txt

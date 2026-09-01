@@ -16,6 +16,8 @@ from benchmark import (
     run_benchmark_suite, compare_results, format_benchmark_results,
     format_comparison, BenchmarkResult, ComparisonResult,
 )
+from safety_guard import check_safety, SafetyViolation
+from state_store import record_decision
 
 
 @dataclass
@@ -175,6 +177,16 @@ def run_remediation(dry_run: bool = False, apply: bool = True,
     if apply:
         print("\n[3/5] Applying index recommendations...")
         for rec in recommendations:
+            idx_name = _extract_index_name(rec.create_statement)
+
+            # Safety check before applying
+            try:
+                check_safety(rec.table, idx_name)
+            except SafetyViolation as e:
+                print(f"  [SKIP] {idx_name}: {e}")
+                record_decision("safety_skip", f"{idx_name}: {e}")
+                continue
+
             print(f"  Applying: {rec.create_statement}")
             result = apply_index(rec)
             report.applied_indexes.append(result)

@@ -1,249 +1,401 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="tr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VortexDBA Dashboard</title>
+    <title>VortexDBA - Performans Dashboard</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; color: #333; }
-        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-        h1 { color: #2c3e50; margin-bottom: 20px; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
-        .card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .card h2 { color: #34495e; font-size: 1.2em; margin-bottom: 15px; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
-        .stat { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
-        .stat:last-child { border-bottom: none; }
-        .stat-label { color: #7f8c8d; }
-        .stat-value { font-weight: 600; color: #2c3e50; }
-        .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; font-weight: 600; }
-        .badge-success { background: #d4edda; color: #155724; }
-        .badge-warning { background: #fff3cd; color: #856404; }
-        .badge-danger { background: #f8d7da; color: #721c24; }
-        .badge-info { background: #d1ecf1; color: #0c5460; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+        
+        /* Header */
+        .header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-bottom: 1px solid #334155; padding: 20px 30px; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { font-size: 1.5em; color: #38bdf8; }
+        .header h1 span { color: #94a3b8; font-weight: 300; }
+        .status-badge { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 20px; font-size: 0.9em; }
+        .status-healthy { background: #064e3b; color: #34d399; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #34d399; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        
+        /* Container */
+        .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+        
+        /* Summary Cards */
+        .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+        .summary-card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; }
+        .summary-card .label { font-size: 0.85em; color: #94a3b8; margin-bottom: 8px; }
+        .summary-card .value { font-size: 2em; font-weight: 700; }
+        .summary-card .subtext { font-size: 0.8em; color: #64748b; margin-top: 4px; }
+        .value-blue { color: #38bdf8; }
+        .value-green { color: #34d399; }
+        .value-yellow { color: #fbbf24; }
+        .value-red { color: #f87171; }
+        
+        /* Main Grid */
+        .main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .full-width { grid-column: 1 / -1; }
+        
+        /* Cards */
+        .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; overflow: hidden; }
+        .card-header { background: #0f172a; padding: 16px 20px; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+        .card-header h2 { font-size: 1em; color: #e2e8f0; display: flex; align-items: center; gap: 8px; }
+        .card-header .icon { font-size: 1.2em; }
+        .card-body { padding: 20px; }
+        
+        /* Tables */
         table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #eee; }
-        th { background: #f8f9fa; color: #495057; font-weight: 600; }
-        tr:hover { background: #f8f9fa; }
-        .btn { display: inline-block; padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer; font-weight: 600; }
-        .btn-primary { background: #3498db; color: white; }
-        .btn-danger { background: #e74c3c; color: white; }
-        .btn-success { background: #2ecc71; color: white; }
-        .btn:hover { opacity: 0.9; }
-        .status-indicator { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; }
-        .status-healthy { background: #2ecc71; }
-        .status-warning { background: #f39c12; }
-        .status-error { background: #e74c3c; }
-        .loading { text-align: center; padding: 20px; color: #7f8c8d; }
-        .error { color: #e74c3c; padding: 10px; background: #f8d7da; border-radius: 4px; }
+        th { text-align: left; padding: 10px 12px; color: #94a3b8; font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #334155; }
+        td { padding: 12px; border-bottom: 1px solid #1e293b; font-size: 0.9em; }
+        tr:hover td { background: #0f172a; }
+        
+        /* Badges */
+        .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 0.75em; font-weight: 600; }
+        .badge-success { background: #064e3b; color: #34d399; }
+        .badge-warning { background: #78350f; color: #fbbf24; }
+        .badge-danger { background: #7f1d1d; color: #f87171; }
+        .badge-info { background: #0c4a6e; color: #38bdf8; }
+        
+        /* Progress Bar */
+        .progress-bar { height: 6px; background: #334155; border-radius: 3px; overflow: hidden; margin-top: 8px; }
+        .progress-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+        
+        /* Empty State */
+        .empty-state { text-align: center; padding: 40px; color: #64748b; }
+        .empty-state .icon { font-size: 2em; margin-bottom: 12px; }
+        
+        /* Loading */
+        .loading { text-align: center; padding: 40px; color: #64748b; }
+        .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid #334155; border-top-color: #38bdf8; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* Tooltip */
+        .tooltip { position: relative; cursor: help; }
+        .tooltip::after { content: attr(data-tip); position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); background: #0f172a; color: #e2e8f0; padding: 6px 10px; border-radius: 6px; font-size: 0.8em; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.2s; border: 1px solid #334155; }
+        .tooltip:hover::after { opacity: 1; }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .summary-grid { grid-template-columns: repeat(2, 1fr); }
+            .main-grid { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
+    <!-- Header -->
+    <div class="header">
+        <h1>VortexDBA <span>| Performans Dashboard</span></h1>
+        <div id="health-badge" class="status-badge status-healthy">
+            <span class="status-dot"></span>
+            <span>Bağlantı Kuruluyor...</span>
+        </div>
+    </div>
+
     <div class="container">
-        <h1>VortexDBA Dashboard</h1>
+        <!-- Summary Cards -->
+        <div class="summary-grid">
+            <div class="summary-card">
+                <div class="label">Toplam Tablo</div>
+                <div class="value value-blue" id="total-tables">-</div>
+                <div class="subtext">customers, orders</div>
+            </div>
+            <div class="summary-card">
+                <div class="label">Toplam Satır</div>
+                <div class="value value-green" id="total-rows">-</div>
+                <div class="subtext">Tüm tablolardaki kayıtlar</div>
+            </div>
+            <div class="summary-card">
+                <div class="label">Aktif İndeks</div>
+                <div class="value value-yellow" id="total-indexes">-</div>
+                <div class="subtext">Veritabanındaki indeksler</div>
+            </div>
+            <div class="summary-card">
+                <div class="label">Kullanılmayan İndeks</div>
+                <div class="value value-red" id="unused-count">-</div>
+                <div class="subtext" id="unused-size">Silinebilir alan hesaplanıyor...</div>
+            </div>
+        </div>
 
-        <div class="grid">
-            <!-- Health Status -->
+        <!-- Main Content -->
+        <div class="main-grid">
+            <!-- Tablo İstatistikleri -->
             <div class="card">
-                <h2>System Health</h2>
-                <div id="health-status" class="loading">Loading...</div>
+                <div class="card-header">
+                    <h2><span class="icon">📊</span> Tablo İstatistikleri</h2>
+                    <span class="badge badge-info">Gerçek Zamanlı</span>
+                </div>
+                <div class="card-body">
+                    <div id="table-stats" class="loading"><span class="spinner"></span> Yükleniyor...</div>
+                </div>
             </div>
 
-            <!-- Configuration -->
+            <!-- İndeks Kullanımı -->
             <div class="card">
-                <h2>Configuration</h2>
-                <div id="config-info" class="loading">Loading...</div>
+                <div class="card-header">
+                    <h2><span class="icon">🔍</span> İndeks Kullanımı</h2>
+                    <span class="badge badge-info">Tarama Sayıları</span>
+                </div>
+                <div class="card-body">
+                    <div id="index-stats" class="loading"><span class="spinner"></span> Yükleniyor...</div>
+                </div>
             </div>
 
-            <!-- Table Statistics -->
-            <div class="card">
-                <h2>Table Statistics</h2>
-                <div id="table-stats" class="loading">Loading...</div>
+            <!-- Yavaş Sorgular -->
+            <div class="card full-width">
+                <div class="card-header">
+                    <h2><span class="icon">🐢</span> En Yavaş Sorgular</h2>
+                    <span class="badge badge-warning">İyileştirme Gerekli</span>
+                </div>
+                <div class="card-body">
+                    <div id="slow-queries" class="loading"><span class="spinner"></span> Yükleniyor...</div>
+                </div>
             </div>
 
-            <!-- Index Statistics -->
+            <!-- Kullanılmayan İndeksler -->
             <div class="card">
-                <h2>Index Statistics</h2>
-                <div id="index-stats" class="loading">Loading...</div>
+                <div class="card-header">
+                    <h2><span class="icon">🗑️</span> Kullanılmayan İndeksler</h2>
+                    <span class="badge badge-danger">Temizlik Gerekli</span>
+                </div>
+                <div class="card-body">
+                    <div id="unused-indexes" class="loading"><span class="spinner"></span> Yükleniyor...</div>
+                </div>
             </div>
 
-            <!-- Unused Indexes -->
+            <!-- Agent Kararları -->
             <div class="card">
-                <h2>Unused Indexes</h2>
-                <div id="unused-indexes" class="loading">Loading...</div>
+                <div class="card-header">
+                    <h2><span class="icon">🤖</span> Son Agent Kararları</h2>
+                    <span class="badge badge-success">Otonom</span>
+                </div>
+                <div class="card-body">
+                    <div id="decisions" class="loading"><span class="spinner"></span> Yükleniyor...</div>
+                </div>
             </div>
 
-            <!-- Recent Decisions -->
-            <div class="card">
-                <h2>Recent Decisions</h2>
-                <div id="decisions" class="loading">Loading...</div>
+            <!-- Konfigürasyon -->
+            <div class="card full-width">
+                <div class="card-header">
+                    <h2><span class="icon">⚙️</span> Sistem Konfigürasyonu</h2>
+                    <span class="badge badge-info">Ayarlar</span>
+                </div>
+                <div class="card-body">
+                    <div id="config-info" class="loading"><span class="spinner"></span> Yükleniyor...</div>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        async function fetchData(endpoint) {
+        const API = '';
+        
+        async function fetchJSON(endpoint) {
             try {
-                const response = await fetch(endpoint);
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                return await response.json();
-            } catch (error) {
-                console.error(`Error fetching ${endpoint}:`, error);
+                const r = await fetch(API + endpoint);
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                return await r.json();
+            } catch (e) {
+                console.error(`API hatası: ${endpoint}`, e);
                 return null;
             }
         }
 
-        function formatNumber(num) {
-            return num.toLocaleString();
+        function fmt(n) {
+            if (n === undefined || n === null) return '-';
+            return Number(n).toLocaleString('tr-TR');
+        }
+
+        function fmtSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / 1048576).toFixed(1) + ' MB';
+        }
+
+        function timeAgo(ts) {
+            const diff = Date.now() - new Date(ts).getTime();
+            const mins = Math.floor(diff / 60000);
+            if (mins < 1) return 'Az önce';
+            if (mins < 60) return mins + ' dk önce';
+            const hrs = Math.floor(mins / 60);
+            if (hrs < 24) return hrs + ' saat önce';
+            return Math.floor(hrs / 24) + ' gün önce';
+        }
+
+        function scanRatio(seq, idx) {
+            const total = seq + idx;
+            if (total === 0) return { pct: 0, label: 'Veri yok', cls: 'badge-info' };
+            const pct = ((idx / total) * 100).toFixed(1);
+            if (pct > 80) return { pct, label: pct + '% indeks', cls: 'badge-success' };
+            if (pct > 50) return { pct, label: pct + '% indeks', cls: 'badge-warning' };
+            return { pct, label: pct + '% indeks', cls: 'badge-danger' };
         }
 
         async function loadHealth() {
-            const data = await fetchData('/health');
-            const el = document.getElementById('health-status');
-            if (data) {
-                el.innerHTML = `
-                    <div class="stat">
-                        <span class="stat-label">Status</span>
-                        <span class="stat-value">
-                            <span class="status-indicator status-healthy"></span>
-                            ${data.status}
-                        </span>
-                    </div>
-                    <div class="stat">
-                        <span class="stat-label">Last Check</span>
-                        <span class="stat-value">${new Date(data.timestamp).toLocaleTimeString()}</span>
-                    </div>
-                `;
+            const d = await fetchJSON('/health');
+            const el = document.getElementById('health-badge');
+            if (d && d.status === 'healthy') {
+                el.innerHTML = '<span class="status-dot"></span><span>Sistem Aktif</span>';
+                el.className = 'status-badge status-healthy';
             } else {
-                el.innerHTML = '<div class="error">Failed to connect</div>';
+                el.innerHTML = '<span class="status-dot" style="background:#f87171"></span><span>Bağlantı Hatası</span>';
+                el.className = 'status-badge';
+                el.style.background = '#7f1d1d';
+                el.style.color = '#f87171';
             }
         }
 
-        async function loadConfig() {
-            const data = await fetchData('/api/config');
-            const el = document.getElementById('config-info');
-            if (data) {
-                el.innerHTML = `
-                    <div class="stat">
-                        <span class="stat-label">Remediation</span>
-                        <span class="stat-value">
-                            <span class="badge ${data.remediation.enabled ? 'badge-success' : 'badge-warning'}">
-                                ${data.remediation.enabled ? 'Enabled' : 'Disabled'}
-                            </span>
-                        </span>
-                    </div>
-                    <div class="stat">
-                        <span class="stat-label">Dry Run</span>
-                        <span class="stat-value">${data.remediation.dry_run_default ? 'Yes' : 'No'}</span>
-                    </div>
-                    <div class="stat">
-                        <span class="stat-label">Max Indexes/Table</span>
-                        <span class="stat-value">${data.remediation.max_indexes_per_table}</span>
-                    </div>
-                    <div class="stat">
-                        <span class="stat-label">Cooldown</span>
-                        <span class="stat-value">${data.remediation.cooldown_minutes} min</span>
-                    </div>
-                    <div class="stat">
-                        <span class="stat-label">Benchmark Runs</span>
-                        <span class="stat-value">${data.benchmark.runs}</span>
-                    </div>
-                `;
-            }
-        }
+        async function loadStats() {
+            const d = await fetchJSON('/api/stats');
+            if (!d) return;
 
-        async function loadTableStats() {
-            const data = await fetchData('/api/stats');
-            const el = document.getElementById('table-stats');
-            if (data && data.tables) {
-                let html = '<table><tr><th>Table</th><th>Seq Scans</th><th>Idx Scans</th><th>Live</th></tr>';
-                data.tables.forEach(t => {
+            // Summary
+            document.getElementById('total-tables').textContent = d.tables?.length || 0;
+            const totalRows = d.tables?.reduce((s, t) => s + (t.live_tuples || 0), 0) || 0;
+            document.getElementById('total-rows').textContent = fmt(totalRows);
+            document.getElementById('total-indexes').textContent = d.indexes?.length || 0;
+
+            // Tablo istatistikleri
+            if (d.tables?.length) {
+                let html = '<table><tr><th>Tablo</th><th>Satır</th><th>Seq Tarama</th><th>İndeks Tarama</th><th>Durum</th></tr>';
+                d.tables.forEach(t => {
+                    const ratio = scanRatio(t.seq_scans, t.idx_scans);
                     html += `<tr>
-                        <td>${t.name}</td>
-                        <td>${formatNumber(t.seq_scans)}</td>
-                        <td>${formatNumber(t.idx_scans)}</td>
-                        <td>${formatNumber(t.live_tuples)}</td>
+                        <td><strong>${t.name}</strong></td>
+                        <td>${fmt(t.live_tuples)}</td>
+                        <td>${fmt(t.seq_scans)}</td>
+                        <td>${fmt(t.idx_scans)}</td>
+                        <td><span class="badge ${ratio.cls}">${ratio.label}</span></td>
                     </tr>`;
                 });
                 html += '</table>';
-                el.innerHTML = html;
+                document.getElementById('table-stats').innerHTML = html;
             }
-        }
 
-        async function loadIndexStats() {
-            const data = await fetchData('/api/stats');
-            const el = document.getElementById('index-stats');
-            if (data && data.indexes) {
-                let html = '<table><tr><th>Index</th><th>Table</th><th>Scans</th></tr>';
-                data.indexes.forEach(idx => {
+            // İndeks kullanımı
+            if (d.indexes?.length) {
+                const sorted = [...d.indexes].sort((a, b) => b.scans - a.scans);
+                let html = '<table><tr><th>İndeks</th><th>Tablo</th><th>Tarama</th><th>Durum</th></tr>';
+                sorted.forEach(idx => {
+                    let cls = 'badge-success', label = 'Aktif';
+                    if (idx.scans === 0) { cls = 'badge-danger'; label = 'Kullanılmıyor'; }
+                    else if (idx.scans < 10) { cls = 'badge-warning'; label = 'Düşük'; }
                     html += `<tr>
-                        <td>${idx.name}</td>
+                        <td><strong>${idx.name}</strong></td>
                         <td>${idx.table}</td>
-                        <td>${formatNumber(idx.scans)}</td>
+                        <td>${fmt(idx.scans)}</td>
+                        <td><span class="badge ${cls}">${label}</span></td>
                     </tr>`;
                 });
                 html += '</table>';
-                el.innerHTML = html;
+                document.getElementById('index-stats').innerHTML = html;
+            }
+
+            // Yavaş sorgular
+            if (d.top_queries?.length) {
+                let html = '<table><tr><th>Sorgu</th><th>Çağrı</th><th>Ort. Süre</th><th>Toplam Süre</th><th>Durum</th></tr>';
+                d.top_queries.forEach(q => {
+                    let cls = 'badge-success', label = 'Hızlı';
+                    if (q.mean_ms > 1000) { cls = 'badge-danger'; label = 'Çok Yavaş'; }
+                    else if (q.mean_ms > 100) { cls = 'badge-warning'; label = 'Yavaş'; }
+                    else if (q.mean_ms > 50) { cls = 'badge-info'; label = 'Normal'; }
+                    html += `<tr>
+                        <td title="${q.query}">${q.query.substring(0, 60)}${q.query.length > 60 ? '...' : ''}</td>
+                        <td>${fmt(q.calls)}</td>
+                        <td>${q.mean_ms?.toFixed(1)} ms</td>
+                        <td>${q.total_ms?.toFixed(0)} ms</td>
+                        <td><span class="badge ${cls}">${label}</span></td>
+                    </tr>`;
+                });
+                html += '</table>';
+                document.getElementById('slow-queries').innerHTML = html;
             }
         }
 
         async function loadUnusedIndexes() {
-            const data = await fetchData('/api/unused-indexes');
-            const el = document.getElementById('unused-indexes');
-            if (data && data.unused_indexes) {
-                if (data.unused_indexes.length === 0) {
-                    el.innerHTML = '<p>No unused indexes found.</p>';
-                } else {
-                    let html = '<table><tr><th>Index</th><th>Table</th><th>Size</th></tr>';
-                    data.unused_indexes.forEach(idx => {
-                        html += `<tr>
-                            <td>${idx.name}</td>
-                            <td>${idx.table}</td>
-                            <td>${idx.size}</td>
-                        </tr>`;
-                    });
-                    html += '</table>';
-                    html += `<p style="margin-top:10px"><strong>Total reclaimable:</strong> ${(data.total_reclaimable / 1024 / 1024).toFixed(1)} MB</p>`;
-                    el.innerHTML = html;
-                }
+            const d = await fetchJSON('/api/unused-indexes');
+            if (!d) return;
+
+            document.getElementById('unused-count').textContent = d.unused_indexes?.length || 0;
+            document.getElementById('unused-size').textContent = d.total_reclaimable ? `${fmtSize(d.total_reclaimable)} geri kazanılabilir` : 'Temiz';
+
+            if (d.unused_indexes?.length) {
+                let html = '<table><tr><th>İndeks</th><th>Tablo</th><th>Boyut</th></tr>';
+                d.unused_indexes.forEach(idx => {
+                    html += `<tr>
+                        <td><strong>${idx.name}</strong></td>
+                        <td>${idx.table}</td>
+                        <td>${idx.size}</td>
+                    </tr>`;
+                });
+                html += '</table>';
+                document.getElementById('unused-indexes').innerHTML = html;
+            } else {
+                document.getElementById('unused-indexes').innerHTML = '<div class="empty-state"><div class="icon">✅</div>Kullanılmayan indeks yok</div>';
             }
         }
 
         async function loadDecisions() {
-            const data = await fetchData('/api/decisions');
-            const el = document.getElementById('decisions');
-            if (data && data.decisions) {
-                if (data.decisions.length === 0) {
-                    el.innerHTML = '<p>No decisions recorded yet.</p>';
-                } else {
-                    let html = '<table><tr><th>Type</th><th>Details</th><th>Time</th></tr>';
-                    data.decisions.slice(0, 10).forEach(d => {
-                        html += `<tr>
-                            <td><span class="badge badge-info">${d.type}</span></td>
-                            <td>${d.details.substring(0, 50)}...</td>
-                            <td>${new Date(d.timestamp).toLocaleTimeString()}</td>
-                        </tr>`;
-                    });
-                    html += '</table>';
-                    el.innerHTML = html;
-                }
+            const d = await fetchJSON('/api/decisions');
+            if (!d) return;
+
+            if (d.decisions?.length) {
+                let html = '<table><tr><th>Tür</th><th>Detay</th><th>Zaman</th></tr>';
+                d.decisions.slice(0, 10).forEach(dec => {
+                    let cls = 'badge-info';
+                    if (dec.type.includes('rollback')) cls = 'badge-danger';
+                    if (dec.type.includes('applied')) cls = 'badge-success';
+                    if (dec.type.includes('skip')) cls = 'badge-warning';
+                    html += `<tr>
+                        <td><span class="badge ${cls}">${dec.type}</span></td>
+                        <td>${dec.details?.substring(0, 60) || '-'}</td>
+                        <td>${timeAgo(dec.timestamp)}</td>
+                    </tr>`;
+                });
+                html += '</table>';
+                document.getElementById('decisions').innerHTML = html;
+            } else {
+                document.getElementById('decisions').innerHTML = '<div class="empty-state"><div class="icon">🤖</div>Henüz karar kaydı yok</div>';
             }
         }
 
-        // Load all data
+        async function loadConfig() {
+            const d = await fetchJSON('/api/config');
+            if (!d) return;
+
+            let html = '<div style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">';
+            
+            // Tespit
+            html += '<div><h3 style="color:#38bdf8; margin-bottom:12px;">🔍 Tespit Ayarları</h3>';
+            html += `<p>Min. ortalama süre: <strong>${d.detection.min_mean_exec_time_ms} ms</strong></p>`;
+            html += `<p>Min. toplam süre: <strong>${d.detection.min_total_exec_time_ms} ms</strong></p>`;
+            html += `<p>Min. çağrı: <strong>${d.detection.min_calls}</strong></p></div>`;
+            
+            // Remediyasyon
+            html += '<div><h3 style="color:#34d399; margin-bottom:12px;">🔧 Remediyasyon</h3>';
+            html += `<p>Durum: <span class="badge ${d.remediation.enabled ? 'badge-success' : 'badge-danger'}">${d.remediation.enabled ? 'Aktif' : 'Pasif'}</span></p>`;
+            html += `<p>Dry-run: <strong>${d.remediation.dry_run_default ? 'Evet' : 'Hayır'}</strong></p>`;
+            html += `<p>Max indeks/tablo: <strong>${d.remediation.max_indexes_per_table}</strong></p>`;
+            html += `<p>Bekleme süresi: <strong>${d.remediation.cooldown_minutes} dk</strong></p></div>`;
+            
+            // Benchmark
+            html += '<div><h3 style="color:#fbbf24; margin-bottom:12px;">📈 Benchmark</h3>';
+            html += `<p>Çalıştırma sayısı: <strong>${d.benchmark.runs}</strong></p>`;
+            html += `<p>Bozulma eşiği: <strong>%${d.benchmark.degradation_threshold_pct}</strong></p></div>`;
+            
+            html += '</div>';
+            document.getElementById('config-info').innerHTML = html;
+        }
+
         async function loadAll() {
             await Promise.all([
                 loadHealth(),
-                loadConfig(),
-                loadTableStats(),
-                loadIndexStats(),
+                loadStats(),
                 loadUnusedIndexes(),
-                loadDecisions()
+                loadDecisions(),
+                loadConfig()
             ]);
         }
 
         loadAll();
-        // Refresh every 30 seconds
         setInterval(loadAll, 30000);
     </script>
 </body>
