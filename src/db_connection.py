@@ -3,18 +3,19 @@
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
-DB_CONFIG = {
-    "host": "localhost",
-    "port": 5432,
-    "dbname": "vortex_db",
-    "user": "vortex_user",
-    "password": "vortex_password",
-}
+from config import get_config
 
 
 def get_connection(autocommit: bool = False):
     """Create and return a new database connection."""
-    conn = psycopg2.connect(**DB_CONFIG)
+    cfg = get_config().database
+    conn = psycopg2.connect(
+        host=cfg.host,
+        port=cfg.port,
+        dbname=cfg.dbname,
+        user=cfg.user,
+        password=cfg.password,
+    )
     conn.autocommit = autocommit
     return conn
 

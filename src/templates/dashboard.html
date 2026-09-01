@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VortexDBA Dashboard</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; color: #333; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        h1 { color: #2c3e50; margin-bottom: 20px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+        .card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .card h2 { color: #34495e; font-size: 1.2em; margin-bottom: 15px; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        .stat { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+        .stat:last-child { border-bottom: none; }
+        .stat-label { color: #7f8c8d; }
+        .stat-value { font-weight: 600; color: #2c3e50; }
+        .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; font-weight: 600; }
+        .badge-success { background: #d4edda; color: #155724; }
+        .badge-warning { background: #fff3cd; color: #856404; }
+        .badge-danger { background: #f8d7da; color: #721c24; }
+        .badge-info { background: #d1ecf1; color: #0c5460; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: #f8f9fa; color: #495057; font-weight: 600; }
+        tr:hover { background: #f8f9fa; }
+        .btn { display: inline-block; padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer; font-weight: 600; }
+        .btn-primary { background: #3498db; color: white; }
+        .btn-danger { background: #e74c3c; color: white; }
+        .btn-success { background: #2ecc71; color: white; }
+        .btn:hover { opacity: 0.9; }
+        .status-indicator { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; }
+        .status-healthy { background: #2ecc71; }
+        .status-warning { background: #f39c12; }
+        .status-error { background: #e74c3c; }
+        .loading { text-align: center; padding: 20px; color: #7f8c8d; }
+        .error { color: #e74c3c; padding: 10px; background: #f8d7da; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>VortexDBA Dashboard</h1>
+
+        <div class="grid">
+            <!-- Health Status -->
+            <div class="card">
+                <h2>System Health</h2>
+                <div id="health-status" class="loading">Loading...</div>
+            </div>
+
+            <!-- Configuration -->
+            <div class="card">
+                <h2>Configuration</h2>
+                <div id="config-info" class="loading">Loading...</div>
+            </div>
+
+            <!-- Table Statistics -->
+            <div class="card">
+                <h2>Table Statistics</h2>
+                <div id="table-stats" class="loading">Loading...</div>
+            </div>
+
+            <!-- Index Statistics -->
+            <div class="card">
+                <h2>Index Statistics</h2>
+                <div id="index-stats" class="loading">Loading...</div>
+            </div>
+
+            <!-- Unused Indexes -->
+            <div class="card">
+                <h2>Unused Indexes</h2>
+                <div id="unused-indexes" class="loading">Loading...</div>
+            </div>
+
+            <!-- Recent Decisions -->
+            <div class="card">
+                <h2>Recent Decisions</h2>
+                <div id="decisions" class="loading">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function fetchData(endpoint) {
+            try {
+                const response = await fetch(endpoint);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                return await response.json();
+            } catch (error) {
+                console.error(`Error fetching ${endpoint}:`, error);
+                return null;
+            }
+        }
+
+        function formatNumber(num) {
+            return num.toLocaleString();
+        }
+
+        async function loadHealth() {
+            const data = await fetchData('/health');
+            const el = document.getElementById('health-status');
+            if (data) {
+                el.innerHTML = `
+                    <div class="stat">
+                        <span class="stat-label">Status</span>
+                        <span class="stat-value">
+                            <span class="status-indicator status-healthy"></span>
+                            ${data.status}
+                        </span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Last Check</span>
+                        <span class="stat-value">${new Date(data.timestamp).toLocaleTimeString()}</span>
+                    </div>
+                `;
+            } else {
+                el.innerHTML = '<div class="error">Failed to connect</div>';
+            }
+        }
+
+        async function loadConfig() {
+            const data = await fetchData('/api/config');
+            const el = document.getElementById('config-info');
+            if (data) {
+                el.innerHTML = `
+                    <div class="stat">
+                        <span class="stat-label">Remediation</span>
+                        <span class="stat-value">
+                            <span class="badge ${data.remediation.enabled ? 'badge-success' : 'badge-warning'}">
+                                ${data.remediation.enabled ? 'Enabled' : 'Disabled'}
+                            </span>
+                        </span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Dry Run</span>
+                        <span class="stat-value">${data.remediation.dry_run_default ? 'Yes' : 'No'}</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Max Indexes/Table</span>
+                        <span class="stat-value">${data.remediation.max_indexes_per_table}</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Cooldown</span>
+                        <span class="stat-value">${data.remediation.cooldown_minutes} min</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Benchmark Runs</span>
+                        <span class="stat-value">${data.benchmark.runs}</span>
+                    </div>
+                `;
+            }
+        }
+
+        async function loadTableStats() {
+            const data = await fetchData('/api/stats');
+            const el = document.getElementById('table-stats');
+            if (data && data.tables) {
+                let html = '<table><tr><th>Table</th><th>Seq Scans</th><th>Idx Scans</th><th>Live</th></tr>';
+                data.tables.forEach(t => {
+                    html += `<tr>
+                        <td>${t.name}</td>
+                        <td>${formatNumber(t.seq_scans)}</td>
+                        <td>${formatNumber(t.idx_scans)}</td>
+                        <td>${formatNumber(t.live_tuples)}</td>
+                    </tr>`;
+                });
+                html += '</table>';
+                el.innerHTML = html;
+            }
+        }
+
+        async function loadIndexStats() {
+            const data = await fetchData('/api/stats');
+            const el = document.getElementById('index-stats');
+            if (data && data.indexes) {
+                let html = '<table><tr><th>Index</th><th>Table</th><th>Scans</th></tr>';
+                data.indexes.forEach(idx => {
+                    html += `<tr>
+                        <td>${idx.name}</td>
+                        <td>${idx.table}</td>
+                        <td>${formatNumber(idx.scans)}</td>
+                    </tr>`;
+                });
+                html += '</table>';
+                el.innerHTML = html;
+            }
+        }
+
+        async function loadUnusedIndexes() {
+            const data = await fetchData('/api/unused-indexes');
+            const el = document.getElementById('unused-indexes');
+            if (data && data.unused_indexes) {
+                if (data.unused_indexes.length === 0) {
+                    el.innerHTML = '<p>No unused indexes found.</p>';
+                } else {
+                    let html = '<table><tr><th>Index</th><th>Table</th><th>Size</th></tr>';
+                    data.unused_indexes.forEach(idx => {
+                        html += `<tr>
+                            <td>${idx.name}</td>
+                            <td>${idx.table}</td>
+                            <td>${idx.size}</td>
+                        </tr>`;
+                    });
+                    html += '</table>';
+                    html += `<p style="margin-top:10px"><strong>Total reclaimable:</strong> ${(data.total_reclaimable / 1024 / 1024).toFixed(1)} MB</p>`;
+                    el.innerHTML = html;
+                }
+            }
+        }
+
+        async function loadDecisions() {
+            const data = await fetchData('/api/decisions');
+            const el = document.getElementById('decisions');
+            if (data && data.decisions) {
+                if (data.decisions.length === 0) {
+                    el.innerHTML = '<p>No decisions recorded yet.</p>';
+                } else {
+                    let html = '<table><tr><th>Type</th><th>Details</th><th>Time</th></tr>';
+                    data.decisions.slice(0, 10).forEach(d => {
+                        html += `<tr>
+                            <td><span class="badge badge-info">${d.type}</span></td>
+                            <td>${d.details.substring(0, 50)}...</td>
+                            <td>${new Date(d.timestamp).toLocaleTimeString()}</td>
+                        </tr>`;
+                    });
+                    html += '</table>';
+                    el.innerHTML = html;
+                }
+            }
+        }
+
+        // Load all data
+        async function loadAll() {
+            await Promise.all([
+                loadHealth(),
+                loadConfig(),
+                loadTableStats(),
+                loadIndexStats(),
+                loadUnusedIndexes(),
+                loadDecisions()
+            ]);
+        }
+
+        loadAll();
+        // Refresh every 30 seconds
+        setInterval(loadAll, 30000);
+    </script>
+</body>
+</html>

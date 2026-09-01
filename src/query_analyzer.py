@@ -57,8 +57,9 @@ class PlanNode:
 
 
 # Regex patterns for parsing EXPLAIN ANALYZE output
+# Matches both root nodes and child nodes (with ->)
 NODE_PATTERN = re.compile(
-    r"^(\s*)->\s+([\w\s]+?)(?:\s+on\s+(\w+))?(?:\s+(\w+))?\s+\("
+    r"^(\s*)(?:->\s+)?([\w\s]+?)(?:\s+on\s+(\w+))?(?:\s+(\w+))?\s+\("
     r"cost=([\d.]+)\.\.([\d.]+)\s+rows=(\d+)\s+width=(\d+)\)"
     r"(?:\s+\(actual time=([\d.]+)\.\.([\d.]+)\s+rows=(\d+)\s+loops=(\d+)\))?"
 )
