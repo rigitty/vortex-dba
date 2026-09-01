@@ -19,3 +19,7 @@ postgres_data/
 # Logs & Reports
 *.log
 reports/
+logs/
+
+# State Database
+data/
