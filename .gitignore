@@ -1,0 +1,16 @@
+# Virtual Environment
+.venv/
+__pycache__/
+*.py[cod]
+
+# Environment & Secrets
+.env
+
+# PostgreSQL Data
+pg_data/
+postgres_data/
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
