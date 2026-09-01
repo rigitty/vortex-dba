@@ -72,6 +72,24 @@ class SelfHealingAgent:
         self.cycle_count = 0
         self.running = True
 
+    def _extract_index_name(self, create_statement: str) -> str:
+        """Extract index name from CREATE INDEX statement.
+
+        Handles both:
+        - CREATE INDEX idx_name ON ...
+        - CREATE INDEX CONCURRENTLY idx_name ON ...
+        """
+        parts = create_statement.split()
+        # Find the index name (after INDEX, skipping CONCURRENTLY if present)
+        for i, part in enumerate(parts):
+            if part.upper() == "INDEX" and i + 1 < len(parts):
+                next_part = parts[i + 1]
+                if next_part.upper() == "CONCURRENTLY":
+                    return parts[i + 2].split("(")[0]
+                else:
+                    return next_part.split("(")[0]
+        return "unknown_index"
+
     def _get_static_queries(self) -> list[DiscoveredQuery]:
         """Get static slow queries from slow_queries module for testing."""
         from slow_queries import run_all_queries, QueryResult
@@ -163,7 +181,7 @@ class SelfHealingAgent:
             print(f"[Cycle {self.cycle_count}] [4/6] Validating safety policies...")
             safe_recommendations = []
             for rec in recommendations:
-                idx_name = rec.create_statement.split()[2].split("(")[0]
+                idx_name = self._extract_index_name(rec.create_statement)
                 try:
                     check_safety(rec.table, idx_name)
                     safe_recommendations.append(rec)
@@ -251,7 +269,7 @@ class SelfHealingAgent:
         # Apply indexes
         applied = []
         for rec in recommendations:
-            idx_name = rec.create_statement.split()[2].split("(")[0]
+            idx_name = self._extract_index_name(rec.create_statement)
             print(f"  Applying: {rec.create_statement}")
 
             start = time.time()

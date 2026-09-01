@@ -54,6 +54,24 @@ def get_slow_queries_for_benchmark() -> list[dict]:
     return queries
 
 
+def _extract_index_name(create_statement: str) -> str:
+    """Extract index name from CREATE INDEX statement.
+
+    Handles both:
+    - CREATE INDEX idx_name ON ...
+    - CREATE INDEX CONCURRENTLY idx_name ON ...
+    """
+    parts = create_statement.split()
+    for i, part in enumerate(parts):
+        if part.upper() == "INDEX" and i + 1 < len(parts):
+            next_part = parts[i + 1]
+            if next_part.upper() == "CONCURRENTLY":
+                return parts[i + 2].split("(")[0]
+            else:
+                return next_part.split("(")[0]
+    return "unknown_index"
+
+
 def apply_index(rec: IndexRecommendation) -> RemediationResult:
     """Apply a single index recommendation."""
     start = time.perf_counter()
@@ -65,7 +83,7 @@ def apply_index(rec: IndexRecommendation) -> RemediationResult:
         conn.close()
 
         return RemediationResult(
-            index_name=rec.create_statement.split()[2].split("(")[0],
+            index_name=_extract_index_name(rec.create_statement),
             table=rec.table,
             columns=rec.columns,
             create_sql=rec.create_statement,
@@ -75,7 +93,7 @@ def apply_index(rec: IndexRecommendation) -> RemediationResult:
     except Exception as e:
         elapsed_ms = (time.perf_counter() - start) * 1000
         return RemediationResult(
-            index_name=rec.create_statement.split()[2].split("(")[0],
+            index_name=_extract_index_name(rec.create_statement),
             table=rec.table,
             columns=rec.columns,
             create_sql=rec.create_statement,

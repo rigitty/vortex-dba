@@ -21,6 +21,7 @@ class IndexRecommendation:
     priority: int  # 1 = highest
     estimated_impact: str
     create_statement: str
+    concurrent: bool = True  # Use CONCURRENTLY by default
 
 
 # Known existing indexes (from schema)
@@ -105,64 +106,113 @@ def prioritize_recommendations(recommendations: list[IndexRecommendation]) -> li
     return sorted(recommendations, key=lambda r: r.priority)
 
 
-def generate_recommendations(issues: list[Issue]) -> list[IndexRecommendation]:
-    """Generate index recommendations from detected issues."""
+def generate_recommendations(issues: list[Issue], concurrent: bool = True) -> list[IndexRecommendation]:
+    """Generate index recommendations from detected issues.
+
+    Supports both single-column and composite indexes.
+    When multiple filter conditions are detected on the same table,
+    a composite index is recommended.
+
+    Args:
+        issues: List of detected performance issues.
+        concurrent: If True, use CREATE INDEX CONCURRENTLY.
+    """
     recommendations = []
     seen = set()
 
+    # Group issues by table for composite index detection
+    table_issues: dict[str, list[Issue]] = {}
     for issue in issues:
-        if issue.severity == Severity.INFO:
+        if issue.severity == Severity.INFO or not issue.table:
             continue
+        if issue.table not in table_issues:
+            table_issues[issue.table] = []
+        table_issues[issue.table].append(issue)
 
-        table = issue.table
-        if not table:
-            continue
+    # Process each table
+    for table, table_issue_list in table_issues.items():
+        # Collect all columns with issues on this table
+        columns_with_issues: dict[str, int] = {}  # column -> max severity rows
 
-        # Extract columns based on issue type
-        columns = []
-        if issue.pattern in ("seq_scan_large_table", "high_filter_removal"):
-            # Extract from the issue description/suggestion
-            col_match = re.search(r"(\w+)\((\w+)\)", issue.suggestion)
-            if col_match:
-                columns = [col_match.group(2)]
-            else:
-                # Try to extract from pattern name
-                col_match = re.search(r"idx_\w+_(\w+)", issue.suggestion)
+        for issue in table_issue_list:
+            if issue.pattern in ("seq_scan_large_table", "high_filter_removal"):
+                col_match = re.search(r"(\w+)\((\w+)\)", issue.suggestion)
                 if col_match:
-                    columns = [col_match.group(1)]
+                    col = col_match.group(2)
+                    columns_with_issues[col] = max(columns_with_issues.get(col, 0), issue.rows)
 
-        if not columns:
+        if not columns_with_issues:
             continue
 
-        # Create dedup key
-        key = (table, tuple(columns))
-        if key in seen:
-            continue
-        seen.add(key)
+        # Sort columns by impact (most rows first)
+        sorted_columns = sorted(columns_with_issues.keys(),
+                                key=lambda c: columns_with_issues[c], reverse=True)
 
-        # Check if redundant
-        if is_index_redundant(table, columns):
-            continue
+        # Generate composite index if multiple columns
+        if len(sorted_columns) > 1:
+            key = (table, tuple(sorted_columns))
+            if key not in seen:
+                seen.add(key)
 
-        # Determine priority
-        priority = 1 if issue.severity == Severity.CRITICAL else 2
-        if issue.rows > 100000:
-            priority = 1
+                if not is_index_redundant(table, sorted_columns):
+                    idx_name = generate_index_name(table, sorted_columns)
+                    concurrent_keyword = " CONCURRENTLY" if concurrent else ""
+                    create_stmt = f"CREATE INDEX{concurrent_keyword} {idx_name} ON {table} ({', '.join(sorted_columns)});"
 
-        idx_name = generate_index_name(table, columns)
-        create_stmt = f"CREATE INDEX {idx_name} ON {table} ({', '.join(columns)});"
+                    # Use the highest severity from the issues
+                    max_rows = max(columns_with_issues.values())
+                    priority = 1 if max_rows > 100000 else 2
 
-        recommendations.append(IndexRecommendation(
-            table=table,
-            columns=columns,
-            index_type="btree",
-            reason=issue.description,
-            priority=priority,
-            estimated_impact=estimate_impact(issue),
-            create_statement=create_stmt,
-        ))
+                    recommendations.append(IndexRecommendation(
+                        table=table,
+                        columns=sorted_columns,
+                        index_type="btree",
+                        reason=f"Multiple filter conditions on {table}: {', '.join(sorted_columns)}",
+                        priority=priority,
+                        estimated_impact=estimate_impact_from_rows(max_rows),
+                        create_statement=create_stmt,
+                        concurrent=concurrent,
+                    ))
+
+        # Also generate single-column indexes for high-impact columns
+        for col in sorted_columns:
+            key = (table, (col,))
+            if key in seen:
+                continue
+            seen.add(key)
+
+            if not is_index_redundant(table, [col]):
+                idx_name = generate_index_name(table, [col])
+                concurrent_keyword = " CONCURRENTLY" if concurrent else ""
+                create_stmt = f"CREATE INDEX{concurrent_keyword} {idx_name} ON {table} ({col});"
+
+                max_rows = columns_with_issues[col]
+                priority = 1 if max_rows > 100000 else 2
+
+                recommendations.append(IndexRecommendation(
+                    table=table,
+                    columns=[col],
+                    index_type="btree",
+                    reason=f"Filter condition on {table}.{col}",
+                    priority=priority,
+                    estimated_impact=estimate_impact_from_rows(max_rows),
+                    create_statement=create_stmt,
+                    concurrent=concurrent,
+                ))
 
     return prioritize_recommendations(recommendations)
+
+
+def estimate_impact_from_rows(rows: int) -> str:
+    """Estimate performance impact based on row count."""
+    if rows > 500000:
+        return "~50-100x faster"
+    elif rows > 100000:
+        return "~10-50x faster"
+    elif rows > 10000:
+        return "~5-10x faster"
+    else:
+        return "~2-5x faster"
 
 
 def format_recommendations(recommendations: list[IndexRecommendation]) -> str:
