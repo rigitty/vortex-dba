@@ -121,3 +121,25 @@ class TestAnalyzePlan:
     def test_analyze_empty_plan(self):
         issues = analyze_plan("")
         assert len(issues) == 0
+
+
+class TestSQLServerPlanParsing:
+    """Test SQL Server SHOWPLAN text parsing."""
+
+    def test_parse_sqlserver_table_scan(self):
+        plan = "  |--Table Scan(OBJECT:([vortex_db].[dbo].[customers]), WHERE:([city]='New York'))"
+        nodes = parse_plan_text(plan)
+        assert len(nodes) >= 1
+        assert nodes[0].node_type == "Table Scan"
+        assert nodes[0].relation == "customers"
+
+    def test_parse_sqlserver_clustered_index_scan(self):
+        plan = "  |--Clustered Index Scan(OBJECT:([vortex_db].[dbo].[orders].[PK_orders]), WHERE:([status]='completed'))"
+        nodes = parse_plan_text(plan)
+        assert len(nodes) >= 1
+        assert nodes[0].node_type == "Clustered Index Scan"
+        assert nodes[0].relation == "orders"
+
+    def test_sqlserver_bracket_column_extraction(self):
+        assert _extract_column("[city]='New York'") == "city"
+        assert _extract_column("[vortex_db].[dbo].[orders].[status]='completed'") == "status"

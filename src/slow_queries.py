@@ -1,14 +1,12 @@
-"""Slow query simulation module for VortexDBA.
+"""Slow query simulation module for VortexDBA (SQL Server).
 
-This module runs intentionally slow queries to generate performance data
+This module runs intentionally slow T-SQL queries to generate performance data
 for analysis. Each query demonstrates a common anti-pattern that causes
-poor PostgreSQL performance.
+poor Microsoft SQL Server performance.
 """
 
 import time
 from dataclasses import dataclass
-
-from psycopg2.extras import RealDictCursor
 
 from db_connection import get_connection
 
@@ -27,7 +25,7 @@ class QueryResult:
 SLOW_QUERIES = [
     {
         "name": "full_scan_no_index",
-        "description": "Full table scan on customers.city (no index on city column)",
+        "description": "Table / Clustered index scan on customers.city (no index on city column)",
         "query": """
             SELECT id, first_name, last_name, email, city, country
             FROM customers
@@ -50,7 +48,7 @@ SLOW_QUERIES = [
         "name": "heavy_join",
         "description": "Heavy JOIN between customers and orders without covering index",
         "query": """
-            SELECT c.id, c.first_name, c.last_name, c.city,
+            SELECT TOP 100 c.id, c.first_name, c.last_name, c.city,
                    COUNT(o.id) AS order_count,
                    SUM(o.total_amount) AS total_spent
             FROM customers c
@@ -58,7 +56,6 @@ SLOW_QUERIES = [
             WHERE c.country = %s
             GROUP BY c.id, c.first_name, c.last_name, c.city
             ORDER BY total_spent DESC
-            LIMIT 100
         """,
         "params": ("United States",),
     },
@@ -76,13 +73,12 @@ SLOW_QUERIES = [
         "name": "subquery_aggregation",
         "description": "Subquery with aggregation causing repeated scans",
         "query": """
-            SELECT c.id, c.first_name, c.last_name, c.city,
+            SELECT TOP 50 c.id, c.first_name, c.last_name, c.city,
                    (SELECT COUNT(*) FROM orders o WHERE o.customer_id = c.id) AS order_count,
                    (SELECT SUM(o2.total_amount) FROM orders o2 WHERE o2.customer_id = c.id) AS total_spent
             FROM customers c
             WHERE c.status = 'active'
-            ORDER BY total_spent DESC NULLS LAST
-            LIMIT 50
+            ORDER BY total_spent DESC
         """,
         "params": None,
     },
@@ -107,12 +103,11 @@ SLOW_QUERIES = [
         "name": "range_scan_large",
         "description": "Large range scan on order_date without index",
         "query": """
-            SELECT customer_id, SUM(total_amount) AS daily_total, COUNT(*) AS order_count
+            SELECT TOP 100 customer_id, SUM(total_amount) AS daily_total, COUNT(*) AS order_count
             FROM orders
             WHERE order_date BETWEEN %s AND %s
             GROUP BY customer_id
             ORDER BY daily_total DESC
-            LIMIT 100
         """,
         "params": ("2025-01-01", "2025-12-31"),
     },
@@ -129,28 +124,48 @@ SLOW_QUERIES = [
               AND o.total_amount > 500
               AND c.city = %s
         """,
-        "params": ("Lake Michael",),
+        "params": ("New York",),
     },
 ]
 
 
-def get_execution_plan(cursor, query: str, params: tuple | None = None) -> str:
-    """Retrieve the EXPLAIN ANALYZE output for a query."""
-    explain_query = f"EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) {query}"
-    cursor.execute(explain_query, params)
-    rows = cursor.fetchall()
-    return "\n".join(row["QUERY PLAN"] for row in rows)
+def get_execution_plan(conn, query: str, params: tuple | None = None) -> str:
+    """Retrieve the SHOWPLAN_TEXT output for a query in SQL Server."""
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SET SHOWPLAN_TEXT ON")
+            cur.execute(query, params)
+            plan_lines = []
+            while True:
+                try:
+                    rows = cur.fetchall()
+                    for row in (rows or []):
+                        text = row[0] if isinstance(row, (tuple, list)) else (row.get("StmtText") or str(row))
+                        plan_lines.append(str(text))
+                    if not cur.nextset():
+                        break
+                except Exception:
+                    break
+            cur.execute("SET SHOWPLAN_TEXT OFF")
+            return "\n".join(plan_lines)
+    except Exception as e:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SET SHOWPLAN_TEXT OFF")
+        except Exception:
+            pass
+        return f"Plan extraction note: {e}"
 
 
 def run_query(query_def: dict) -> QueryResult:
     """Execute a single slow query and capture its execution plan."""
-    conn = get_connection()
+    conn = get_connection(autocommit=True)
     try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            # Run EXPLAIN ANALYZE
-            plan = get_execution_plan(cur, query_def["query"], query_def.get("params"))
+        # Get execution plan
+        plan = get_execution_plan(conn, query_def["query"], query_def.get("params"))
 
-            # Run the actual query and measure time
+        # Run actual query and measure duration
+        with conn.cursor(as_dict=True) as cur:
             start = time.perf_counter()
             cur.execute(query_def["query"], query_def.get("params"))
             rows = cur.fetchall()
@@ -184,7 +199,7 @@ def run_all_queries() -> list[QueryResult]:
 def print_summary(results: list[QueryResult]) -> None:
     """Print a summary table of all query results."""
     print("\n" + "=" * 80)
-    print("SLOW QUERY SIMULATION SUMMARY")
+    print("SLOW QUERY SIMULATION SUMMARY (SQL SERVER)")
     print("=" * 80)
     print(f"{'Query Name':<35} {'Duration (ms)':>15} {'Rows':>10}")
     print("-" * 80)
@@ -196,7 +211,7 @@ def print_summary(results: list[QueryResult]) -> None:
 def main():
     """Main entry point for slow query simulation."""
     print("=" * 60)
-    print("VortexDBA - Slow Query Simulation")
+    print("VortexDBA - SQL Server Slow Query Simulation")
     print("=" * 60)
 
     results = run_all_queries()

@@ -17,10 +17,10 @@ CONFIG_PATH = Path(__file__).parent.parent / "config.yaml"
 @dataclass
 class DatabaseConfig:
     host: str = "localhost"
-    port: int = 5432
+    port: int = 1433
     dbname: str = "vortex_db"
-    user: str = "vortex_user"
-    password: str = "vortex_password"
+    user: str = "sa"
+    password: str = "VortexPassword123!"
     pool_min: int = 2
     pool_max: int = 10
 

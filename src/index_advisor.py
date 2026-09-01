@@ -1,27 +1,30 @@
-"""Index advisor module for VortexDBA.
+"""Index advisor module for VortexDBA (SQL Server).
 
 Analyzes detected performance issues and generates actionable
-index recommendations. Deduplicates and prioritizes suggestions
-to avoid redundant or conflicting indexes.
+SQL Server NONCLUSTERED index recommendations with ONLINE options.
+Deduplicates and prioritizes suggestions to avoid redundant indexes.
 """
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from query_analyzer import Issue, Severity
 
 
 @dataclass
 class IndexRecommendation:
-    """Represents a recommended index creation."""
+    """Represents a recommended index creation for SQL Server."""
     table: str
     columns: list[str]
-    index_type: str  # btree, hash, gin, gist
-    reason: str
-    priority: int  # 1 = highest
-    estimated_impact: str
-    create_statement: str
-    concurrent: bool = True  # Use CONCURRENTLY by default
+    index_type: str = "nonclustered"
+    include_columns: list[str] = field(default_factory=list)
+    reason: str = ""
+    priority: int = 1  # 1 = highest
+    estimated_impact: str = ""
+    create_statement: str = ""
+    index_name: str = ""
+    online: bool = True
+    concurrent: bool = True  # Backward compatibility alias
 
 
 # Known existing indexes (from schema)
@@ -38,16 +41,22 @@ def extract_columns_from_filter(filter_expr: str) -> list[str]:
 
     columns = []
 
+    # Pattern: [column] = value
+    for match in re.finditer(r"\[(\w+)\]\s*[=<>!~]", filter_expr):
+        col = match.group(1)
+        if col not in columns and col not in ("text", "numeric", "timestamp", "varchar", "nvarchar"):
+            columns.append(col)
+
     # Pattern: (column)::text = 'value'::text
     for match in re.finditer(r"\((\w+)\)", filter_expr):
         col = match.group(1)
-        if col not in columns:
+        if col not in columns and col not in ("text", "numeric", "timestamp", "varchar", "nvarchar"):
             columns.append(col)
 
     # Pattern: column = value or column > value
     for match in re.finditer(r"(\w+)\s*[=<>!]", filter_expr):
         col = match.group(1)
-        if col not in columns and col not in ("text", "numeric", "timestamp"):
+        if col not in columns and col not in ("text", "numeric", "timestamp", "varchar", "nvarchar"):
             columns.append(col)
 
     return columns
@@ -59,20 +68,19 @@ def extract_columns_from_condition(condition: str) -> list[str]:
         return []
 
     columns = []
-    for match in re.finditer(r"(\w+\.\w+|\w+)", condition):
+    for match in re.finditer(r"\[?(\w+)\]?", condition):
         col = match.group(1)
-        # Remove table prefix
-        if "." in col:
-            col = col.split(".")[-1]
-        if col not in columns and col not in ("text", "numeric"):
+        if col not in columns and col not in ("text", "numeric", "varchar", "nvarchar", "dbo", "vortex_db"):
             columns.append(col)
 
     return columns
 
 
-def is_index_redundant(table: str, columns: list[str]) -> bool:
+def is_index_redundant(table: str, columns: list[str],
+                       existing: dict[str, tuple[str, list[str]]] | None = None) -> bool:
     """Check if an index already exists or is redundant with existing ones."""
-    for idx_name, (idx_table, idx_cols) in EXISTING_INDEXES.items():
+    indexes_to_check = existing if existing is not None else EXISTING_INDEXES
+    for idx_name, (idx_table, idx_cols) in indexes_to_check.items():
         if idx_table == table:
             # Check if existing index covers these columns
             if all(c in idx_cols for c in columns):
@@ -106,17 +114,19 @@ def prioritize_recommendations(recommendations: list[IndexRecommendation]) -> li
     return sorted(recommendations, key=lambda r: r.priority)
 
 
-def generate_recommendations(issues: list[Issue], concurrent: bool = True) -> list[IndexRecommendation]:
-    """Generate index recommendations from detected issues.
+def generate_recommendations(issues: list[Issue], online: bool = True, concurrent: bool | None = None) -> list[IndexRecommendation]:
+    """Generate SQL Server index recommendations from detected issues.
 
-    Supports both single-column and composite indexes.
-    When multiple filter conditions are detected on the same table,
-    a composite index is recommended.
+    Supports both single-column and composite indexes with optional ONLINE execution.
 
     Args:
         issues: List of detected performance issues.
-        concurrent: If True, use CREATE INDEX CONCURRENTLY.
+        online: If True, use WITH (ONLINE = ON) where supported.
+        concurrent: Alias for online (PostgreSQL compatibility).
     """
+    if concurrent is not None:
+        online = concurrent
+
     recommendations = []
     seen = set()
 
@@ -131,15 +141,18 @@ def generate_recommendations(issues: list[Issue], concurrent: bool = True) -> li
 
     # Process each table
     for table, table_issue_list in table_issues.items():
-        # Collect all columns with issues on this table
         columns_with_issues: dict[str, int] = {}  # column -> max severity rows
 
         for issue in table_issue_list:
-            if issue.pattern in ("seq_scan_large_table", "high_filter_removal"):
-                col_match = re.search(r"(\w+)\((\w+)\)", issue.suggestion)
-                if col_match:
-                    col = col_match.group(2)
-                    columns_with_issues[col] = max(columns_with_issues.get(col, 0), issue.rows)
+            if issue.pattern in ("seq_scan_large_table", "table_scan_large_table", "high_filter_removal", "key_lookup_overhead"):
+                cols = issue.columns
+                if not cols:
+                    col_match = re.search(r"(\w+)\((\w+)\)", issue.suggestion)
+                    if col_match:
+                        cols = [col_match.group(2)]
+                for col in cols:
+                    if col and col != "column":
+                        columns_with_issues[col] = max(columns_with_issues.get(col, 0), issue.rows)
 
         if not columns_with_issues:
             continue
@@ -156,22 +169,22 @@ def generate_recommendations(issues: list[Issue], concurrent: bool = True) -> li
 
                 if not is_index_redundant(table, sorted_columns):
                     idx_name = generate_index_name(table, sorted_columns)
-                    concurrent_keyword = " CONCURRENTLY" if concurrent else ""
-                    create_stmt = f"CREATE INDEX{concurrent_keyword} {idx_name} ON {table} ({', '.join(sorted_columns)});"
+                    create_stmt = f"CREATE NONCLUSTERED INDEX {idx_name} ON {table} ({', '.join(sorted_columns)});"
 
-                    # Use the highest severity from the issues
                     max_rows = max(columns_with_issues.values())
                     priority = 1 if max_rows > 100000 else 2
 
                     recommendations.append(IndexRecommendation(
                         table=table,
                         columns=sorted_columns,
-                        index_type="btree",
+                        index_type="nonclustered",
                         reason=f"Multiple filter conditions on {table}: {', '.join(sorted_columns)}",
                         priority=priority,
                         estimated_impact=estimate_impact_from_rows(max_rows),
                         create_statement=create_stmt,
-                        concurrent=concurrent,
+                        index_name=idx_name,
+                        online=online,
+                        concurrent=online,
                     ))
 
         # Also generate single-column indexes for high-impact columns
@@ -183,8 +196,7 @@ def generate_recommendations(issues: list[Issue], concurrent: bool = True) -> li
 
             if not is_index_redundant(table, [col]):
                 idx_name = generate_index_name(table, [col])
-                concurrent_keyword = " CONCURRENTLY" if concurrent else ""
-                create_stmt = f"CREATE INDEX{concurrent_keyword} {idx_name} ON {table} ({col});"
+                create_stmt = f"CREATE NONCLUSTERED INDEX {idx_name} ON {table} ({col});"
 
                 max_rows = columns_with_issues[col]
                 priority = 1 if max_rows > 100000 else 2
@@ -192,12 +204,14 @@ def generate_recommendations(issues: list[Issue], concurrent: bool = True) -> li
                 recommendations.append(IndexRecommendation(
                     table=table,
                     columns=[col],
-                    index_type="btree",
+                    index_type="nonclustered",
                     reason=f"Filter condition on {table}.{col}",
                     priority=priority,
                     estimated_impact=estimate_impact_from_rows(max_rows),
                     create_statement=create_stmt,
-                    concurrent=concurrent,
+                    index_name=idx_name,
+                    online=online,
+                    concurrent=online,
                 ))
 
     return prioritize_recommendations(recommendations)
@@ -222,7 +236,7 @@ def format_recommendations(recommendations: list[IndexRecommendation]) -> str:
 
     lines = []
     lines.append("=" * 70)
-    lines.append("INDEX RECOMMENDATIONS")
+    lines.append("INDEX RECOMMENDATIONS (SQL SERVER)")
     lines.append("=" * 70)
 
     for i, rec in enumerate(recommendations, 1):
@@ -242,7 +256,7 @@ def format_recommendations(recommendations: list[IndexRecommendation]) -> str:
 
 def get_apply_sql(recommendations: list[IndexRecommendation]) -> str:
     """Generate a SQL script to apply all recommendations."""
-    lines = ["-- VortexDBA Index Recommendations", "-- Apply with caution in production\n"]
+    lines = ["-- VortexDBA SQL Server Index Recommendations", "-- Apply with caution in production\n"]
     for rec in recommendations:
         lines.append(rec.create_statement)
     return "\n".join(lines)

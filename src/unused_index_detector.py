@@ -24,43 +24,50 @@ class UnusedIndex:
 
 
 def get_unused_indexes() -> list[UnusedIndex]:
-    """Find indexes with zero scans that are not primary keys or unique constraints."""
+    """Find indexes with zero seeks/scans that are not primary keys or unique constraints."""
     query = """
         SELECT
-            s.schemaname,
-            s.relname AS table_name,
-            s.indexrelname AS index_name,
-            pg_relation_size(s.indexrelid) AS index_size_bytes,
-            pg_size_pretty(pg_relation_size(s.indexrelid)) AS index_size_pretty,
-            s.idx_scan,
-            p.indisunique AS is_unique,
-            p.indisprimary AS is_primary
-        FROM pg_stat_user_indexes s
-        JOIN pg_index p ON p.indexrelid = s.indexrelid
-        WHERE s.idx_scan = 0
-          AND s.schemaname = 'public'
-        ORDER BY pg_relation_size(s.indexrelid) DESC
+            s.name AS schema_name,
+            t.name AS table_name,
+            i.name AS index_name,
+            ISNULL(ps.used_page_count * 8192, 0) AS index_size_bytes,
+            i.is_unique,
+            i.is_primary_key AS is_primary
+        FROM sys.indexes i
+        JOIN sys.tables t ON t.object_id = i.object_id
+        JOIN sys.schemas s ON s.schema_id = t.schema_id
+        LEFT JOIN sys.dm_db_index_usage_stats ius ON ius.object_id = i.object_id AND ius.index_id = i.index_id AND ius.database_id = DB_ID()
+        OUTER APPLY (
+            SELECT SUM(used_page_count) AS used_page_count
+            FROM sys.dm_db_partition_stats ps
+            WHERE ps.object_id = i.object_id AND ps.index_id = i.index_id
+        ) ps
+        WHERE i.type_desc = 'NONCLUSTERED'
+          AND i.is_primary_key = 0
+          AND i.is_unique = 0
+          AND i.is_unique_constraint = 0
+          AND t.is_ms_shipped = 0
+          AND ISNULL(ius.user_seeks + ius.user_scans + ius.user_lookups, 0) = 0
+        ORDER BY index_size_bytes DESC
     """
     results = execute_query(query)
 
     unused = []
-    for r in results:
-        # Skip primary keys and unique indexes
+    for r in (results or []):
         if r["is_primary"] or r["is_unique"]:
             continue
 
-        # Get index columns
         columns = _get_index_columns(r["index_name"])
-
-        drop_stmt = f"DROP INDEX CONCURRENTLY IF EXISTS {r['index_name']};"
+        drop_stmt = f"DROP INDEX IF EXISTS {r['index_name']} ON {r['table_name']};"
+        size_bytes = int(r["index_size_bytes"] or 0)
 
         unused.append(UnusedIndex(
             table_name=r["table_name"],
             index_name=r["index_name"],
-            index_size_bytes=r["index_size_bytes"],
-            index_size_pretty=r["index_size_pretty"],
-            is_unique=r["is_unique"],
-            is_primary=r["is_primary"],
+            index_size_bytes=size_bytes,
+            index_size_pretty=_format_size(size_bytes),
+            is_unique=bool(r["is_unique"]),
+            is_primary=bool(r["is_primary"]),
             columns=columns,
             drop_statement=drop_stmt,
         ))
@@ -69,38 +76,58 @@ def get_unused_indexes() -> list[UnusedIndex]:
 
 
 def _get_index_columns(index_name: str) -> list[str]:
-    """Get the columns of an index."""
+    """Get the columns of a SQL Server index."""
     query = """
-        SELECT a.attname
-        FROM pg_index i
-        JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
-        JOIN pg_class c ON c.oid = i.indexrelid
-        WHERE c.relname = %s
-        ORDER BY array_position(i.indkey, a.attnum)
+        SELECT c.name AS attname
+        FROM sys.index_columns ic
+        JOIN sys.columns c ON ic.object_id = c.object_id AND ic.column_id = c.column_id
+        JOIN sys.indexes i ON ic.object_id = i.object_id AND ic.index_id = i.index_id
+        WHERE i.name = %s AND ic.is_included_column = 0
+        ORDER BY ic.key_ordinal
     """
     results = execute_query(query, (index_name,))
-    return [r["attname"] for r in results]
+    return [r["attname"] for r in (results or [])]
 
 
 def get_index_usage_stats() -> list[dict]:
-    """Get usage statistics for all user indexes."""
+    """Get usage statistics for all user indexes in SQL Server."""
     query = """
         SELECT
-            s.relname AS table_name,
-            s.indexrelname AS index_name,
-            s.idx_scan AS scans,
-            s.idx_tup_read AS tuples_read,
-            s.idx_tup_fetch AS tuples_fetched,
-            pg_relation_size(s.indexrelid) AS index_size_bytes,
-            pg_size_pretty(pg_relation_size(s.indexrelid)) AS index_size_pretty,
-            p.indisunique AS is_unique,
-            p.indisprimary AS is_primary
-        FROM pg_stat_user_indexes s
-        JOIN pg_index p ON p.indexrelid = s.indexrelid
-        WHERE s.schemaname = 'public'
-        ORDER BY s.idx_scan ASC, pg_relation_size(s.indexrelid) DESC
+            t.name AS table_name,
+            i.name AS index_name,
+            ISNULL(ius.user_seeks + ius.user_scans + ius.user_lookups, 0) AS scans,
+            ISNULL(ius.user_seeks, 0) AS tuples_read,
+            ISNULL(ius.user_scans + ius.user_lookups, 0) AS tuples_fetched,
+            ISNULL(ps.used_page_count * 8192, 0) AS index_size_bytes,
+            i.is_unique,
+            i.is_primary_key AS is_primary
+        FROM sys.indexes i
+        JOIN sys.tables t ON t.object_id = i.object_id
+        LEFT JOIN sys.dm_db_index_usage_stats ius ON ius.object_id = i.object_id AND ius.index_id = i.index_id AND ius.database_id = DB_ID()
+        OUTER APPLY (
+            SELECT SUM(used_page_count) AS used_page_count
+            FROM sys.dm_db_partition_stats ps
+            WHERE ps.object_id = i.object_id AND ps.index_id = i.index_id
+        ) ps
+        WHERE t.is_ms_shipped = 0 AND i.name IS NOT NULL
+        ORDER BY scans ASC, index_size_bytes DESC
     """
-    return execute_query(query)
+    results = execute_query(query)
+    out = []
+    for r in (results or []):
+        size_bytes = int(r["index_size_bytes"] or 0)
+        out.append({
+            "table_name": r["table_name"],
+            "index_name": r["index_name"],
+            "scans": r["scans"],
+            "tuples_read": r["tuples_read"],
+            "tuples_fetched": r["tuples_fetched"],
+            "index_size_bytes": size_bytes,
+            "index_size_pretty": _format_size(size_bytes),
+            "is_unique": bool(r["is_unique"]),
+            "is_primary": bool(r["is_primary"]),
+        })
+    return out
 
 
 def format_unused_indexes(unused: list[UnusedIndex]) -> str:

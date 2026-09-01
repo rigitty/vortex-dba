@@ -1,8 +1,8 @@
-"""PostgreSQL statistics reader for VortexDBA.
+"""SQL Server statistics reader for VortexDBA.
 
-Reads query performance data from pg_stat_statements and
-table/index usage statistics from pg_stat_user_tables and
-pg_stat_user_indexes.
+Reads query performance data from sys.dm_exec_query_stats and
+table/index usage statistics from sys.dm_db_index_usage_stats and
+sys.tables.
 """
 
 from dataclasses import dataclass
@@ -12,7 +12,7 @@ from db_connection import execute_query
 
 @dataclass
 class QueryStat:
-    """Statistics for a single query from pg_stat_statements."""
+    """Statistics for a single query from sys.dm_exec_query_stats."""
     queryid: int
     query: str
     calls: int
@@ -27,7 +27,7 @@ class QueryStat:
 
 @dataclass
 class TableStat:
-    """Table-level statistics from pg_stat_user_tables."""
+    """Table-level statistics from SQL Server sys views."""
     relname: str
     seq_scan: int
     seq_tup_read: int
@@ -42,7 +42,7 @@ class TableStat:
 
 @dataclass
 class IndexStat:
-    """Index-level statistics from pg_stat_user_indexes."""
+    """Index-level statistics from sys.dm_db_index_usage_stats."""
     relname: str
     indexrelname: str
     idx_scan: int
@@ -52,112 +52,133 @@ class IndexStat:
 
 def get_top_queries_by_time(limit: int = 10) -> list[QueryStat]:
     """Get the slowest queries by mean execution time."""
-    query = """
-        SELECT
-            queryid,
-            query,
-            calls,
-            total_exec_time,
-            mean_exec_time,
-            min_exec_time,
-            max_exec_time,
-            rows,
-            shared_blks_hit,
-            shared_blks_read
-        FROM pg_stat_statements
-        WHERE query NOT LIKE '%%pg_stat_statements%%'
+    query = f"""
+        SELECT TOP ({int(limit)})
+            CHECKSUM(qs.sql_handle) AS queryid,
+            CAST(SUBSTRING(st.text, (qs.statement_start_offset/2)+1,
+                ((CASE qs.statement_end_offset
+                    WHEN -1 THEN DATALENGTH(st.text)
+                    ELSE qs.statement_end_offset
+                 END - qs.statement_start_offset)/2) + 1) AS NVARCHAR(MAX)) AS query,
+            qs.execution_count AS calls,
+            (qs.total_elapsed_time / 1000.0) AS total_exec_time,
+            ((qs.total_elapsed_time / qs.execution_count) / 1000.0) AS mean_exec_time,
+            (qs.min_elapsed_time / 1000.0) AS min_exec_time,
+            (qs.max_elapsed_time / 1000.0) AS max_exec_time,
+            qs.total_rows AS rows,
+            qs.total_logical_reads AS shared_blks_hit,
+            qs.total_physical_reads AS shared_blks_read
+        FROM sys.dm_exec_query_stats qs
+        CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) st
+        WHERE st.text NOT LIKE '%sys.dm_%'
+          AND st.text NOT LIKE '%SHOWPLAN%'
+          AND st.text NOT LIKE '%CREATE INDEX%'
+          AND st.text NOT LIKE '%DROP INDEX%'
         ORDER BY mean_exec_time DESC
-        LIMIT %s
     """
-    results = execute_query(query, (limit,))
+    results = execute_query(query)
     return [
         QueryStat(
-            queryid=r["queryid"],
-            query=r["query"],
-            calls=r["calls"],
-            total_exec_time=round(r["total_exec_time"], 2),
-            mean_exec_time=round(r["mean_exec_time"], 2),
-            min_exec_time=round(r["min_exec_time"], 2),
-            max_exec_time=round(r["max_exec_time"], 2),
-            rows=r["rows"],
-            shared_blks_hit=r["shared_blks_hit"],
-            shared_blks_read=r["shared_blks_read"],
+            queryid=r["queryid"] or 0,
+            query=(r["query"] or "").strip(),
+            calls=r["calls"] or 0,
+            total_exec_time=round(float(r["total_exec_time"] or 0), 2),
+            mean_exec_time=round(float(r["mean_exec_time"] or 0), 2),
+            min_exec_time=round(float(r["min_exec_time"] or 0), 2),
+            max_exec_time=round(float(r["max_exec_time"] or 0), 2),
+            rows=r["rows"] or 0,
+            shared_blks_hit=r["shared_blks_hit"] or 0,
+            shared_blks_read=r["shared_blks_read"] or 0,
         )
-        for r in results
+        for r in (results or [])
     ]
 
 
 def get_top_queries_by_calls(limit: int = 10) -> list[QueryStat]:
     """Get the most frequently called queries."""
-    query = """
-        SELECT
-            queryid,
-            query,
-            calls,
-            total_exec_time,
-            mean_exec_time,
-            min_exec_time,
-            max_exec_time,
-            rows,
-            shared_blks_hit,
-            shared_blks_read
-        FROM pg_stat_statements
-        WHERE query NOT LIKE '%%pg_stat_statements%%'
+    query = f"""
+        SELECT TOP ({int(limit)})
+            CHECKSUM(qs.sql_handle) AS queryid,
+            CAST(SUBSTRING(st.text, (qs.statement_start_offset/2)+1,
+                ((CASE qs.statement_end_offset
+                    WHEN -1 THEN DATALENGTH(st.text)
+                    ELSE qs.statement_end_offset
+                 END - qs.statement_start_offset)/2) + 1) AS NVARCHAR(MAX)) AS query,
+            qs.execution_count AS calls,
+            (qs.total_elapsed_time / 1000.0) AS total_exec_time,
+            ((qs.total_elapsed_time / qs.execution_count) / 1000.0) AS mean_exec_time,
+            (qs.min_elapsed_time / 1000.0) AS min_exec_time,
+            (qs.max_elapsed_time / 1000.0) AS max_exec_time,
+            qs.total_rows AS rows,
+            qs.total_logical_reads AS shared_blks_hit,
+            qs.total_physical_reads AS shared_blks_read
+        FROM sys.dm_exec_query_stats qs
+        CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) st
+        WHERE st.text NOT LIKE '%sys.dm_%'
+          AND st.text NOT LIKE '%SHOWPLAN%'
+          AND st.text NOT LIKE '%CREATE INDEX%'
+          AND st.text NOT LIKE '%DROP INDEX%'
         ORDER BY calls DESC
-        LIMIT %s
     """
-    results = execute_query(query, (limit,))
+    results = execute_query(query)
     return [
         QueryStat(
-            queryid=r["queryid"],
-            query=r["query"],
-            calls=r["calls"],
-            total_exec_time=round(r["total_exec_time"], 2),
-            mean_exec_time=round(r["mean_exec_time"], 2),
-            min_exec_time=round(r["min_exec_time"], 2),
-            max_exec_time=round(r["max_exec_time"], 2),
-            rows=r["rows"],
-            shared_blks_hit=r["shared_blks_hit"],
-            shared_blks_read=r["shared_blks_read"],
+            queryid=r["queryid"] or 0,
+            query=(r["query"] or "").strip(),
+            calls=r["calls"] or 0,
+            total_exec_time=round(float(r["total_exec_time"] or 0), 2),
+            mean_exec_time=round(float(r["mean_exec_time"] or 0), 2),
+            min_exec_time=round(float(r["min_exec_time"] or 0), 2),
+            max_exec_time=round(float(r["max_exec_time"] or 0), 2),
+            rows=r["rows"] or 0,
+            shared_blks_hit=r["shared_blks_hit"] or 0,
+            shared_blks_read=r["shared_blks_read"] or 0,
         )
-        for r in results
+        for r in (results or [])
     ]
 
 
 def get_top_queries_by_total_time(limit: int = 10) -> list[QueryStat]:
     """Get queries with highest total execution time."""
-    query = """
-        SELECT
-            queryid,
-            query,
-            calls,
-            total_exec_time,
-            mean_exec_time,
-            min_exec_time,
-            max_exec_time,
-            rows,
-            shared_blks_hit,
-            shared_blks_read
-        FROM pg_stat_statements
-        WHERE query NOT LIKE '%%pg_stat_statements%%'
+    query = f"""
+        SELECT TOP ({int(limit)})
+            CHECKSUM(qs.sql_handle) AS queryid,
+            CAST(SUBSTRING(st.text, (qs.statement_start_offset/2)+1,
+                ((CASE qs.statement_end_offset
+                    WHEN -1 THEN DATALENGTH(st.text)
+                    ELSE qs.statement_end_offset
+                 END - qs.statement_start_offset)/2) + 1) AS NVARCHAR(MAX)) AS query,
+            qs.execution_count AS calls,
+            (qs.total_elapsed_time / 1000.0) AS total_exec_time,
+            ((qs.total_elapsed_time / qs.execution_count) / 1000.0) AS mean_exec_time,
+            (qs.min_elapsed_time / 1000.0) AS min_exec_time,
+            (qs.max_elapsed_time / 1000.0) AS max_exec_time,
+            qs.total_rows AS rows,
+            qs.total_logical_reads AS shared_blks_hit,
+            qs.total_physical_reads AS shared_blks_read
+        FROM sys.dm_exec_query_stats qs
+        CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) st
+        WHERE st.text NOT LIKE '%sys.dm_%'
+          AND st.text NOT LIKE '%SHOWPLAN%'
+          AND st.text NOT LIKE '%CREATE INDEX%'
+          AND st.text NOT LIKE '%DROP INDEX%'
         ORDER BY total_exec_time DESC
-        LIMIT %s
     """
-    results = execute_query(query, (limit,))
+    results = execute_query(query)
     return [
         QueryStat(
-            queryid=r["queryid"],
-            query=r["query"],
-            calls=r["calls"],
-            total_exec_time=round(r["total_exec_time"], 2),
-            mean_exec_time=round(r["mean_exec_time"], 2),
-            min_exec_time=round(r["min_exec_time"], 2),
-            max_exec_time=round(r["max_exec_time"], 2),
-            rows=r["rows"],
-            shared_blks_hit=r["shared_blks_hit"],
-            shared_blks_read=r["shared_blks_read"],
+            queryid=r["queryid"] or 0,
+            query=(r["query"] or "").strip(),
+            calls=r["calls"] or 0,
+            total_exec_time=round(float(r["total_exec_time"] or 0), 2),
+            mean_exec_time=round(float(r["mean_exec_time"] or 0), 2),
+            min_exec_time=round(float(r["min_exec_time"] or 0), 2),
+            max_exec_time=round(float(r["max_exec_time"] or 0), 2),
+            rows=r["rows"] or 0,
+            shared_blks_hit=r["shared_blks_hit"] or 0,
+            shared_blks_read=r["shared_blks_read"] or 0,
         )
-        for r in results
+        for r in (results or [])
     ]
 
 
@@ -165,34 +186,39 @@ def get_table_stats() -> list[TableStat]:
     """Get table-level scan and modification statistics."""
     query = """
         SELECT
-            relname,
-            seq_scan,
-            seq_tup_read,
-            idx_scan,
-            idx_tup_fetch,
-            n_tup_ins,
-            n_tup_upd,
-            n_tup_del,
-            n_live_tup,
-            n_dead_tup
-        FROM pg_stat_user_tables
-        ORDER BY seq_scan DESC
+            t.name AS relname,
+            ISNULL(SUM(CASE WHEN i.type_desc = 'HEAP' THEN ius.user_scans ELSE 0 END), 0) AS seq_scan,
+            ISNULL(SUM(p.rows), 0) AS seq_tup_read,
+            ISNULL(SUM(CASE WHEN i.type_desc != 'HEAP' THEN (ius.user_seeks + ius.user_scans + ius.user_lookups) ELSE 0 END), 0) AS idx_scan,
+            ISNULL(SUM(CASE WHEN i.type_desc != 'HEAP' THEN ius.user_seeks ELSE 0 END), 0) AS idx_tup_fetch,
+            0 AS n_tup_ins,
+            ISNULL(SUM(ius.user_updates), 0) AS n_tup_upd,
+            0 AS n_tup_del,
+            ISNULL(SUM(p.rows), 0) AS n_live_tup,
+            0 AS n_dead_tup
+        FROM sys.tables t
+        LEFT JOIN sys.indexes i ON t.object_id = i.object_id
+        LEFT JOIN sys.partitions p ON t.object_id = p.object_id AND p.index_id IN (0, 1)
+        LEFT JOIN sys.dm_db_index_usage_stats ius ON t.object_id = ius.object_id AND i.index_id = ius.index_id AND ius.database_id = DB_ID()
+        WHERE t.is_ms_shipped = 0
+        GROUP BY t.name
+        ORDER BY n_live_tup DESC
     """
     results = execute_query(query)
     return [
         TableStat(
             relname=r["relname"],
-            seq_scan=r["seq_scan"],
-            seq_tup_read=r["seq_tup_read"],
-            idx_scan=r["idx_scan"] or 0,
-            idx_tup_fetch=r["idx_tup_fetch"] or 0,
-            n_tup_ins=r["n_tup_ins"],
-            n_tup_upd=r["n_tup_upd"],
-            n_tup_del=r["n_tup_del"],
-            n_live_tup=r["n_live_tup"],
-            n_dead_tup=r["n_dead_tup"],
+            seq_scan=int(r["seq_scan"] or 0),
+            seq_tup_read=int(r["seq_tup_read"] or 0),
+            idx_scan=int(r["idx_scan"] or 0),
+            idx_tup_fetch=int(r["idx_tup_fetch"] or 0),
+            n_tup_ins=int(r["n_tup_ins"] or 0),
+            n_tup_upd=int(r["n_tup_upd"] or 0),
+            n_tup_del=int(r["n_tup_del"] or 0),
+            n_live_tup=int(r["n_live_tup"] or 0),
+            n_dead_tup=int(r["n_dead_tup"] or 0),
         )
-        for r in results
+        for r in (results or [])
     ]
 
 
@@ -200,12 +226,15 @@ def get_index_stats() -> list[IndexStat]:
     """Get index usage statistics."""
     query = """
         SELECT
-            relname,
-            indexrelname,
-            idx_scan,
-            idx_tup_read,
-            idx_tup_fetch
-        FROM pg_stat_user_indexes
+            t.name AS relname,
+            i.name AS indexrelname,
+            ISNULL(ius.user_seeks + ius.user_scans + ius.user_lookups, 0) AS idx_scan,
+            ISNULL(ius.user_seeks, 0) AS idx_tup_read,
+            ISNULL(ius.user_scans + ius.user_lookups, 0) AS idx_tup_fetch
+        FROM sys.indexes i
+        JOIN sys.tables t ON t.object_id = i.object_id
+        LEFT JOIN sys.dm_db_index_usage_stats ius ON i.object_id = ius.object_id AND i.index_id = ius.index_id AND ius.database_id = DB_ID()
+        WHERE t.is_ms_shipped = 0 AND i.name IS NOT NULL
         ORDER BY idx_scan DESC
     """
     results = execute_query(query)
@@ -213,11 +242,11 @@ def get_index_stats() -> list[IndexStat]:
         IndexStat(
             relname=r["relname"],
             indexrelname=r["indexrelname"],
-            idx_scan=r["idx_scan"],
-            idx_tup_read=r["idx_tup_read"],
-            idx_tup_fetch=r["idx_tup_fetch"],
+            idx_scan=int(r["idx_scan"] or 0),
+            idx_tup_read=int(r["idx_tup_read"] or 0),
+            idx_tup_fetch=int(r["idx_tup_fetch"] or 0),
         )
-        for r in results
+        for r in (results or [])
     ]
 
 

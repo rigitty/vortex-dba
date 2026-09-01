@@ -2,10 +2,10 @@
 
 database:
   host: localhost
-  port: 5432
+  port: 1433
   dbname: vortex_db
-  user: vortex_user
-  password: vortex_password
+  user: sa
+  password: VortexPassword123!
   pool_min: 2
   pool_max: 10
 

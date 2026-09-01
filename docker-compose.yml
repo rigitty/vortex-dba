@@ -1,18 +1,17 @@
 services:
   vortex_db:
-    image: postgres:16
+    image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: vortex_primary_db
     restart: always
     environment:
-      POSTGRES_USER: vortex_user
-      POSTGRES_PASSWORD: vortex_password
-      POSTGRES_DB: vortex_db
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "VortexPassword123!"
+      MSSQL_PID: "Developer"
     ports:
-      - "5432:5432"
+      - "1433:1433"
     volumes:
+      - mssql_data:/var/opt/mssql
       - ./init-scripts:/docker-entrypoint-initdb.d
-    command: >
-      postgres 
-      -c shared_preload_libraries=pg_stat_statements 
-      -c pg_stat_statements.track=all 
-      -c pg_stat_statements.max=10000
+
+volumes:
+  mssql_data:

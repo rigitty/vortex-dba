@@ -6,9 +6,10 @@ __pycache__/
 # Environment & Secrets
 .env
 
-# PostgreSQL Data
+# PostgreSQL / SQL Server Data
 pg_data/
 postgres_data/
+mssql_data/
 
 # IDE & OS
 .vscode/

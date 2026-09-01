@@ -8,15 +8,13 @@ plans for analysis.
 import re
 from dataclasses import dataclass
 
-from psycopg2.extras import RealDictCursor
-
 from config import get_config
 from db_connection import get_connection
 
 
 @dataclass
 class DiscoveredQuery:
-    """A query discovered from pg_stat_statements."""
+    """A query discovered from sys.dm_exec_query_stats."""
     queryid: int
     query: str
     normalized_query: str
@@ -29,64 +27,55 @@ class DiscoveredQuery:
 
 
 def discover_slow_queries(limit: int | None = None) -> list[DiscoveredQuery]:
-    """Discover slow queries from pg_stat_statements.
-
-    Queries are filtered by:
-    - min_mean_exec_time_ms
-    - min_total_exec_time_ms
-    - min_calls
-    """
+    """Discover slow queries from SQL Server sys.dm_exec_query_stats."""
     config = get_config()
     if limit is None:
         limit = config.detection.top_queries_limit
 
-    query = """
-        SELECT
-            queryid,
-            query,
-            calls,
-            mean_exec_time,
-            total_exec_time,
-            rows
-        FROM pg_stat_statements
-        WHERE query NOT LIKE '%%pg_stat_statements%%'
-          AND query NOT LIKE '%%EXPLAIN%%'
-          AND query NOT LIKE '%%DISCARD%%'
-          AND query NOT LIKE '%%SET%%'
-          AND query NOT LIKE '%%BEGIN%%'
-          AND query NOT LIKE '%%COMMIT%%'
-          AND query NOT LIKE '%%ROLLBACK%%'
-          AND mean_exec_time >= %s
-          AND total_exec_time >= %s
-          AND calls >= %s
+    query = f"""
+        SELECT TOP ({int(limit)})
+            CHECKSUM(qs.sql_handle) AS queryid,
+            CAST(SUBSTRING(st.text, (qs.statement_start_offset/2)+1,
+                ((CASE qs.statement_end_offset
+                    WHEN -1 THEN DATALENGTH(st.text)
+                    ELSE qs.statement_end_offset
+                 END - qs.statement_start_offset)/2) + 1) AS NVARCHAR(MAX)) AS query,
+            qs.execution_count AS calls,
+            ((qs.total_elapsed_time / qs.execution_count) / 1000.0) AS mean_exec_time,
+            (qs.total_elapsed_time / 1000.0) AS total_exec_time,
+            qs.total_rows AS rows
+        FROM sys.dm_exec_query_stats qs
+        CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) st
+        WHERE st.text NOT LIKE '%sys.dm_%'
+          AND st.text NOT LIKE '%SHOWPLAN%'
+          AND st.text NOT LIKE '%CREATE INDEX%'
+          AND st.text NOT LIKE '%DROP INDEX%'
+          AND ((qs.total_elapsed_time / qs.execution_count) / 1000.0) >= {float(config.detection.min_mean_exec_time_ms)}
+          AND (qs.total_elapsed_time / 1000.0) >= {float(config.detection.min_total_exec_time_ms)}
+          AND qs.execution_count >= {int(config.detection.min_calls)}
         ORDER BY total_exec_time DESC
-        LIMIT %s
     """
 
-    conn = get_connection()
+    conn = get_connection(autocommit=True)
     try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(query, (
-                config.detection.min_mean_exec_time_ms,
-                config.detection.min_total_exec_time_ms,
-                config.detection.min_calls,
-                limit,
-            ))
+        with conn.cursor(as_dict=True) as cur:
+            cur.execute(query)
             rows = cur.fetchall()
     finally:
         conn.close()
 
     discovered = []
-    for row in rows:
-        normalized = normalize_query(row["query"])
+    for row in (rows or []):
+        raw_query = (row["query"] or "").strip()
+        normalized = normalize_query(raw_query)
         discovered.append(DiscoveredQuery(
-            queryid=row["queryid"],
-            query=row["query"],
+            queryid=row["queryid"] or 0,
+            query=raw_query,
             normalized_query=normalized,
-            calls=row["calls"],
-            mean_exec_time=round(row["mean_exec_time"], 2),
-            total_exec_time=round(row["total_exec_time"], 2),
-            rows=row["rows"],
+            calls=row["calls"] or 0,
+            mean_exec_time=round(float(row["mean_exec_time"] or 0), 2),
+            total_exec_time=round(float(row["total_exec_time"] or 0), 2),
+            rows=row["rows"] or 0,
         ))
 
     return discovered
@@ -111,27 +100,33 @@ def normalize_query(query: str) -> str:
 
 
 def get_explain_plan(query: str, params: tuple | None = None) -> tuple[str, str]:
-    """Run EXPLAIN ANALYZE on a query and return (plan, error).
-
-    Returns:
-        Tuple of (plan_text, error_message). If successful, error is empty.
-    """
-    # Replace parameterized placeholders with default values
-    explain_query = _replace_parameters(query)
-    explain_query = f"EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) {explain_query}"
-
-    conn = get_connection()
+    """Run SHOWPLAN_TEXT on a query in SQL Server and return (plan, error)."""
+    clean_query = _replace_parameters(query)
+    conn = get_connection(autocommit=True)
     try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            try:
-                cur.execute(explain_query)
-                rows = cur.fetchall()
-                plan = "\n".join(row["QUERY PLAN"] for row in rows)
-                conn.commit()
-                return plan, ""
-            except Exception as e:
-                conn.rollback()
-                return "", str(e)
+        with conn.cursor() as cur:
+            cur.execute("SET SHOWPLAN_TEXT ON")
+            cur.execute(clean_query)
+            plan_lines = []
+            while True:
+                try:
+                    rows = cur.fetchall()
+                    for row in (rows or []):
+                        text = row[0] if isinstance(row, (tuple, list)) else (row.get("StmtText") or str(row))
+                        plan_lines.append(str(text))
+                    if not cur.nextset():
+                        break
+                except Exception:
+                    break
+            cur.execute("SET SHOWPLAN_TEXT OFF")
+            return "\n".join(plan_lines), ""
+    except Exception as e:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SET SHOWPLAN_TEXT OFF")
+        except Exception:
+            pass
+        return "", str(e)
     finally:
         conn.close()
 
@@ -140,22 +135,17 @@ def _replace_parameters(query: str) -> str:
     """Replace $1, $2, etc. with representative default values.
 
     This is a best-effort approach to make parameterized queries
-    executable for EXPLAIN ANALYZE. We analyze the query context
-    to provide reasonable default values.
+    executable for EXPLAIN ANALYZE.
     """
-    import re
-
     result = query
-    # Find all parameter references
     params = re.findall(r'\$(\d+)', query)
     if not params:
         return result
 
-    # Analyze query context to determine appropriate values
-    query_lower = query.lower()
-
-    # Common value mappings based on column context
-    context_values = {
+    # Context values mapped to typical columns
+    column_defaults = {
+        'id': '1',
+        'customer_id': '1',
         'created_at': "'2024-01-01'::timestamp",
         'order_date': "'2024-01-01'::timestamp",
         'status': "'completed'",
@@ -163,26 +153,30 @@ def _replace_parameters(query: str) -> str:
         'country': "'United States'",
         'total_amount': '100',
         'email': "'test@example.com'",
+        'product_category': "'Electronics'",
     }
 
-    # Try to find context from WHERE clause
-    where_match = re.search(r'WHERE\s+(.+?)(?:ORDER|GROUP|LIMIT|$)', query, re.IGNORECASE | re.DOTALL)
-    if where_match:
-        where_clause = where_match.group(1).lower()
-
-        # Determine value based on column in WHERE clause
-        for col, value in context_values.items():
-            if col in where_clause:
-                # Replace first parameter with appropriate value
-                result = re.sub(r'\$1', value, result, count=1)
-                # Replace remaining parameters with generic values
-                for i in range(2, max(int(p) for p in params) + 1):
-                    result = result.replace(f'${i}', f"'2024-01-01'::timestamp" if 'date' in col else f"'value{i}'")
-                return result
-
-    # Default: replace with generic values that will return results
+    # Match each parameter with surrounding column context if available
     for param_num in sorted(set(params), key=int, reverse=True):
-        result = result.replace(f'${param_num}', "'2024-01-01'::timestamp")
+        param_pattern = rf'\${param_num}\b'
+        # Look for pattern: column = $1 or column > $1
+        col_match = re.search(rf'(\w+)\s*[=<>!~]+\s*\${param_num}\b', query, re.IGNORECASE)
+        if col_match:
+            col = col_match.group(1).lower()
+            val = column_defaults.get(col)
+            if not val:
+                if 'id' in col:
+                    val = '1'
+                elif 'date' in col or 'time' in col:
+                    val = "'2024-01-01'::timestamp"
+                elif 'amount' in col or 'price' in col or 'total' in col:
+                    val = '100'
+                else:
+                    val = "'value'"
+            result = re.sub(param_pattern, val, result)
+        else:
+            # Fallback based on param context
+            result = re.sub(param_pattern, "'value'", result)
 
     return result
 

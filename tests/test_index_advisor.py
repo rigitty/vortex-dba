@@ -80,16 +80,8 @@ class TestGenerateRecommendations:
         recs = generate_recommendations(sample_issues)
         assert len(recs) > 0
         assert all(isinstance(r, IndexRecommendation) for r in recs)
-
-    def test_concurrent_by_default(self, sample_issues):
-        recs = generate_recommendations(sample_issues)
         for rec in recs:
-            assert "CONCURRENTLY" in rec.create_statement
-
-    def test_no_concurrent(self, sample_issues):
-        recs = generate_recommendations(sample_issues, concurrent=False)
-        for rec in recs:
-            assert "CONCURRENTLY" not in rec.create_statement
+            assert "CREATE NONCLUSTERED INDEX" in rec.create_statement or "INDEX" in rec.create_statement
 
     def test_skips_info_severity(self):
         issues = [

@@ -1,44 +1,100 @@
-"""Database connection helper using psycopg2."""
+"""Database connection helper using pymssql for Microsoft SQL Server."""
 
-import psycopg2
-from psycopg2.extras import RealDictCursor
+import re
+import pymssql
 
 from config import get_config
 
 
-def get_connection(autocommit: bool = False):
-    """Create and return a new database connection."""
+def get_connection(dbname: str | None = None, autocommit: bool = False):
+    """Create and return a new SQL Server database connection."""
     cfg = get_config().database
-    conn = psycopg2.connect(
-        host=cfg.host,
-        port=cfg.port,
-        dbname=cfg.dbname,
-        user=cfg.user,
-        password=cfg.password,
-    )
-    conn.autocommit = autocommit
-    return conn
-
-
-def execute_query(query: str, params: tuple | None = None, fetch: bool = True) -> list[dict] | None:
-    """Execute a query and optionally return results as list of dicts."""
-    conn = get_connection()
+    database = dbname if dbname is not None else cfg.dbname
     try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        conn = pymssql.connect(
+            server=cfg.host,
+            port=str(cfg.port),
+            user=cfg.user,
+            password=cfg.password,
+            database=database,
+            autocommit=autocommit,
+        )
+        return conn
+    except Exception:
+        if database != "master":
+            try:
+                master_conn = pymssql.connect(
+                    server=cfg.host,
+                    port=str(cfg.port),
+                    user=cfg.user,
+                    password=cfg.password,
+                    database="master",
+                    autocommit=True,
+                )
+                with master_conn.cursor() as cur:
+                    cur.execute(f"""
+                        IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = '{cfg.dbname}')
+                        BEGIN
+                            CREATE DATABASE [{cfg.dbname}];
+                        END
+                    """)
+                master_conn.close()
+                return pymssql.connect(
+                    server=cfg.host,
+                    port=str(cfg.port),
+                    user=cfg.user,
+                    password=cfg.password,
+                    database=database,
+                    autocommit=autocommit,
+                )
+            except Exception:
+                pass
+        raise
+
+
+def ensure_database_exists() -> None:
+    """Ensure the target database exists on SQL Server."""
+    cfg = get_config().database
+    try:
+        conn = get_connection(dbname="master", autocommit=True)
+        with conn.cursor() as cur:
+            cur.execute(f"""
+                IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = '{cfg.dbname}')
+                BEGIN
+                    CREATE DATABASE [{cfg.dbname}];
+                END
+            """)
+        conn.close()
+    except Exception as e:
+        # Ignore if cannot connect to master or already exists
+        pass
+
+
+def execute_query(query: str, params: tuple | None = None, fetch: bool = True, autocommit: bool = False) -> list[dict] | None:
+    """Execute a query and optionally return results as list of dicts."""
+    conn = get_connection(autocommit=autocommit)
+    try:
+        with conn.cursor(as_dict=True) as cur:
             cur.execute(query, params)
             if fetch and cur.description:
                 return cur.fetchall()
-            conn.commit()
+            if not autocommit:
+                conn.commit()
             return None
     finally:
         conn.close()
 
 
 def execute_script(script: str) -> None:
-    """Execute a multi-statement SQL script."""
+    """Execute a multi-statement T-SQL script handling GO batch separators."""
     conn = get_connection(autocommit=True)
     try:
+        # Split script by GO batch separator
+        batches = re.split(r'^\s*GO\s*$', script, flags=re.MULTILINE | re.IGNORECASE)
         with conn.cursor() as cur:
-            cur.execute(script)
+            for batch in batches:
+                clean_batch = batch.strip()
+                if clean_batch:
+                    cur.execute(clean_batch)
     finally:
         conn.close()

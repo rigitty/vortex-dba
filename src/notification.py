@@ -43,6 +43,7 @@ def setup_logging() -> None:
     ))
 
     logger.setLevel(getattr(logging, config.logging.level, logging.INFO))
+    logger.handlers.clear()
     logger.addHandler(handler)
     logger.addHandler(console_handler)
 

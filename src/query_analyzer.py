@@ -27,6 +27,7 @@ class Issue:
     table: str
     rows: int
     suggestion: str
+    columns: list[str] = field(default_factory=list)
     line_number: int = 0
 
 
@@ -56,46 +57,77 @@ class PlanNode:
     children: list = field(default_factory=list)
 
 
-# Regex patterns for parsing EXPLAIN ANALYZE output
-# Matches both root nodes and child nodes (with ->)
+# Regex patterns for parsing EXPLAIN ANALYZE and SQL Server SHOWPLAN output
 NODE_PATTERN = re.compile(
     r"^(\s*)(?:->\s+)?([\w\s]+?)(?:\s+on\s+(\w+))?(?:\s+(\w+))?\s+\("
     r"cost=([\d.]+)\.\.([\d.]+)\s+rows=(\d+)\s+width=(\d+)\)"
     r"(?:\s+\(actual time=([\d.]+)\.\.([\d.]+)\s+rows=(\d+)\s+loops=(\d+)\))?"
 )
 
+SQLSERVER_NODE_PATTERN = re.compile(
+    r"^\s*(?:\|--\s*)?([\w\s]+?)\(OBJECT:\((.+?)\)(?:,\s*WHERE:\((.+?)\))?(?:,\s*SEEK:\((.+?)\))?(?:,\s*ORDER BY:\((.+?)\))?\)"
+)
+
+SQLSERVER_SIMPLE_NODE = re.compile(
+    r"^\s*(?:\|--\s*)?([\w\s]+?)(?:\((.+)\))?$"
+)
+
 ACTUAL_TIME_PATTERN = re.compile(
     r"actual time=([\d.]+)\.\.([\d.]+)\s+rows=(\d+)\s+loops=(\d+)"
 )
 
-FILTER_PATTERN = re.compile(r"^\s+Filter:\s+(.+)")
+FILTER_PATTERN = re.compile(r"^\s*(?:Filter:|WHERE:)\s*(.+)", re.IGNORECASE)
 ROWS_REMOVED_PATTERN = re.compile(r"Rows Removed by Filter:\s+(\d+)")
 SORT_METHOD_PATTERN = re.compile(r"Sort Method:\s+(\w+)(?:\s+(\w+))?")
 HASH_COND_PATTERN = re.compile(r"Hash Cond:\s+\((.+)\)")
-INDEX_COND_PATTERN = re.compile(r"Index Cond:\s+\((.+)\)")
+INDEX_COND_PATTERN = re.compile(r"(?:Index Cond|SEEK):\s*\((.+)\)")
 SUBPLAN_PATTERN = re.compile(r"SubPlan\s+(\d+)")
 BUFFERS_HIT_PATTERN = re.compile(r"Buffers:\s+shared hit=(\d+)")
-BUFFERS_READ_PATTERN = re.compile(r"(?:read)=(\d+)")
+BUFFERS_READ_PATTERN = re.compile(r"(?:read|Reads)=(\d+)")
 TEMP_READ_PATTERN = re.compile(r"temp read=(\d+)")
 TEMP_WRITTEN_PATTERN = re.compile(r"written=(\d+)")
 
 
 def parse_plan_text(plan_text: str) -> list[PlanNode]:
-    """Parse EXPLAIN ANALYZE text output into a list of PlanNode objects."""
+    """Parse execution plan text (PostgreSQL or SQL Server SHOWPLAN) into PlanNode objects."""
+    if not plan_text or not plan_text.strip():
+        return []
+
     lines = plan_text.strip().split("\n")
     nodes = []
     current_node = None
 
     for line in lines:
         line = line.rstrip()
+        if not line:
+            continue
 
-        # Match node header
+        # Try SQL Server SHOWPLAN pattern
+        mssql_match = SQLSERVER_NODE_PATTERN.search(line)
+        if mssql_match:
+            if current_node:
+                nodes.append(current_node)
+
+            node_type = mssql_match.group(1).strip()
+            obj_full = mssql_match.group(2) or ""
+            parts = re.findall(r"\[(\w+)\]", obj_full) or [p.strip() for p in obj_full.split(".")]
+            relation = parts[2] if len(parts) >= 3 else (parts[0] if parts else "")
+
+            current_node = PlanNode(
+                node_type=node_type,
+                relation=relation,
+                plan_rows=100000 if "Scan" in node_type else 1000,
+                filter=mssql_match.group(3) or "",
+                index_cond=mssql_match.group(4) or "",
+            )
+            continue
+
+        # Match standard node header
         node_match = NODE_PATTERN.match(line)
         if node_match:
             if current_node:
                 nodes.append(current_node)
 
-            indent = len(node_match.group(1))
             node_type = node_match.group(2).strip()
             relation = node_match.group(3) or ""
             alias = node_match.group(4) or ""
@@ -112,7 +144,28 @@ def parse_plan_text(plan_text: str) -> list[PlanNode]:
                 current_node.actual_rows = int(node_match.group(11))
                 current_node.loops = int(node_match.group(12))
 
-            current_node.plan_rows = int(node_match.group(7))
+            if node_match.group(7):
+                current_node.plan_rows = int(node_match.group(7))
+            continue
+
+        # Try fallback simple node pattern
+        simple_match = SQLSERVER_SIMPLE_NODE.match(line)
+        if simple_match and ("Scan" in line or "Sort" in line or "Lookup" in line or "Join" in line or "Match" in line):
+            if current_node:
+                nodes.append(current_node)
+
+            node_type = simple_match.group(1).strip()
+            details = simple_match.group(2) or ""
+            # Try to extract table name from details
+            tbl_match = re.search(r"\[?(\w+)\]?\s*(?:WHERE|ORDER|SEEK|$)", details)
+            relation = tbl_match.group(1) if tbl_match else ""
+
+            current_node = PlanNode(
+                node_type=node_type,
+                relation=relation,
+                plan_rows=100000 if "Scan" in node_type else 1000,
+                filter=details if "WHERE" in details else "",
+            )
             continue
 
         if current_node is None:
@@ -181,31 +234,48 @@ def detect_issues(nodes: list[PlanNode]) -> list[Issue]:
         if not node.relation:
             continue
 
-        # 1. Sequential Scan on large table
-        if node.node_type == "Seq Scan" and node.plan_rows > 10000:
+        # 1. Table Scan / Sequential Scan on large table
+        if node.node_type in ("Seq Scan", "Table Scan", "Clustered Index Scan") and node.plan_rows >= 10000:
             severity = Severity.CRITICAL if node.plan_rows > 100000 else Severity.WARNING
             table = node.relation
             col = _extract_column(node.filter)
             if col == "column":
                 continue  # Skip if we can't extract column
-            suggestion = f"CREATE INDEX idx_{table}_{col} ON {table}({col})"
+            suggestion = f"CREATE NONCLUSTERED INDEX idx_{table}_{col} ON {table}({col})"
             issues.append(Issue(
                 severity=severity,
-                pattern="seq_scan_large_table",
-                description=f"Sequential scan on {table} with {node.plan_rows:,} estimated rows",
+                pattern="seq_scan_large_table" if node.node_type == "Seq Scan" else "table_scan_large_table",
+                description=f"Table scan on {table} with {node.plan_rows:,} estimated rows",
                 node_type=node.node_type,
                 table=table,
                 rows=node.plan_rows,
                 suggestion=suggestion,
+                columns=[col],
                 line_number=i,
             ))
 
-        # 2. High rows removed by filter (missing index)
+        # 2. Key Lookup (Bookmark lookup in SQL Server)
+        if node.node_type == "Key Lookup":
+            table = node.relation
+            col = _extract_column(node.index_cond or node.filter)
+            issues.append(Issue(
+                severity=Severity.WARNING,
+                pattern="key_lookup_overhead",
+                description=f"Key Lookup on {table} causing random I/O overhead",
+                node_type=node.node_type,
+                table=table,
+                rows=node.actual_rows or 1000,
+                suggestion=f"Add covering columns with INCLUDE to avoid Key Lookup on {table}",
+                columns=[col] if col != "column" else [],
+                line_number=i,
+            ))
+
+        # 3. High rows removed by filter (missing index)
         if node.rows_removed > 10000:
             table = node.relation
             col = _extract_column(node.filter)
             if col == "column":
-                continue  # Skip if we can't extract column
+                continue
             severity = Severity.CRITICAL if node.rows_removed > 100000 else Severity.WARNING
             issues.append(Issue(
                 severity=severity,
@@ -215,25 +285,26 @@ def detect_issues(nodes: list[PlanNode]) -> list[Issue]:
                 table=table,
                 rows=node.rows_removed,
                 suggestion=f"Consider adding index on {table}({col}) for filter condition",
+                columns=[col],
                 line_number=i,
             ))
 
-        # 3. External merge sort (disk usage)
-        if node.sort_method == "external merge":
+        # 4. External merge sort (disk usage)
+        if node.sort_method == "external merge" or (node.node_type == "Sort" and node.temp_written > 0):
             table = node.relation
             issues.append(Issue(
                 severity=Severity.WARNING,
                 pattern="external_sort",
-                description=f"External merge sort on {table} using disk ({node.sort_space})",
+                description=f"External sort on {table} spilling to disk/tempdb",
                 node_type=node.node_type,
                 table=table,
                 rows=node.plan_rows,
-                suggestion=f"Increase work_mem or add index to avoid sorting",
+                suggestion=f"Increase memory or add index to avoid sorting on {table}",
                 line_number=i,
             ))
 
-        # 4. Nested Loop with high actual time
-        if node.node_type == "Nested Loop" and node.total_time > 100:
+        # 5. Slow Nested Loops
+        if "Nested Loop" in node.node_type and node.total_time > 100:
             issues.append(Issue(
                 severity=Severity.WARNING,
                 pattern="slow_nested_loop",
@@ -245,7 +316,7 @@ def detect_issues(nodes: list[PlanNode]) -> list[Issue]:
                 line_number=i,
             ))
 
-        # 5. Correlated subquery (SubPlan with repeated scans)
+        # 6. Correlated subquery (SubPlan with repeated scans)
         if node.subplan_name and node.loops > 1000:
             issues.append(Issue(
                 severity=Severity.CRITICAL,
@@ -258,29 +329,16 @@ def detect_issues(nodes: list[PlanNode]) -> list[Issue]:
                 line_number=i,
             ))
 
-        # 6. High buffer usage
+        # 7. High buffer / logical reads
         if node.buffers_hit > 100000:
             issues.append(Issue(
                 severity=Severity.WARNING,
                 pattern="high_buffer_usage",
-                description=f"High buffer usage: {node.buffers_hit:,} hits",
+                description=f"High buffer usage: {node.buffers_hit:,} logical reads",
                 node_type=node.node_type,
                 table=node.relation,
                 rows=node.actual_rows,
                 suggestion="Query accesses many pages; consider adding selective indexes",
-                line_number=i,
-            ))
-
-        # 7. Temp file usage
-        if node.temp_written > 0:
-            issues.append(Issue(
-                severity=Severity.WARNING,
-                pattern="temp_file_usage",
-                description=f"Query used temp files: {node.temp_written:,} written",
-                node_type=node.node_type,
-                table=node.relation,
-                rows=node.actual_rows,
-                suggestion="Increase work_mem or optimize query to reduce memory pressure",
                 line_number=i,
             ))
 
@@ -292,20 +350,23 @@ def _extract_column(filter_expr: str) -> str:
     if not filter_expr:
         return "column"
 
-    # Skip HAVING clauses (aggregate functions)
+    # Skip aggregate functions
     if "count(" in filter_expr.lower() or "sum(" in filter_expr.lower():
         return "column"
 
-    # Handle patterns like ((column)::text = 'value'::text)
-    # Extract the first word after opening parenthesis
+    # Handle SQL Server bracketed pattern like [table].[column] = value or [column] = value
+    bracket_match = re.search(r"\[(\w+)\]\s*[=<>!~]", filter_expr)
+    if bracket_match:
+        return bracket_match.group(1)
+
+    # Handle pattern: ((column)::text = 'value'::text)
     match = re.search(r"\(\(?(\w+)\)", filter_expr)
     if match:
         col = match.group(1)
-        # Skip type casts like text, numeric, timestamp
         if col not in ("text", "numeric", "timestamp", "integer", "varchar"):
             return col
 
-    # Handle patterns like column = value
+    # Handle pattern: column = value
     match = re.search(r"(\w+)\s*[=<>!]", filter_expr)
     if match:
         col = match.group(1)

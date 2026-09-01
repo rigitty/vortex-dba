@@ -57,25 +57,19 @@ def get_slow_queries_for_benchmark() -> list[dict]:
 
 
 def _extract_index_name(create_statement: str) -> str:
-    """Extract index name from CREATE INDEX statement.
-
-    Handles both:
-    - CREATE INDEX idx_name ON ...
-    - CREATE INDEX CONCURRENTLY idx_name ON ...
-    """
-    parts = create_statement.split()
-    for i, part in enumerate(parts):
-        if part.upper() == "INDEX" and i + 1 < len(parts):
-            next_part = parts[i + 1]
-            if next_part.upper() == "CONCURRENTLY":
-                return parts[i + 2].split("(")[0]
-            else:
-                return next_part.split("(")[0]
+    """Extract index name from CREATE [NONCLUSTERED] INDEX statement."""
+    match = re.search(
+        r"CREATE\s+(?:UNIQUE\s+)?(?:NONCLUSTERED\s+|CLUSTERED\s+)?INDEX\s+(?:CONCURRENTLY\s+)?([^\s\(\)]+)",
+        create_statement,
+        re.IGNORECASE,
+    )
+    if match:
+        return match.group(1).strip("[] ")
     return "unknown_index"
 
 
 def apply_index(rec: IndexRecommendation) -> RemediationResult:
-    """Apply a single index recommendation."""
+    """Apply a single index recommendation in SQL Server."""
     start = time.perf_counter()
     try:
         conn = get_connection(autocommit=True)
@@ -85,7 +79,7 @@ def apply_index(rec: IndexRecommendation) -> RemediationResult:
         conn.close()
 
         return RemediationResult(
-            index_name=_extract_index_name(rec.create_statement),
+            index_name=rec.index_name or _extract_index_name(rec.create_statement),
             table=rec.table,
             columns=rec.columns,
             create_sql=rec.create_statement,
@@ -95,7 +89,7 @@ def apply_index(rec: IndexRecommendation) -> RemediationResult:
     except Exception as e:
         elapsed_ms = (time.perf_counter() - start) * 1000
         return RemediationResult(
-            index_name=_extract_index_name(rec.create_statement),
+            index_name=rec.index_name or _extract_index_name(rec.create_statement),
             table=rec.table,
             columns=rec.columns,
             create_sql=rec.create_statement,
@@ -105,12 +99,26 @@ def apply_index(rec: IndexRecommendation) -> RemediationResult:
         )
 
 
-def drop_index(index_name: str) -> bool:
-    """Drop an index by name."""
+def drop_index(index_name: str, table_name: str | None = None) -> bool:
+    """Drop an index by name in SQL Server."""
     try:
         conn = get_connection(autocommit=True)
-        with conn.cursor() as cur:
-            cur.execute(f"DROP INDEX IF EXISTS {index_name}")
+        with conn.cursor(as_dict=True) as cur:
+            if not table_name:
+                cur.execute("""
+                    SELECT t.name AS tablename
+                    FROM sys.indexes i
+                    JOIN sys.tables t ON t.object_id = i.object_id
+                    WHERE i.name = %s
+                """, (index_name,))
+                rows = cur.fetchall()
+                if rows:
+                    table_name = rows[0]["tablename"]
+
+            if table_name:
+                cur.execute(f"DROP INDEX IF EXISTS [{index_name}] ON [{table_name}]")
+            else:
+                cur.execute(f"DROP INDEX IF EXISTS [{index_name}]")
         conn.close()
         return True
     except Exception as e:

@@ -20,7 +20,7 @@ class TestValidateIndexName:
         assert validate_index_name("") is False
 
     def test_invalid_too_long(self):
-        long_name = "idx_" + "a" * 60
+        long_name = "idx_" + "a" * 130
         assert validate_index_name(long_name) is False
 
     def test_invalid_characters(self):

@@ -1,13 +1,13 @@
-"""Generate synthetic data for customers and orders tables using Faker."""
+"""Generate synthetic data for customers and orders tables using Faker for SQL Server."""
 
 import random
 import sys
 import time
+from pathlib import Path
 
 from faker import Faker
-from psycopg2.extras import execute_values
 
-from db_connection import get_connection
+from db_connection import get_connection, ensure_database_exists, execute_script
 
 fake = Faker()
 
@@ -22,6 +22,16 @@ PRODUCT_CATEGORIES = [
     "Electronics", "Clothing", "Home & Garden", "Books", "Sports",
     "Toys", "Food & Beverage", "Health", "Automotive", "Jewelry",
 ]
+
+
+def init_tables_if_needed():
+    """Ensure database and tables are created before generating data."""
+    ensure_database_exists()
+    schema_file = Path(__file__).parent.parent / "init-scripts" / "01_schema.sql"
+    if schema_file.exists():
+        with open(schema_file, "r") as f:
+            script = f.read()
+        execute_script(script)
 
 
 def generate_customers(conn, count: int) -> list[int]:
@@ -47,16 +57,20 @@ def generate_customers(conn, count: int) -> list[int]:
         with conn.cursor() as cur:
             query = """
                 INSERT INTO customers (first_name, last_name, email, phone, city, country, created_at, status)
-                VALUES %s
-                RETURNING id
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """
-            results = execute_values(cur, query, rows, template=None, page_size=BATCH_SIZE, fetch=True)
-            customer_ids.extend([r[0] for r in results])
+            cur.executemany(query, rows)
+        conn.commit()
 
         inserted += batch_size
         print(f"  Customers inserted: {inserted:,}/{count:,}")
 
-    conn.commit()
+    # Fetch customer IDs
+    with conn.cursor() as cur:
+        cur.execute("SELECT id FROM customers")
+        rows = cur.fetchall()
+        customer_ids = [r[0] if isinstance(r, (tuple, list)) else r["id"] for r in rows]
+
     return customer_ids
 
 
@@ -96,19 +110,20 @@ def _insert_order_batch(conn, rows: list[tuple]) -> None:
     with conn.cursor() as cur:
         query = """
             INSERT INTO orders (customer_id, order_date, total_amount, status, product_category, shipping_address)
-            VALUES %s
+            VALUES (%s, %s, %s, %s, %s, %s)
         """
-        execute_values(cur, query, rows, template=None, page_size=BATCH_SIZE)
+        cur.executemany(query, rows)
     conn.commit()
 
 
 def main():
     """Main entry point for data generation."""
     print("=" * 60)
-    print("VortexDBA - Synthetic Data Generator")
+    print("VortexDBA - SQL Server Synthetic Data Generator")
     print("=" * 60)
 
     start = time.time()
+    init_tables_if_needed()
     conn = get_connection()
 
     try:

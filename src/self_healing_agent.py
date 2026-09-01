@@ -10,6 +10,7 @@ Continuous monitoring and auto-remediation loop:
 7. Record decisions and notify
 """
 
+import re
 import signal
 import sys
 import time
@@ -73,21 +74,14 @@ class SelfHealingAgent:
         self.running = True
 
     def _extract_index_name(self, create_statement: str) -> str:
-        """Extract index name from CREATE INDEX statement.
-
-        Handles both:
-        - CREATE INDEX idx_name ON ...
-        - CREATE INDEX CONCURRENTLY idx_name ON ...
-        """
-        parts = create_statement.split()
-        # Find the index name (after INDEX, skipping CONCURRENTLY if present)
-        for i, part in enumerate(parts):
-            if part.upper() == "INDEX" and i + 1 < len(parts):
-                next_part = parts[i + 1]
-                if next_part.upper() == "CONCURRENTLY":
-                    return parts[i + 2].split("(")[0]
-                else:
-                    return next_part.split("(")[0]
+        """Extract index name from CREATE [NONCLUSTERED] INDEX statement."""
+        match = re.search(
+            r"CREATE\s+(?:UNIQUE\s+)?(?:NONCLUSTERED\s+|CLUSTERED\s+)?INDEX\s+(?:CONCURRENTLY\s+)?([^\s\(\)]+)",
+            create_statement,
+            re.IGNORECASE,
+        )
+        if match:
+            return match.group(1).strip("[] ")
         return "unknown_index"
 
     def _get_static_queries(self) -> list[DiscoveredQuery]:
@@ -274,7 +268,7 @@ class SelfHealingAgent:
 
             start = time.time()
             try:
-                execute_query(rec.create_statement, fetch=False)
+                execute_query(rec.create_statement, fetch=False, autocommit=True)
                 duration_ms = (time.time() - start) * 1000
 
                 record_index_applied(
@@ -320,11 +314,11 @@ class SelfHealingAgent:
         # Rollback all applied indexes (conservative approach)
         rolled_back = 0
         for rec in recommendations:
-            idx_name = rec.create_statement.split()[2].split("(")[0]
+            idx_name = rec.index_name or self._extract_index_name(rec.create_statement)
             print(f"  Rolling back: {idx_name}")
 
             try:
-                execute_query(f"DROP INDEX IF EXISTS {idx_name}", fetch=False)
+                execute_query(f"DROP INDEX IF EXISTS [{idx_name}] ON [{rec.table}]", fetch=False, autocommit=True)
                 record_index_rolled_back(idx_name)
                 notify_index_rolled_back(idx_name, "Performance degradation detected")
                 rolled_back += 1

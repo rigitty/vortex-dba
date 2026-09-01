@@ -8,8 +8,6 @@ import statistics
 import time
 from dataclasses import dataclass
 
-from psycopg2.extras import RealDictCursor
-
 from db_connection import get_connection
 
 
@@ -50,13 +48,7 @@ def run_benchmark(name: str, query: str, params: tuple | None = None,
     for _ in range(runs):
         conn = get_connection(autocommit=True)
         try:
-            # Reset session state between runs
-            with conn.cursor() as cur:
-                cur.execute("DISCARD ALL")
-
-            # Switch back to transaction mode for the query
-            conn.autocommit = False
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            with conn.cursor(as_dict=True) as cur:
                 start = time.perf_counter()
                 cur.execute(query, params)
                 rows = cur.fetchall()
@@ -64,7 +56,6 @@ def run_benchmark(name: str, query: str, params: tuple | None = None,
 
                 durations.append(round(elapsed_ms, 3))
                 row_count = len(rows)
-            conn.commit()
         finally:
             conn.close()
 
@@ -179,9 +170,10 @@ def format_comparison(comparisons: list[ComparisonResult]) -> str:
 
     for c in comparisons:
         symbol = "+" if c.improvement_pct > 0 else ""
+        change_str = f"{symbol}{c.improvement_pct:.2f}%"
         lines.append(
             f"{c.name:<30} {c.before_mean_ms:>12.2f} {c.after_mean_ms:>12.2f} "
-            f"{symbol}{c.improvement_pct:>9.2f}% {c.verdict:>12}"
+            f"{change_str:>10} {c.verdict:>12}"
         )
 
         if c.verdict == "improved":

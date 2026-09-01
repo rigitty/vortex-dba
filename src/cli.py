@@ -120,6 +120,7 @@ def main():
 
     # agent
     p_agent = subparsers.add_parser("agent", help="Self-healing agent")
+    p_agent.add_argument("--once", action="store_true", help="Run a single analysis cycle (default)")
     p_agent.add_argument("--daemon", action="store_true", help="Run in continuous daemon mode")
     p_agent.add_argument("--dry-run", action="store_true", help="Only analyze, do not apply")
     p_agent.set_defaults(func=cmd_agent)
