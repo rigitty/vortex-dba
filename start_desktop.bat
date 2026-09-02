@@ -1,13 +1,13 @@
 @echo off
-title VortexDBA - Autonomous AI Index Advisor
+title VortexDBA - Desktop Application
 color 0b
 
 echo ======================================================================
-echo             VORTEX DBA - OTONOM SQL SERVER INDEKS AJANI
+echo             VORTEX DBA - OTONOM SQL SERVER MASAUSTU UYGULAMASI
 echo ======================================================================
 echo.
 
-:: Check Python installation
+:: Check Python
 python --version >nul 2>&1
 if errorlevel 1 (
     echo [HATA] Python bulunamadi! Lutfen Python 3.10+ yukleyin.
@@ -19,6 +19,6 @@ if errorlevel 1 (
 echo [*] Bagimliliklar kontrol ediliyor...
 pip install -r requirements.txt >nul 2>&1
 
-:: Launch Desktop App Window
+:: Launch Native Desktop Application Window
 echo [*] VortexDBA Masaustu Penceresi baslatiliyor...
 python app.py
