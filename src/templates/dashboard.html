@@ -597,6 +597,149 @@
             border-color: var(--emerald);
             box-shadow: 0 6px 30px rgba(16, 185, 129, 0.25);
             background: #161624;
+        .segmented-control {
+            display: inline-flex;
+            background: #06060a;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 2px;
+            gap: 2px;
+        }
+        .segment-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 11px;
+            font-weight: 500;
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            white-space: nowrap;
+        }
+        .segment-btn:hover {
+            color: var(--text-primary);
+            background: rgba(255,255,255,0.04);
+        }
+        .segment-btn.active {
+            background: #1a1a26;
+            color: #ffffff;
+            font-weight: 600;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+        }
+        .segment-btn.active.mode-auto {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--emerald);
+            border: 1px solid var(--emerald-border);
+        }
+        .segment-btn.active.mode-adv {
+            background: rgba(6, 182, 212, 0.15);
+            color: var(--cyan);
+            border: 1px solid var(--cyan-border);
+        }
+
+        /* Modal Styles */
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.82);
+            backdrop-filter: blur(8px);
+            z-index: 10000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .modal-backdrop.active {
+            display: flex;
+        }
+        .modal-panel {
+            background: #09090e;
+            border: 1px solid var(--border-hover);
+            border-radius: 12px;
+            width: 520px;
+            max-width: 95vw;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.95);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            animation: modalPop 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes modalPop {
+            0% { transform: scale(0.95); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .modal-header {
+            padding: 16px 20px;
+            background: #0e0e16;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .modal-body {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        .modal-footer {
+            padding: 14px 20px;
+            background: #0e0e16;
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 12px;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .form-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .form-input {
+            background: #040406;
+            border: 1px solid var(--border);
+            color: #ffffff;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            transition: all 0.15s ease;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: var(--cyan);
+            box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.2);
+        }
+
+        .autopilot-ribbon {
+            background: linear-gradient(90deg, rgba(16, 185, 129, 0.12), rgba(6, 182, 212, 0.08));
+            border: 1px solid var(--emerald-border);
+            border-radius: 8px;
+            padding: 10px 16px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
 
         @media (max-width: 960px) {
@@ -614,9 +757,35 @@
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--cyan)"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
                 VORTEX<span style="color:var(--text-muted)">//</span>DBA
             </span>
-            <span class="brand-badge">SQL Server 2022</span>
+            <span class="brand-badge" id="navbar-db-label">SQL Server 2022</span>
         </div>
         <div class="nav-tools">
+            <!-- Database Connection Button -->
+            <button class="btn btn-default btn-sm" onclick="openDbConfigModal()" id="btn-db-target" style="background:#13131c; border-color:var(--border-hover); font-weight:600;" title="Veritabanı bağlantı ayarlarını yapılandır">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--cyan)"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+                <span id="nav-db-text">⚙️ DB: localhost/vortex_db</span>
+            </button>
+
+            <!-- Mode Selector (Mod A vs Mod B) -->
+            <div class="segmented-control" id="mode-control" title="Çalışma Modu Seçimi">
+                <button class="segment-btn active mode-adv" id="mode-btn-advisor" onclick="switchMode('advisor')">
+                    <span>👤 Mod A (Danışman)</span>
+                </button>
+                <button class="segment-btn" id="mode-btn-autonomous" onclick="switchMode('autonomous')">
+                    <span>🤖 Mod B (Otopilot)</span>
+                </button>
+            </div>
+
+            <!-- Traffic Source Selector -->
+            <div class="segmented-control" id="source-control" title="Trafik Kaynağı">
+                <button class="segment-btn active" id="src-btn-sim" onclick="switchSource('simulation')">
+                    <span>🧪 Simülasyon</span>
+                </button>
+                <button class="segment-btn" id="src-btn-live" onclick="switchSource('live_dmv')">
+                    <span>🔴 Canlı DMV</span>
+                </button>
+            </div>
+
             <div id="health-badge" class="status-pill">
                 <span class="status-dot"></span>
                 <span>Port 1433 [Connected]</span>
@@ -635,7 +804,73 @@
         </div>
     </nav>
 
+    <!-- Database Connection Modal -->
+    <div id="db-config-modal" class="modal-backdrop" onclick="closeDbConfigModal(event)">
+        <div class="modal-panel" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <div style="display:flex; align-items:center; gap:8px; font-weight:600; font-size:13px; color:#ffffff;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--cyan)"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+                    <span>Hedef SQL Server Bağlantı Ayarları</span>
+                </div>
+                <button class="drawer-close-btn" onclick="closeDbConfigModal(null)">✕</button>
+            </div>
+            <div class="modal-body">
+                <div style="font-size:11.5px; color:var(--text-secondary); line-height:1.4;">
+                    VortexDBA'nın bağlanıp izleyeceği hedef Microsoft SQL Server veritabanı parametrelerini girin:
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Host / IP Adresi</label>
+                        <input type="text" id="cfg-host" class="form-input" placeholder="localhost veya 192.168.1.50" value="localhost">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Port</label>
+                        <input type="number" id="cfg-port" class="form-input" placeholder="1433" value="1433">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Veritabanı Adı (Database Name)</label>
+                    <input type="text" id="cfg-dbname" class="form-input" placeholder="vortex_db" value="vortex_db">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Kullanıcı Adı (User)</label>
+                        <input type="text" id="cfg-user" class="form-input" placeholder="sa" value="sa">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Şifre (Password)</label>
+                        <input type="password" id="cfg-password" class="form-input" placeholder="••••••••" value="VortexPassword123!">
+                    </div>
+                </div>
+
+                <!-- Test Connection Feedback Box -->
+                <div id="db-test-result" style="display:none; padding:10px 12px; border-radius:6px; font-size:11.5px; font-family:'JetBrains Mono',monospace;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-default btn-sm" onclick="testDbConnection()" id="btn-test-db">
+                    <span>⚡ Bağlantıyı Test Et</span>
+                </button>
+                <button class="btn btn-success btn-sm" onclick="saveDbConnection()" id="btn-save-db">
+                    <span>💾 Kaydet & Bağlan</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div class="container">
+
+        <!-- Autopilot Banner (Visible in Mode B) -->
+        <div id="autopilot-banner" class="autopilot-ribbon" style="display:none;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span class="status-dot" style="background:var(--emerald); box-shadow:0 0 10px var(--emerald);"></span>
+                <span style="font-size:12px; font-weight:600; color:var(--emerald);">🤖 OTOPİLOT MODU (Mod B) AKTİF:</span>
+                <span style="font-size:11.5px; color:var(--text-secondary);">SQL Server arka planda 7/24 izlenir, eksik indeksler ONLINE=ON ile otomatik uygulanır ve yavaşlama olursa rollback yapılır.</span>
+            </div>
+            <button class="btn btn-default btn-xs" onclick="switchMode('advisor')" style="font-size:10.5px;">Danışman Moduna Geç</button>
+        </div>
 
         <!-- Control Action Bar -->
         <div class="control-panel">
@@ -1529,9 +1764,162 @@
             await runStreamingAction('/api/stream/drop-index', { index_name: indexName, table_name: tableName });
         }
 
+        /* --- Config Status & Connection Management --- */
+        let currentConfig = null;
+
+        async function loadConfigStatus() {
+            const d = await fetchJSON('/api/config/status');
+            if (!d) return;
+            currentConfig = d;
+
+            // Update Navbar DB Text
+            const dbText = document.getElementById('nav-db-text');
+            if (dbText && d.database) {
+                dbText.textContent = `⚙️ DB: ${d.database.host}:${d.database.port}/${d.database.dbname}`;
+            }
+
+            // Update Modal Inputs
+            if (d.database) {
+                const hostEl = document.getElementById('cfg-host');
+                const portEl = document.getElementById('cfg-port');
+                const dbnameEl = document.getElementById('cfg-dbname');
+                const userEl = document.getElementById('cfg-user');
+                if (hostEl && !hostEl.matches(':focus')) hostEl.value = d.database.host || 'localhost';
+                if (portEl && !portEl.matches(':focus')) portEl.value = d.database.port || 1433;
+                if (dbnameEl && !dbnameEl.matches(':focus')) dbnameEl.value = d.database.dbname || 'vortex_db';
+                if (userEl && !userEl.matches(':focus')) userEl.value = d.database.user || 'sa';
+            }
+
+            // Update Mode Switcher UI
+            const btnAdv = document.getElementById('mode-btn-advisor');
+            const btnAuto = document.getElementById('mode-btn-autonomous');
+            const autoBanner = document.getElementById('autopilot-banner');
+
+            if (d.operating_mode === 'autonomous') {
+                if (btnAdv) { btnAdv.className = 'segment-btn'; }
+                if (btnAuto) { btnAuto.className = 'segment-btn active mode-auto'; }
+                if (autoBanner) autoBanner.style.display = 'flex';
+            } else {
+                if (btnAdv) { btnAdv.className = 'segment-btn active mode-adv'; }
+                if (btnAuto) { btnAuto.className = 'segment-btn'; }
+                if (autoBanner) autoBanner.style.display = 'none';
+            }
+
+            // Update Traffic Source Switcher UI
+            const btnSim = document.getElementById('src-btn-sim');
+            const btnLive = document.getElementById('src-btn-live');
+
+            if (d.traffic_source === 'live_dmv') {
+                if (btnSim) btnSim.className = 'segment-btn';
+                if (btnLive) btnLive.className = 'segment-btn active';
+            } else {
+                if (btnSim) btnSim.className = 'segment-btn active';
+                if (btnLive) btnLive.className = 'segment-btn';
+            }
+        }
+
+        function openDbConfigModal() {
+            const modal = document.getElementById('db-config-modal');
+            const resBox = document.getElementById('db-test-result');
+            if (resBox) resBox.style.display = 'none';
+            if (modal) modal.classList.add('active');
+        }
+
+        function closeDbConfigModal(e) {
+            if (e && e.target && e.target.id !== 'db-config-modal') return;
+            const modal = document.getElementById('db-config-modal');
+            if (modal) modal.classList.remove('active');
+        }
+
+        async function testDbConnection() {
+            const btn = document.getElementById('btn-test-db');
+            const resBox = document.getElementById('db-test-result');
+            if (btn) btn.disabled = true;
+            if (resBox) {
+                resBox.style.display = 'block';
+                resBox.style.background = '#12121c';
+                resBox.style.border = '1px solid var(--border)';
+                resBox.style.color = 'var(--cyan)';
+                resBox.innerHTML = '<span class="spinner"></span> Bağlantı test ediliyor...';
+            }
+
+            const payload = {
+                host: document.getElementById('cfg-host').value,
+                port: parseInt(document.getElementById('cfg-port').value) || 1433,
+                dbname: document.getElementById('cfg-dbname').value,
+                user: document.getElementById('cfg-user').value,
+                password: document.getElementById('cfg-password').value,
+            };
+
+            const res = await postJSON('/api/config/db-test', payload);
+            if (btn) btn.disabled = false;
+
+            if (res && res.success) {
+                resBox.style.background = 'rgba(16, 185, 129, 0.1)';
+                resBox.style.border = '1px solid var(--emerald-border)';
+                resBox.style.color = '#6ee7b7';
+                resBox.innerHTML = `✔ BAĞLANTI BAŞARILI!<br><span style="color:#ffffff; font-size:10.5px;">${res.server_version}</span><br><span style="color:var(--text-secondary); font-size:10.5px;">Hedef Veritabanı: [${res.database}]</span>`;
+                showToast('SQL Server bağlantısı başarılı!');
+            } else {
+                resBox.style.background = 'rgba(244, 63, 94, 0.1)';
+                resBox.style.border = '1px solid var(--rose-border)';
+                resBox.style.color = '#fda4af';
+                resBox.innerHTML = `❌ BAĞLANTI HATASI:<br><span style="font-size:10.5px;">${res?.error || 'Bilinmeyen bağlantı hatası'}</span>`;
+            }
+        }
+
+        async function saveDbConnection() {
+            const btn = document.getElementById('btn-save-db');
+            const resBox = document.getElementById('db-test-result');
+            if (btn) btn.disabled = true;
+
+            const payload = {
+                host: document.getElementById('cfg-host').value,
+                port: parseInt(document.getElementById('cfg-port').value) || 1433,
+                dbname: document.getElementById('cfg-dbname').value,
+                user: document.getElementById('cfg-user').value,
+                password: document.getElementById('cfg-password').value,
+            };
+
+            const res = await postJSON('/api/config/db-save', payload);
+            if (btn) btn.disabled = false;
+
+            if (res && res.success) {
+                showToast('Veritabanı bağlantısı güncellendi!');
+                closeDbConfigModal(null);
+                await loadAll(true);
+            } else {
+                if (resBox) {
+                    resBox.style.display = 'block';
+                    resBox.style.background = 'rgba(244, 63, 94, 0.1)';
+                    resBox.style.border = '1px solid var(--rose-border)';
+                    resBox.style.color = '#fda4af';
+                    resBox.innerHTML = `❌ Kayıt Başarısız: ${res?.error || 'Hata'}`;
+                }
+            }
+        }
+
+        async function switchMode(mode) {
+            const res = await postJSON('/api/config/set-mode', { mode: mode });
+            if (res && res.success) {
+                showToast(mode === 'autonomous' ? '🤖 Mod B (Otopilot) Aktif Edildi' : '👤 Mod A (Danışman) Aktif Edildi');
+                await loadConfigStatus();
+            }
+        }
+
+        async function switchSource(source) {
+            const res = await postJSON('/api/config/set-source', { source: source });
+            if (res && res.success) {
+                showToast(source === 'live_dmv' ? '🔴 Canlı SQL Server DMV Trafiğine Geçildi' : '🧪 Sentetik Simülasyon Trafiğine Geçildi');
+                await loadConfigStatus();
+                await loadPerformanceMatrix();
+            }
+        }
+
         async function loadAll(manual = false) {
             if (manual) showToast('Veriler güncelleniyor...');
             await Promise.all([
+                loadConfigStatus(),
                 loadHealth(),
                 loadPerformanceMatrix(),
                 loadStats(),
@@ -1547,3 +1935,4 @@
     </script>
 </body>
 </html>
+

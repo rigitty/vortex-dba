@@ -98,3 +98,43 @@ def execute_script(script: str) -> None:
                     cur.execute(clean_batch)
     finally:
         conn.close()
+
+
+def test_connection(host: str, port: int, dbname: str, user: str, password: str) -> dict:
+    """Test connection to a specific SQL Server database without changing global config."""
+    try:
+        conn = pymssql.connect(
+            server=host.strip(),
+            port=str(port).strip(),
+            user=user.strip(),
+            password=password,
+            database=dbname.strip(),
+            login_timeout=5,
+            timeout=5,
+            autocommit=True,
+        )
+        version_info = "Microsoft SQL Server"
+        db_name_actual = dbname
+        with conn.cursor(as_dict=True) as cur:
+            cur.execute("SELECT @@VERSION AS ver, DB_NAME() AS db")
+            row = cur.fetchone()
+            if row:
+                version_info = row.get("ver", "").split("\n")[0].strip()
+                db_name_actual = row.get("db", dbname)
+        conn.close()
+        return {
+            "success": True,
+            "server_version": version_info,
+            "database": db_name_actual,
+            "host": host.strip(),
+            "port": int(port),
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "host": host.strip(),
+            "port": int(port),
+            "database": dbname.strip(),
+        }
+

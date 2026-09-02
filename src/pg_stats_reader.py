@@ -339,3 +339,78 @@ def get_full_report() -> str:
     lines.append(format_index_stats(index_stats))
 
     return "\n".join(lines)
+
+
+def get_live_workload_matrix(limit: int = 15) -> list[dict]:
+    """Dynamically extract real slow queries from SQL Server DMVs and format as performance matrix items."""
+    from index_advisor import recommend_index_for_query
+
+    raw_stats = get_top_queries_by_time(limit=limit)
+    if not raw_stats:
+        return []
+
+    DEFAULT_SCHEMA_INDEXES = {"idx_orders_customer_id", "idx_customers_email"}
+    q_idx = """
+        SELECT 
+            t.name AS table_name,
+            i.name AS index_name,
+            STRING_AGG(c.name, ', ') WITHIN GROUP (ORDER BY ic.key_ordinal) AS columns
+        FROM sys.indexes i
+        JOIN sys.tables t ON t.object_id = i.object_id
+        JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
+        JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+        WHERE t.is_ms_shipped = 0 AND i.name IS NOT NULL 
+          AND i.is_primary_key = 0 AND i.is_unique_constraint = 0 AND ic.is_included_column = 0
+        GROUP BY t.name, i.name
+    """
+    all_active_rows = execute_query(q_idx) or []
+    active_custom_rows = [r for r in all_active_rows if r["index_name"] not in DEFAULT_SCHEMA_INDEXES]
+
+    matrix_items = []
+    for idx, stat in enumerate(raw_stats, 1):
+        sql_text = stat.query
+        if not sql_text or len(sql_text) < 10:
+            continue
+
+        rec = recommend_index_for_query(sql_text)
+        target_table = rec.table if rec else ("orders" if "orders" in sql_text.lower() else ("customers" if "customers" in sql_text.lower() else "Table"))
+        target_cols = set(rec.columns) if rec else set()
+        recommended_sql = rec.create_statement if rec else None
+        reason = rec.reason if rec else f"Canlı DMV Yavaş Sorgu: Ort. {stat.mean_exec_time:.2f} ms ({stat.calls} çağrı)"
+
+        matching_indexes = []
+        matching_sqls = []
+        for row in active_custom_rows:
+            tbl = row["table_name"]
+            idx_name = row["index_name"]
+            idx_cols = set([c.strip() for c in row["columns"].split(",")] if row["columns"] else [])
+            if tbl == target_table and (target_cols.issubset(idx_cols) or (target_cols and target_cols.intersection(idx_cols))):
+                matching_indexes.append(idx_name)
+                matching_sqls.append(f"CREATE NONCLUSTERED INDEX [{idx_name}] ON [{tbl}] ({row['columns']});")
+
+        has_index = len(matching_indexes) > 0
+        status_label = "⚡ İndeksli" if has_index else ("🐢 Kritik Yavaş" if stat.mean_exec_time > 500 else "⏳ İndeks Bekliyor")
+        status_class = "badge-success" if has_index else ("badge-danger" if stat.mean_exec_time > 500 else "badge-warning")
+
+        matrix_items.append({
+            "name": f"live_query_{stat.queryid}_{idx}",
+            "title": f"Canlı DMV Sorgusu #{idx} ({target_table})",
+            "table": target_table,
+            "columns": ", ".join(rec.columns) if rec else "-",
+            "active_indexes": matching_indexes,
+            "applied_index_sqls": matching_sqls,
+            "has_index": has_index,
+            "description": f"Canlı SQL Server DMV ({stat.calls} çağrı, {stat.total_exec_time:.1f}ms toplam süre)",
+            "recommended_sql": recommended_sql or "",
+            "reason": reason,
+            "query_sql": sql_text,
+            "baseline_ms": stat.mean_exec_time,
+            "current_ms": stat.mean_exec_time if has_index else None,
+            "speedup_pct": None,
+            "multiplier": None,
+            "status_label": status_label,
+            "status_class": status_class,
+        })
+
+    return matrix_items
+

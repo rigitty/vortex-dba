@@ -535,8 +535,24 @@ async def api_performance_matrix():
                 "status_class": status_class,
             })
 
+        cfg = get_config()
+        if cfg.traffic_source == "live_dmv":
+            from pg_stats_reader import get_live_workload_matrix
+            live_matrix = get_live_workload_matrix(15)
+            return {
+                "matrix": live_matrix,
+                "active_index_count": len(active_custom_rows),
+                "traffic_source": "live_dmv",
+                "operating_mode": cfg.operating_mode,
+            }
+
         matrix.sort(key=lambda x: (x["baseline_ms"] if x["baseline_ms"] is not None else 0), reverse=True)
-        return {"matrix": matrix, "active_index_count": len(active_custom_rows)}
+        return {
+            "matrix": matrix,
+            "active_index_count": len(active_custom_rows),
+            "traffic_source": "simulation",
+            "operating_mode": cfg.operating_mode,
+        }
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -578,11 +594,100 @@ async def api_safety_report():
         return {"report": str(e), "error": str(e)}
 
 
+@app.get("/api/config/status")
+async def api_config_status():
+    """Get complete connection status, operating mode, and traffic source."""
+    cfg = get_config()
+    return {
+        "operating_mode": cfg.operating_mode,
+        "traffic_source": cfg.traffic_source,
+        "database": {
+            "host": cfg.database.host,
+            "port": cfg.database.port,
+            "dbname": cfg.database.dbname,
+            "user": cfg.database.user,
+        }
+    }
+
+
+@app.post("/api/config/db-test")
+async def api_config_db_test(payload: dict):
+    """Test connection to specified database parameters without saving."""
+    try:
+        from db_connection import test_connection
+        host = payload.get("host", "localhost")
+        port = int(payload.get("port", 1433))
+        dbname = payload.get("dbname", "vortex_db")
+        user = payload.get("user", "sa")
+        password = payload.get("password", "")
+        res = test_connection(host, port, dbname, user, password)
+        return res
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/api/config/db-save")
+async def api_config_db_save(payload: dict):
+    """Save database connection parameters and reconnect."""
+    try:
+        from config import update_database_config
+        from db_connection import test_connection
+        host = payload.get("host", "localhost")
+        port = int(payload.get("port", 1433))
+        dbname = payload.get("dbname", "vortex_db")
+        user = payload.get("user", "sa")
+        password = payload.get("password", "")
+
+        test_res = test_connection(host, port, dbname, user, password)
+        if not test_res.get("success"):
+            return {"success": False, "error": f"Bağlantı başarısız: {test_res.get('error')}"}
+
+        cfg = update_database_config(host, port, dbname, user, password)
+        return {
+            "success": True,
+            "message": f"Bağlantı başarıyla kaydedildi: {cfg.database.host}:{cfg.database.port}/{cfg.database.dbname}",
+            "database": {
+                "host": cfg.database.host,
+                "port": cfg.database.port,
+                "dbname": cfg.database.dbname,
+                "user": cfg.database.user,
+            }
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/api/config/set-mode")
+async def api_config_set_mode(payload: dict):
+    """Set operating mode ('advisor' or 'autonomous')."""
+    try:
+        from config import update_operating_mode
+        mode = payload.get("mode", "advisor")
+        cfg = update_operating_mode(mode)
+        return {"success": True, "operating_mode": cfg.operating_mode}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/api/config/set-source")
+async def api_config_set_source(payload: dict):
+    """Set traffic source ('simulation' or 'live_dmv')."""
+    try:
+        from config import update_traffic_source
+        source = payload.get("source", "simulation")
+        cfg = update_traffic_source(source)
+        return {"success": True, "traffic_source": cfg.traffic_source}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 @app.get("/api/config")
 async def api_config():
     """Get current configuration (non-sensitive)."""
     config = get_config()
     return {
+        "operating_mode": config.operating_mode,
+        "traffic_source": config.traffic_source,
         "detection": {
             "min_mean_exec_time_ms": config.detection.min_mean_exec_time_ms,
             "min_total_exec_time_ms": config.detection.min_total_exec_time_ms,
@@ -600,6 +705,7 @@ async def api_config():
             "degradation_threshold_pct": config.benchmark.degradation_threshold_pct,
         },
     }
+
 
 
 @app.get("/api/recommendations")

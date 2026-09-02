@@ -75,6 +75,8 @@ class LoggingConfig:
 
 @dataclass
 class AppConfig:
+    operating_mode: str = "advisor"  # 'advisor' (Mod A) or 'autonomous' (Mod B)
+    traffic_source: str = "simulation"  # 'simulation' or 'live_dmv'
     database: DatabaseConfig = field(default_factory=DatabaseConfig)
     detection: DetectionConfig = field(default_factory=DetectionConfig)
     remediation: RemediationConfig = field(default_factory=RemediationConfig)
@@ -92,17 +94,22 @@ def _apply_env_overrides(config: dict) -> dict:
         "VORTEX_DB_NAME": ("database", "dbname"),
         "VORTEX_DB_USER": ("database", "user"),
         "VORTEX_DB_PASSWORD": ("database", "password"),
+        "VORTEX_OPERATING_MODE": (None, "operating_mode"),
+        "VORTEX_TRAFFIC_SOURCE": (None, "traffic_source"),
     }
 
     for env_var, (section, key) in env_mapping.items():
         value = os.environ.get(env_var)
         if value is not None:
-            if section not in config:
-                config[section] = {}
-            # Type conversion for port
-            if key == "port":
-                value = int(value)
-            config[section][key] = value
+            if section is None:
+                config[key] = value
+            else:
+                if section not in config:
+                    config[section] = {}
+                # Type conversion for port
+                if key == "port":
+                    value = int(value)
+                config[section][key] = value
 
     return config
 
@@ -120,7 +127,7 @@ def load_config(config_path: str | Path | None = None) -> AppConfig:
 
     config_dict = {}
     if path.exists():
-        with open(path, "r") as f:
+        with open(path, "r", encoding="utf-8") as f:
             config_dict = yaml.safe_load(f) or {}
 
     # Apply environment variable overrides
@@ -128,6 +135,8 @@ def load_config(config_path: str | Path | None = None) -> AppConfig:
 
     # Build config object
     return AppConfig(
+        operating_mode=config_dict.get("operating_mode", "advisor"),
+        traffic_source=config_dict.get("traffic_source", "simulation"),
         database=_dict_to_dataclass(config_dict.get("database", {}), DatabaseConfig),
         detection=_dict_to_dataclass(config_dict.get("detection", {}), DetectionConfig),
         remediation=_dict_to_dataclass(config_dict.get("remediation", {}), RemediationConfig),
@@ -155,3 +164,91 @@ def reload_config() -> AppConfig:
     global _config
     _config = load_config()
     return _config
+
+
+def save_config_yaml(cfg: AppConfig, config_path: str | Path | None = None) -> None:
+    """Save current configuration state back to config.yaml."""
+    path = Path(config_path) if config_path else CONFIG_PATH
+    data = {
+        "operating_mode": cfg.operating_mode,
+        "traffic_source": cfg.traffic_source,
+        "database": {
+            "host": cfg.database.host,
+            "port": cfg.database.port,
+            "dbname": cfg.database.dbname,
+            "user": cfg.database.user,
+            "password": cfg.database.password,
+            "pool_min": cfg.database.pool_min,
+            "pool_max": cfg.database.pool_max,
+        },
+        "detection": {
+            "min_mean_exec_time_ms": cfg.detection.min_mean_exec_time_ms,
+            "min_total_exec_time_ms": cfg.detection.min_total_exec_time_ms,
+            "min_calls": cfg.detection.min_calls,
+            "seq_scan_row_threshold": cfg.detection.seq_scan_row_threshold,
+            "filter_removal_threshold": cfg.detection.filter_removal_threshold,
+            "buffer_hit_threshold": cfg.detection.buffer_hit_threshold,
+            "top_queries_limit": cfg.detection.top_queries_limit,
+        },
+        "remediation": {
+            "enabled": cfg.remediation.enabled,
+            "dry_run_default": cfg.remediation.dry_run_default,
+            "max_indexes_per_table": cfg.remediation.max_indexes_per_table,
+            "max_indexes_total": cfg.remediation.max_indexes_total,
+            "cooldown_minutes": cfg.remediation.cooldown_minutes,
+            "rollback_policy": cfg.remediation.rollback_policy,
+        },
+        "benchmark": {
+            "runs": cfg.benchmark.runs,
+            "degradation_threshold_pct": cfg.benchmark.degradation_threshold_pct,
+            "improvement_threshold_pct": cfg.benchmark.improvement_threshold_pct,
+        },
+        "scheduler": {
+            "analysis_interval_minutes": cfg.scheduler.analysis_interval_minutes,
+            "unused_index_check_hours": cfg.scheduler.unused_index_check_hours,
+        },
+        "notification": {
+            "enabled": cfg.notification.enabled,
+            "webhook_url": cfg.notification.webhook_url,
+            "alert_on": cfg.notification.alert_on,
+        },
+        "logging": {
+            "level": cfg.logging.level,
+            "file": cfg.logging.file,
+            "max_size_mb": cfg.logging.max_size_mb,
+        },
+    }
+    with open(path, "w", encoding="utf-8") as f:
+        yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+
+
+def update_database_config(host: str, port: int, dbname: str, user: str, password: str) -> AppConfig:
+    """Update active database configuration in memory and YAML."""
+    global _config
+    cfg = get_config()
+    cfg.database.host = host.strip()
+    cfg.database.port = int(port)
+    cfg.database.dbname = dbname.strip()
+    cfg.database.user = user.strip()
+    cfg.database.password = password
+    save_config_yaml(cfg)
+    return cfg
+
+
+def update_operating_mode(mode: str) -> AppConfig:
+    """Update active operating mode ('advisor' or 'autonomous')."""
+    global _config
+    cfg = get_config()
+    cfg.operating_mode = "autonomous" if mode == "autonomous" else "advisor"
+    save_config_yaml(cfg)
+    return cfg
+
+
+def update_traffic_source(source: str) -> AppConfig:
+    """Update active traffic source ('simulation' or 'live_dmv')."""
+    global _config
+    cfg = get_config()
+    cfg.traffic_source = "live_dmv" if source == "live_dmv" else "simulation"
+    save_config_yaml(cfg)
+    return cfg
+

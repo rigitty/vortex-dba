@@ -1,17 +1,23 @@
-services:
-  vortex_db:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: vortex_primary_db
-    restart: always
-    environment:
-      ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "VortexPassword123!"
-      MSSQL_PID: "Developer"
-    ports:
-      - "1433:1433"
-    volumes:
-      - mssql_data:/var/opt/mssql
-      - ./init-scripts:/docker-entrypoint-initdb.d
+version: '3.8'
 
-volumes:
-  mssql_data:
+services:
+  vortexdba:
+    build: .
+    container_name: vortex_dba_agent
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - VORTEX_DB_HOST=host.docker.internal
+      - VORTEX_DB_PORT=1433
+      - VORTEX_DB_NAME=vortex_db
+      - VORTEX_DB_USER=sa
+      - VORTEX_DB_PASSWORD=VortexPassword123!
+      - VORTEX_OPERATING_MODE=advisor
+      - VORTEX_TRAFFIC_SOURCE=simulation
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./config.yaml:/app/config.yaml
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
