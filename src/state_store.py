@@ -148,6 +148,36 @@ def record_benchmark(query_name: str, mean_ms: float, median_ms: float,
         conn.close()
 
 
+def record_baseline(query_name: str, mean_ms: float) -> None:
+    """Record or update measured unindexed baseline execution time."""
+    conn = _get_connection()
+    try:
+        conn.execute(
+            """INSERT INTO benchmark_history
+               (query_name, mean_ms, median_ms, measured_at, index_snapshot)
+               VALUES (?, ?, ?, ?, 'baseline')""",
+            (query_name, mean_ms, mean_ms, datetime.now().isoformat()),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_latest_baseline(query_name: str) -> float | None:
+    """Get the most recent unindexed baseline measurement."""
+    conn = _get_connection()
+    try:
+        row = conn.execute(
+            """SELECT mean_ms FROM benchmark_history
+               WHERE query_name = ? AND index_snapshot = 'baseline'
+               ORDER BY id DESC LIMIT 1""",
+            (query_name,)
+        ).fetchone()
+        return row["mean_ms"] if row else None
+    finally:
+        conn.close()
+
+
 def record_decision(decision_type: str, details: str) -> None:
     """Record an agent decision."""
     conn = _get_connection()

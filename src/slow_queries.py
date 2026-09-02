@@ -126,6 +126,89 @@ SLOW_QUERIES = [
         """,
         "params": ("New York",),
     },
+    {
+        "name": "order_by_unindexed_amount",
+        "description": "Ordering large dataset on unindexed total_amount column",
+        "query": """
+            SELECT TOP 100 id, customer_id, order_date, total_amount, status, product_category
+            FROM orders
+            WHERE status = 'completed'
+            ORDER BY total_amount DESC
+        """,
+        "params": None,
+    },
+    {
+        "name": "category_revenue_aggregation",
+        "description": "Category revenue aggregation across date ranges",
+        "query": """
+            SELECT product_category, COUNT(*) AS order_count,
+                   SUM(total_amount) AS total_revenue, AVG(total_amount) AS avg_ticket
+            FROM orders
+            WHERE order_date >= %s
+            GROUP BY product_category
+            ORDER BY total_revenue DESC
+        """,
+        "params": ("2025-01-01",),
+    },
+    {
+        "name": "customer_created_status_filter",
+        "description": "Filter on customers by status and created_at range",
+        "query": """
+            SELECT id, first_name, last_name, phone, status, created_at
+            FROM customers
+            WHERE status = %s AND created_at >= %s
+            ORDER BY created_at DESC
+        """,
+        "params": ("suspended", "2025-01-01"),
+    },
+    {
+        "name": "unindexed_phone_lookup",
+        "description": "Direct phone number lookup without supporting index",
+        "query": """
+            SELECT id, first_name, last_name, email, city, phone, status
+            FROM customers
+            WHERE phone LIKE %s AND status = 'active'
+        """,
+        "params": ("%555%",),
+    },
+    {
+        "name": "high_value_recent_orders",
+        "description": "High-value orders JOIN with customer details",
+        "query": """
+            SELECT TOP 100 o.id, o.order_date, o.total_amount, o.status,
+                   c.first_name, c.last_name, c.email, c.city
+            FROM orders o
+            JOIN customers c ON c.id = o.customer_id
+            WHERE o.order_date >= %s AND o.total_amount > 2500 AND o.status = 'completed'
+            ORDER BY o.order_date DESC
+        """,
+        "params": ("2025-06-01",),
+    },
+    {
+        "name": "inactive_customers_with_orders",
+        "description": "Aggregation on inactive customers with order totals",
+        "query": """
+            SELECT TOP 100 c.id, c.first_name, c.last_name, c.email,
+                   COUNT(o.id) AS order_count, MAX(o.order_date) AS latest_order
+            FROM customers c
+            JOIN orders o ON o.customer_id = c.id
+            WHERE c.status = %s
+            GROUP BY c.id, c.first_name, c.last_name, c.email
+            ORDER BY order_count DESC
+        """,
+        "params": ("inactive",),
+    },
+    {
+        "name": "category_and_shipping_filter",
+        "description": "Multi-column filter on category, status and price range",
+        "query": """
+            SELECT TOP 100 id, customer_id, order_date, total_amount, product_category, shipping_address
+            FROM orders
+            WHERE product_category = %s AND status = 'pending' AND total_amount BETWEEN 100 AND 1500
+            ORDER BY order_date DESC
+        """,
+        "params": ("Electronics",),
+    },
 ]
 
 

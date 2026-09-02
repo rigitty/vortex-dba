@@ -161,6 +161,7 @@ def generate_recommendations(issues: list[Issue], online: bool = True, concurren
         sorted_columns = sorted(columns_with_issues.keys(),
                                 key=lambda c: columns_with_issues[c], reverse=True)
 
+        composite_generated = False
         # Generate composite index if multiple columns
         if len(sorted_columns) > 1:
             key = (table, tuple(sorted_columns))
@@ -186,33 +187,35 @@ def generate_recommendations(issues: list[Issue], online: bool = True, concurren
                         online=online,
                         concurrent=online,
                     ))
+                    composite_generated = True
 
-        # Also generate single-column indexes for high-impact columns
-        for col in sorted_columns:
-            key = (table, (col,))
-            if key in seen:
-                continue
-            seen.add(key)
+        # Only generate single-column indexes for columns NOT already covered by the composite index
+        if not composite_generated:
+            for col in sorted_columns:
+                key = (table, (col,))
+                if key in seen:
+                    continue
+                seen.add(key)
 
-            if not is_index_redundant(table, [col]):
-                idx_name = generate_index_name(table, [col])
-                create_stmt = f"CREATE NONCLUSTERED INDEX {idx_name} ON {table} ({col});"
+                if not is_index_redundant(table, [col]):
+                    idx_name = generate_index_name(table, [col])
+                    create_stmt = f"CREATE NONCLUSTERED INDEX {idx_name} ON {table} ({col});"
 
-                max_rows = columns_with_issues[col]
-                priority = 1 if max_rows > 100000 else 2
+                    max_rows = columns_with_issues[col]
+                    priority = 1 if max_rows > 100000 else 2
 
-                recommendations.append(IndexRecommendation(
-                    table=table,
-                    columns=[col],
-                    index_type="nonclustered",
-                    reason=f"Filter condition on {table}.{col}",
-                    priority=priority,
-                    estimated_impact=estimate_impact_from_rows(max_rows),
-                    create_statement=create_stmt,
-                    index_name=idx_name,
-                    online=online,
-                    concurrent=online,
-                ))
+                    recommendations.append(IndexRecommendation(
+                        table=table,
+                        columns=[col],
+                        index_type="nonclustered",
+                        reason=f"Filter condition on {table}.{col}",
+                        priority=priority,
+                        estimated_impact=estimate_impact_from_rows(max_rows),
+                        create_statement=create_stmt,
+                        index_name=idx_name,
+                        online=online,
+                        concurrent=online,
+                    ))
 
     return prioritize_recommendations(recommendations)
 
