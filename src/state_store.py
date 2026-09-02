@@ -43,58 +43,61 @@ class AgentDecision:
     created_at: str
 
 
+def _ensure_tables(conn: sqlite3.Connection) -> None:
+    """Ensure that the state tables and indexes exist."""
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS applied_indexes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            index_name TEXT NOT NULL,
+            table_name TEXT NOT NULL,
+            columns TEXT NOT NULL,
+            create_sql TEXT NOT NULL,
+            applied_at TEXT NOT NULL,
+            rolled_back_at TEXT,
+            reason TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS benchmark_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            query_name TEXT NOT NULL,
+            mean_ms REAL NOT NULL,
+            median_ms REAL,
+            measured_at TEXT NOT NULL,
+            index_snapshot TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS agent_decisions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            decision_type TEXT NOT NULL,
+            details TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_applied_indexes_name
+            ON applied_indexes(index_name);
+        CREATE INDEX IF NOT EXISTS idx_applied_indexes_table
+            ON applied_indexes(table_name);
+        CREATE INDEX IF NOT EXISTS idx_benchmark_history_query
+            ON benchmark_history(query_name);
+        CREATE INDEX IF NOT EXISTS idx_agent_decisions_type
+            ON agent_decisions(decision_type);
+    """)
+    conn.commit()
+
+
 def _get_connection() -> sqlite3.Connection:
-    """Get a connection to the SQLite state database."""
+    """Get a connection to the SQLite state database, ensuring tables exist."""
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
+    _ensure_tables(conn)
     return conn
 
 
 def init_db() -> None:
     """Initialize the state database schema."""
     conn = _get_connection()
-    try:
-        conn.executescript("""
-            CREATE TABLE IF NOT EXISTS applied_indexes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                index_name TEXT NOT NULL,
-                table_name TEXT NOT NULL,
-                columns TEXT NOT NULL,
-                create_sql TEXT NOT NULL,
-                applied_at TEXT NOT NULL,
-                rolled_back_at TEXT,
-                reason TEXT
-            );
-
-            CREATE TABLE IF NOT EXISTS benchmark_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                query_name TEXT NOT NULL,
-                mean_ms REAL NOT NULL,
-                median_ms REAL,
-                measured_at TEXT NOT NULL,
-                index_snapshot TEXT
-            );
-
-            CREATE TABLE IF NOT EXISTS agent_decisions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                decision_type TEXT NOT NULL,
-                details TEXT NOT NULL,
-                created_at TEXT NOT NULL
-            );
-
-            CREATE INDEX IF NOT EXISTS idx_applied_indexes_name
-                ON applied_indexes(index_name);
-            CREATE INDEX IF NOT EXISTS idx_applied_indexes_table
-                ON applied_indexes(table_name);
-            CREATE INDEX IF NOT EXISTS idx_benchmark_history_query
-                ON benchmark_history(query_name);
-            CREATE INDEX IF NOT EXISTS idx_agent_decisions_type
-                ON agent_decisions(decision_type);
-        """)
-        conn.commit()
-    finally:
-        conn.close()
+    conn.close()
 
 
 def record_index_applied(index_name: str, table_name: str, columns: list[str],

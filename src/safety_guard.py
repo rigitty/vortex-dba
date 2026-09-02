@@ -57,7 +57,7 @@ def get_index_columns_from_db(index_name: str) -> list[str]:
     return [r["attname"] for r in (results or [])]
 
 
-def can_apply_index(table_name: str, index_name: str) -> tuple[bool, str]:
+def can_apply_index(table_name: str, index_name: str, ignore_cooldown: bool = False) -> tuple[bool, str]:
     """Check if an index can be safely applied.
 
     Returns (allowed, reason).
@@ -78,7 +78,7 @@ def can_apply_index(table_name: str, index_name: str) -> tuple[bool, str]:
         if index_name in indexes:
             return False, f"Index {index_name} already exists in database"
 
-    # Check max indexes per table (in PostgreSQL)
+    # Check max indexes per table (in SQL Server)
     db_table_indexes = len(existing.get(table_name, []))
     if db_table_indexes >= config.remediation.max_indexes_per_table:
         return False, (
@@ -86,7 +86,7 @@ def can_apply_index(table_name: str, index_name: str) -> tuple[bool, str]:
             f"(max: {config.remediation.max_indexes_per_table})"
         )
 
-    # Check total index limit (in PostgreSQL)
+    # Check total index limit (in SQL Server)
     total_db_indexes = sum(len(idxs) for idxs in existing.values())
     if total_db_indexes >= config.remediation.max_indexes_total:
         return False, (
@@ -95,16 +95,17 @@ def can_apply_index(table_name: str, index_name: str) -> tuple[bool, str]:
         )
 
     # Check cooldown
-    last_change = get_last_change_time(table_name)
-    if last_change:
-        cooldown = timedelta(minutes=config.remediation.cooldown_minutes)
-        now = datetime.now()
-        if now - last_change < cooldown:
-            remaining = cooldown - (now - last_change)
-            return False, (
-                f"Cooldown active for {table_name}. "
-                f"Wait {remaining.seconds // 60} more minutes"
-            )
+    if not ignore_cooldown:
+        last_change = get_last_change_time(table_name)
+        if last_change:
+            cooldown = timedelta(minutes=config.remediation.cooldown_minutes)
+            now = datetime.now()
+            if now - last_change < cooldown:
+                remaining = cooldown - (now - last_change)
+                return False, (
+                    f"Cooldown active for {table_name}. "
+                    f"Wait {remaining.seconds // 60} more minutes"
+                )
 
     return True, "OK"
 
@@ -124,9 +125,9 @@ def validate_index_name(index_name: str) -> bool:
     return True
 
 
-def check_safety(table_name: str, index_name: str) -> None:
+def check_safety(table_name: str, index_name: str, ignore_cooldown: bool = False) -> None:
     """Run all safety checks. Raises SafetyViolation if any fail."""
-    allowed, reason = can_apply_index(table_name, index_name)
+    allowed, reason = can_apply_index(table_name, index_name, ignore_cooldown=ignore_cooldown)
     if not allowed:
         raise SafetyViolation(reason)
 

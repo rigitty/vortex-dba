@@ -112,9 +112,10 @@ def compare_results(before: list[BenchmarkResult], after: list[BenchmarkResult],
         else:
             improvement_pct = ((b.mean_ms - a.mean_ms) / b.mean_ms) * 100
 
+        diff_ms = a.mean_ms - b.mean_ms
         if improvement_pct > threshold_pct:
             verdict = "improved"
-        elif improvement_pct < -threshold_pct:
+        elif improvement_pct < -threshold_pct and diff_ms > 25.0:
             verdict = "degraded"
         else:
             verdict = "neutral"

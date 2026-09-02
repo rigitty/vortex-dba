@@ -94,12 +94,28 @@ def cmd_stats(args):
     print(get_full_report())
 
 
+def cmd_ui(args):
+    """Run web dashboard."""
+    import uvicorn
+    from state_store import init_db
+    init_db()
+    print(f"\n========================================================")
+    print(f" VortexDBA Dashboard: http://localhost:{args.port}")
+    print(f"========================================================\n")
+    uvicorn.run("web_app:app", host="127.0.0.1", port=args.port, reload=False)
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="vortexdba",
         description="VortexDBA - Autonomous Database Performance Optimizer",
     )
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
+
+    # ui
+    p_ui = subparsers.add_parser("ui", help="Start web dashboard")
+    p_ui.add_argument("--port", type=int, default=8050, help="Port to run dashboard on (default: 8050)")
+    p_ui.set_defaults(func=cmd_ui)
 
     # generate
     p_generate = subparsers.add_parser("generate", help="Generate synthetic test data")

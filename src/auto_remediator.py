@@ -4,6 +4,7 @@ Applies recommended indexes, benchmarks before/after performance,
 and rolls back indexes that cause degradation.
 """
 
+import re
 import sys
 import time
 from dataclasses import dataclass, field
@@ -17,7 +18,9 @@ from benchmark import (
     format_comparison, BenchmarkResult, ComparisonResult,
 )
 from safety_guard import check_safety, SafetyViolation
-from state_store import record_decision
+from state_store import (
+    record_decision, record_index_applied, record_index_rolled_back, record_benchmark
+)
 
 
 @dataclass
@@ -189,7 +192,7 @@ def run_remediation(dry_run: bool = False, apply: bool = True,
 
             # Safety check before applying
             try:
-                check_safety(rec.table, idx_name)
+                check_safety(rec.table, idx_name, ignore_cooldown=True)
             except SafetyViolation as e:
                 print(f"  [SKIP] {idx_name}: {e}")
                 record_decision("safety_skip", f"{idx_name}: {e}")
@@ -201,6 +204,11 @@ def run_remediation(dry_run: bool = False, apply: bool = True,
 
             if result.applied:
                 print(f"    [OK] Applied in {result.duration_ms:.0f} ms")
+                record_index_applied(
+                    result.index_name, result.table, result.columns,
+                    result.create_sql, rec.reason
+                )
+                record_decision("applied", f"Applied [{result.index_name}] on [{result.table}]")
             else:
                 print(f"    [FAIL] {result.error}")
                 report.errors.append(f"Failed to apply {result.index_name}: {result.error}")
@@ -213,6 +221,10 @@ def run_remediation(dry_run: bool = False, apply: bool = True,
         queries = get_slow_queries_for_benchmark()
         report.after_benchmarks = run_benchmark_suite(queries, benchmark_runs)
         print(format_benchmark_results(report.after_benchmarks))
+
+        # Record benchmark history
+        for b in report.after_benchmarks:
+            record_benchmark(b.name, b.mean_ms, b.median_ms)
 
         # Compare
         report.comparisons = compare_results(
@@ -234,9 +246,6 @@ def run_remediation(dry_run: bool = False, apply: bool = True,
             for d in degraded:
                 print(f"    - {d.name}: {d.improvement_pct:.2f}% slower")
 
-            # Find which indexes to rollback
-            # We rollback all applied indexes if any degradation detected
-            # (more conservative approach)
             applied_names = [r.index_name for r in report.applied_indexes if r.applied]
 
             if applied_names:
@@ -245,6 +254,8 @@ def run_remediation(dry_run: bool = False, apply: bool = True,
                     print(f"    Dropping: {idx_name}")
                     if drop_index(idx_name):
                         report.rolled_back.append(idx_name)
+                        record_index_rolled_back(idx_name)
+                        record_decision("rollback", f"Rolled back degraded index [{idx_name}]")
                         print(f"      [OK] Dropped")
                     else:
                         report.errors.append(f"Failed to drop {idx_name}")

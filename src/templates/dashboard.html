@@ -3,198 +3,408 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VortexDBA - Performans Dashboard</title>
+    <title>VortexDBA - Otonom Veritabanı Yöneticisi</title>
     <style>
+        :root {
+            --bg-main: #0b1120;
+            --bg-card: #1e293b;
+            --bg-header: #0f172a;
+            --border-color: #334155;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-blue: #38bdf8;
+            --accent-green: #34d399;
+            --accent-yellow: #fbbf24;
+            --accent-red: #f87171;
+        }
+
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: var(--bg-main); color: var(--text-primary); min-height: 100vh; line-height: 1.5; }
         
         /* Header */
-        .header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-bottom: 1px solid #334155; padding: 20px 30px; display: flex; justify-content: space-between; align-items: center; }
-        .header h1 { font-size: 1.5em; color: #38bdf8; }
-        .header h1 span { color: #94a3b8; font-weight: 300; }
-        .status-badge { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 20px; font-size: 0.9em; }
-        .status-healthy { background: #064e3b; color: #34d399; }
-        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #34d399; animation: pulse 2s infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .header { background: var(--bg-header); border-bottom: 1px solid var(--border-color); padding: 18px 32px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+        .header-title h1 { font-size: 1.4em; color: var(--accent-blue); font-weight: 700; display: flex; align-items: center; gap: 10px; }
+        .header-title h1 span { color: var(--text-secondary); font-weight: 300; font-size: 0.85em; }
+        .header-actions { display: flex; align-items: center; gap: 12px; }
         
+        .status-badge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 20px; font-size: 0.85em; font-weight: 600; background: #064e3b; color: var(--accent-green); border: 1px solid #059669; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-green); animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.85); } }
+
         /* Container */
-        .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+        .container { max-width: 1440px; margin: 0 auto; padding: 24px 32px; }
+
+        /* Action Center Toolbar */
+        .action-bar { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+        .action-title { font-size: 0.9em; font-weight: 700; color: var(--accent-blue); text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 6px; }
+        .action-buttons { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+        .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; font-size: 0.85em; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; text-decoration: none; color: #fff; }
+        .btn:hover { transform: translateY(-1px); filter: brightness(1.1); }
+        .btn:active { transform: translateY(1px); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
         
+        .btn-primary { background: #0284c7; }
+        .btn-success { background: #059669; }
+        .btn-warning { background: #d97706; }
+        .btn-danger { background: #dc2626; }
+        .btn-secondary { background: #334155; }
+        .btn-sm { padding: 4px 10px; font-size: 0.75em; border-radius: 6px; }
+
         /* Summary Cards */
         .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
-        .summary-card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; }
-        .summary-card .label { font-size: 0.85em; color: #94a3b8; margin-bottom: 8px; }
-        .summary-card .value { font-size: 2em; font-weight: 700; }
+        .summary-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; position: relative; }
+        .summary-card .label { font-size: 0.8em; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+        .summary-card .value { font-size: 2.2em; font-weight: 800; }
         .summary-card .subtext { font-size: 0.8em; color: #64748b; margin-top: 4px; }
-        .value-blue { color: #38bdf8; }
-        .value-green { color: #34d399; }
-        .value-yellow { color: #fbbf24; }
-        .value-red { color: #f87171; }
-        
-        /* Main Grid */
-        .main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .full-width { grid-column: 1 / -1; }
-        
-        /* Cards */
-        .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; overflow: hidden; }
-        .card-header { background: #0f172a; padding: 16px 20px; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
-        .card-header h2 { font-size: 1em; color: #e2e8f0; display: flex; align-items: center; gap: 8px; }
-        .card-header .icon { font-size: 1.2em; }
-        .card-body { padding: 20px; }
-        
+        .val-blue { color: var(--accent-blue); }
+        .val-green { color: var(--accent-green); }
+        .val-yellow { color: var(--accent-yellow); }
+        .val-red { color: var(--accent-red); }
+
+        /* Section Cards */
+        .section-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; margin-bottom: 24px; overflow: hidden; }
+        .section-header { background: var(--bg-header); padding: 16px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+        .section-header h2 { font-size: 1.05em; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+        .section-body { padding: 20px; }
+
+        /* Two columns */
+        .two-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+
+        /* Info Guide Box */
+        .guide-box { background: rgba(56, 189, 248, 0.08); border-left: 4px solid var(--accent-blue); padding: 12px 16px; border-radius: 0 8px 8px 0; margin-bottom: 16px; font-size: 0.85em; color: #bae6fd; }
+        .guide-box strong { color: #f0f9ff; }
+
         /* Tables */
-        table { width: 100%; border-collapse: collapse; }
-        th { text-align: left; padding: 10px 12px; color: #94a3b8; font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #334155; }
-        td { padding: 12px; border-bottom: 1px solid #1e293b; font-size: 0.9em; }
-        tr:hover td { background: #0f172a; }
-        
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th { padding: 10px 12px; color: var(--text-secondary); font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border-color); font-weight: 600; }
+        td { padding: 12px; border-bottom: 1px solid rgba(51, 65, 85, 0.5); font-size: 0.85em; vertical-align: middle; }
+        tr:hover td { background: rgba(15, 23, 42, 0.5); }
+
         /* Badges */
-        .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 0.75em; font-weight: 600; }
-        .badge-success { background: #064e3b; color: #34d399; }
-        .badge-warning { background: #78350f; color: #fbbf24; }
-        .badge-danger { background: #7f1d1d; color: #f87171; }
-        .badge-info { background: #0c4a6e; color: #38bdf8; }
-        
-        /* Progress Bar */
-        .progress-bar { height: 6px; background: #334155; border-radius: 3px; overflow: hidden; margin-top: 8px; }
-        .progress-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
-        
-        /* Empty State */
-        .empty-state { text-align: center; padding: 40px; color: #64748b; }
-        .empty-state .icon { font-size: 2em; margin-bottom: 12px; }
-        
-        /* Loading */
-        .loading { text-align: center; padding: 40px; color: #64748b; }
-        .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid #334155; border-top-color: #38bdf8; border-radius: 50%; animation: spin 1s linear infinite; }
+        .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; font-size: 0.72em; font-weight: 700; text-transform: uppercase; }
+        .badge-success { background: rgba(5, 150, 105, 0.2); color: var(--accent-green); border: 1px solid rgba(5, 150, 105, 0.4); }
+        .badge-warning { background: rgba(217, 119, 6, 0.2); color: var(--accent-yellow); border: 1px solid rgba(217, 119, 6, 0.4); }
+        .badge-danger { background: rgba(220, 38, 38, 0.2); color: var(--accent-red); border: 1px solid rgba(220, 38, 38, 0.4); }
+        .badge-info { background: rgba(2, 132, 199, 0.2); color: var(--accent-blue); border: 1px solid rgba(2, 132, 199, 0.4); }
+
+        /* Code snippets */
+        .code-box { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; background: #0f172a; padding: 4px 8px; border-radius: 6px; color: #e2e8f0; font-size: 0.8em; border: 1px solid var(--border-color); word-break: break-all; }
+
+        /* Toast */
+        #toast { position: fixed; bottom: 24px; right: 24px; min-width: 320px; max-width: 480px; background: #1e293b; border: 1px solid var(--accent-blue); color: #f8fafc; padding: 16px 20px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); display: none; z-index: 1000; animation: slideUp 0.3s ease; }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        /* Modal */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: none; justify-content: center; align-items: center; z-index: 999; backdrop-filter: blur(4px); }
+        .modal-content { background: #1e293b; border: 1px solid var(--border-color); border-radius: 12px; width: 90%; max-width: 720px; max-height: 85vh; overflow-y: auto; padding: 24px; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .modal-title { font-size: 1.2em; font-weight: 700; color: var(--accent-blue); }
+
+        /* Spinner & Empty */
+        .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border-color); border-top-color: var(--accent-blue); border-radius: 50%; animation: spin 1s linear infinite; vertical-align: middle; margin-right: 6px; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        
-        /* Tooltip */
-        .tooltip { position: relative; cursor: help; }
-        .tooltip::after { content: attr(data-tip); position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); background: #0f172a; color: #e2e8f0; padding: 6px 10px; border-radius: 6px; font-size: 0.8em; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.2s; border: 1px solid #334155; }
-        .tooltip:hover::after { opacity: 1; }
-        
-        /* Responsive */
-        @media (max-width: 768px) {
+        .empty-state { text-align: center; padding: 32px; color: var(--text-secondary); }
+        .empty-state .icon { font-size: 2.2em; margin-bottom: 8px; }
+
+        /* Filter Tabs */
+        .filter-tab { background: transparent; border: none; color: #94a3b8; padding: 4px 10px; border-radius: 6px; font-size: 0.78em; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .filter-tab:hover { color: #f8fafc; }
+        .filter-tab.active { background: #0284c7; color: #fff; }
+
+        .speed-box { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 0.85em; font-weight: 700; }
+        .speed-baseline { background: rgba(220, 38, 38, 0.15); border: 1px solid rgba(220, 38, 38, 0.35); color: #fca5a5; }
+        .speed-current { background: rgba(5, 150, 105, 0.2); border: 1px solid rgba(5, 150, 105, 0.45); color: #6ee7b7; box-shadow: 0 0 10px rgba(52, 211, 153, 0.12); }
+        .speed-current-slow { background: rgba(217, 119, 6, 0.2); border: 1px solid rgba(217, 119, 6, 0.45); color: #fde047; }
+        .speed-multiplier { background: linear-gradient(135deg, #065f46, #047857); color: #ecfdf5; padding: 3px 8px; border-radius: 6px; font-weight: 800; font-size: 0.76em; border: 1px solid #10b981; }
+
+        .progress-bar-bg { background: #0f172a; height: 6px; width: 100%; border-radius: 3px; overflow: hidden; margin-top: 4px; border: 1px solid #1e293b; }
+        .progress-bar-fill { background: linear-gradient(90deg, #38bdf8, #34d399); height: 100%; border-radius: 3px; transition: width 0.5s ease; }
+
+        @media (max-width: 900px) {
             .summary-grid { grid-template-columns: repeat(2, 1fr); }
-            .main-grid { grid-template-columns: 1fr; }
+            .two-cols { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
-    <!-- Header -->
+    <!-- Top Header -->
     <div class="header">
-        <h1>VortexDBA <span>| Performans Dashboard</span></h1>
-        <div id="health-badge" class="status-badge status-healthy">
-            <span class="status-dot"></span>
-            <span>Bağlantı Kuruluyor...</span>
+        <div class="header-title">
+            <h1>⚡ VortexDBA <span>| Otonom Veritabanı Yöneticisi</span></h1>
+        </div>
+        <div class="header-actions">
+            <div id="health-badge" class="status-badge">
+                <span class="status-dot"></span>
+                <span>SQL Server Bağlı</span>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="loadAll(true)">🔄 Verileri Yenile</button>
         </div>
     </div>
 
     <div class="container">
-        <!-- Summary Cards -->
-        <div class="summary-grid">
-            <div class="summary-card">
-                <div class="label">Toplam Tablo</div>
-                <div class="value value-blue" id="total-tables">-</div>
-                <div class="subtext">customers, orders</div>
+        <!-- 1. Interactive Action Toolbar -->
+        <div class="action-bar">
+            <div class="action-title">
+                <span>🎮 Otonom İşlem Merkezi</span>
             </div>
-            <div class="summary-card">
-                <div class="label">Toplam Satır</div>
-                <div class="value value-green" id="total-rows">-</div>
-                <div class="subtext">Tüm tablolardaki kayıtlar</div>
-            </div>
-            <div class="summary-card">
-                <div class="label">Aktif İndeks</div>
-                <div class="value value-yellow" id="total-indexes">-</div>
-                <div class="subtext">Veritabanındaki indeksler</div>
-            </div>
-            <div class="summary-card">
-                <div class="label">Kullanılmayan İndeks</div>
-                <div class="value value-red" id="unused-count">-</div>
-                <div class="subtext" id="unused-size">Silinebilir alan hesaplanıyor...</div>
+            <div class="action-buttons">
+                <button class="btn btn-primary" onclick="actionSimulateLoad()" id="btn-load">
+                    <span>⚡ 1. Yavaş Trafik Üret</span>
+                </button>
+                <button class="btn btn-success" onclick="actionRemediate(false)" id="btn-remediate">
+                    <span>🚀 2. Otomatik İyileştir & Uygula</span>
+                </button>
+                <button class="btn btn-warning" onclick="actionRunBenchmark()" id="btn-bench">
+                    <span>📊 3. Canlı Hız & Benchmark Testi</span>
+                </button>
+                <button class="btn btn-danger" onclick="actionResetAllIndexes()" id="btn-reset">
+                    <span>🧹 Tüm Özel İndeksleri Sıfırla</span>
+                </button>
             </div>
         </div>
 
-        <!-- Main Content -->
-        <div class="main-grid">
-            <!-- Tablo İstatistikleri -->
-            <div class="card">
-                <div class="card-header">
-                    <h2><span class="icon">📊</span> Tablo İstatistikleri</h2>
-                    <span class="badge badge-info">Gerçek Zamanlı</span>
+        <!-- Live Terminal / Console Window -->
+        <div class="terminal-card" style="margin-bottom: 24px; border-radius: 10px; overflow: hidden; border: 1px solid #1e293b; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+            <div class="terminal-header" style="background: #090e1a; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="width: 12px; height: 12px; border-radius: 50%; background: #ef4444; display: inline-block;"></span>
+                    <span style="width: 12px; height: 12px; border-radius: 50%; background: #f59e0b; display: inline-block;"></span>
+                    <span style="width: 12px; height: 12px; border-radius: 50%; background: #10b981; display: inline-block;"></span>
+                    <span style="font-family: monospace; font-size: 0.85em; color: #94a3b8; margin-left: 8px; font-weight: 600;">💻 VortexDBA Canlı Konsol (Real-Time Output Stream)</span>
                 </div>
-                <div class="card-body">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span id="terminal-status" style="font-size: 0.78em; font-family: monospace; color: #34d399; font-weight: 600;">● HAZIR</span>
+                    <button class="btn btn-secondary btn-sm" style="padding: 3px 10px; font-size: 0.75em;" onclick="clearTerminal()">🧹 Temizle</button>
+                </div>
+            </div>
+            <div id="terminal-body" style="background: #040711; font-family: 'Consolas', 'Fira Code', 'Courier New', monospace; font-size: 0.86em; line-height: 1.6; color: #cbd5e1; padding: 16px; height: 260px; overflow-y: auto; white-space: pre-wrap; word-break: break-word;"><span style="color:#38bdf8;">⚡ VortexDBA Canlı Konsola Hoş Geldiniz!</span>
+<span style="color:#64748b;">Yukarıdaki işlem butonlarına bastığınızda tüm SQL Server ve benchmark çıktıları bu ekranda anlık akacaktır.</span></div>
+        </div>
+
+        <!-- 2. High-Level Summary Cards -->
+        <div class="summary-grid">
+            <div class="summary-card">
+                <div class="label">🗄️ Toplam Tablo & Satır</div>
+                <div class="value val-blue" id="total-rows">-</div>
+                <div class="subtext" id="total-tables">customers, orders</div>
+            </div>
+            <div class="summary-card">
+                <div class="label">📈 İndeksli Okuma Oranı</div>
+                <div class="value val-green" id="health-score">-%</div>
+                <div class="subtext" id="health-label">Taramaların indeksle yapılma oranı</div>
+            </div>
+            <div class="summary-card">
+                <div class="label">🐢 Darboğaz Yapan Sorgular</div>
+                <div class="value val-yellow" id="slow-count">-</div>
+                <div class="subtext">Yavaş çalışan sorgu sayısı</div>
+            </div>
+            <div class="summary-card">
+                <div class="label">🗑️ Kullanılmayan Atıl İndeks</div>
+                <div class="value val-red" id="unused-count">-</div>
+                <div class="subtext" id="unused-size">Geri kazanılabilir disk alanı</div>
+            </div>
+        </div>
+
+        <!-- 3. Section: Performance Matrix (İndekssiz vs İndeksli Sorgu Hızları) -->
+        <div class="section-card" style="border-color: #0284c7; box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
+            <div class="section-header" style="background: linear-gradient(90deg, #091224, #0f172a);">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <h2><span>🚀</span> 1. Sorgu Performans & İndeks Karşılaştırma Matrisi (Öncesi vs Sonrası)</h2>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <div style="display: flex; gap: 4px; background: #0b1120; padding: 4px; border-radius: 8px; border: 1px solid #1e293b;">
+                        <button class="filter-tab active" onclick="setMatrixFilter('all')" id="mf-all">Tüm Sorgular (8)</button>
+                        <button class="filter-tab" onclick="setMatrixFilter('optimized')" id="mf-opt">🚀 Hızlandırılmış</button>
+                        <button class="filter-tab" onclick="setMatrixFilter('pending')" id="mf-pend">🐢 İndeks Bekleyen</button>
+                    </div>
+                    <select id="matrix-sort" onchange="renderMatrixTable()" style="background:#0b1120; color:#94a3b8; border:1px solid #334155; padding:5px 10px; border-radius:6px; font-size:0.8em; font-weight:600; cursor:pointer;">
+                        <option value="slowest">🔻 En Yavaştan Hızlıya</option>
+                        <option value="speedup">🚀 En Çok Hızlananlar</option>
+                        <option value="fastest">⚡ En Hızlıdan Yavaşa</option>
+                    </select>
+                </div>
+            </div>
+            <div class="section-body">
+                <div class="guide-box">
+                    <strong>💡 Bu Tablo Ne Anlatıyor?</strong> Sistemde çalıştırılan her bir sorgunun <u>hiç indeks yokken (0 İndeks)</u> ne kadar yavaş çalıştığı ile <u>indeks eklendikten sonraki canlı hızını</u>, hangi indeksin bu sorguyu hızlandırdığını ve kaç kat kazanç sağlandığını gösterir.
+                </div>
+                <div id="performance-matrix" class="loading"><span class="spinner"></span> Performans matrisi yükleniyor...</div>
+            </div>
+        </div>
+
+        <!-- 4. Section: Yavaş Sorgular & İndeks Tavsiyeleri -->
+        <div class="section-card">
+            <div class="section-header">
+                <h2><span>🐢</span> 2. Tespit Edilen Yavaş Sorgular & VortexDBA Tavsiyeleri</h2>
+                <span class="badge badge-warning">Öncelikli Darboğazlar</span>
+            </div>
+            <div class="section-body">
+                <div class="guide-box">
+                    <strong>💡 Bu Bölüm Ne İfade Ediyor?</strong> SQL Server'da en çok zaman ve CPU harcayan sorguları gösterir. VortexDBA bu sorguları analiz ederek hızlandırmak için gerekli <code>CREATE INDEX</code> komutlarını otomatik önerir.
+                </div>
+                <div id="slow-queries" class="loading"><span class="spinner"></span> Yükleniyor...</div>
+            </div>
+        </div>
+
+        <!-- 5. Two Column Section: Tablo İstatistikleri & İndeks Kullanımı -->
+        <div class="two-cols">
+            <!-- Tablo İstatistikleri -->
+            <div class="section-card">
+                <div class="section-header">
+                    <h2><span>📊</span> 3. Tablo İstatistikleri (Okuma Durumu)</h2>
+                    <span class="badge badge-info">Table vs Index Scan</span>
+                </div>
+                <div class="section-body">
+                    <div class="guide-box">
+                        <strong>💡 Nasıl Yorumlanır?</strong> <code>Seq Tarama</code> tablonun tamamının baştan sona tek tek taranmasıdır (kötü). <code>İndeks Tarama</code> ise doğrudan hedefe gidilmesidir (iyi).
+                    </div>
                     <div id="table-stats" class="loading"><span class="spinner"></span> Yükleniyor...</div>
                 </div>
             </div>
 
-            <!-- İndeks Kullanımı -->
-            <div class="card">
-                <div class="card-header">
-                    <h2><span class="icon">🔍</span> İndeks Kullanımı</h2>
-                    <span class="badge badge-info">Tarama Sayıları</span>
+            <!-- Kullanılmayan İndeksler (Temizlik) -->
+            <div class="section-card">
+                <div class="section-header">
+                    <h2><span>🗑️</span> 4. Kullanılmayan Atıl İndeksler (Temizlik)</h2>
+                    <span class="badge badge-danger">Gereksiz Maliyet</span>
                 </div>
-                <div class="card-body">
-                    <div id="index-stats" class="loading"><span class="spinner"></span> Yükleniyor...</div>
-                </div>
-            </div>
-
-            <!-- Yavaş Sorgular -->
-            <div class="card full-width">
-                <div class="card-header">
-                    <h2><span class="icon">🐢</span> En Yavaş Sorgular</h2>
-                    <span class="badge badge-warning">İyileştirme Gerekli</span>
-                </div>
-                <div class="card-body">
-                    <div id="slow-queries" class="loading"><span class="spinner"></span> Yükleniyor...</div>
-                </div>
-            </div>
-
-            <!-- Kullanılmayan İndeksler -->
-            <div class="card">
-                <div class="card-header">
-                    <h2><span class="icon">🗑️</span> Kullanılmayan İndeksler</h2>
-                    <span class="badge badge-danger">Temizlik Gerekli</span>
-                </div>
-                <div class="card-body">
+                <div class="section-body">
+                    <div class="guide-box">
+                        <strong>💡 Neden Silinmeli?</strong> Hiçbir sorguda aranmayan indeksler, yeni veri eklenirken (`INSERT/UPDATE`) veritabanını yavaşlatır ve disk doldurur. Tek tıkla silebilirsiniz.
+                    </div>
                     <div id="unused-indexes" class="loading"><span class="spinner"></span> Yükleniyor...</div>
                 </div>
             </div>
+        </div>
 
-            <!-- Agent Kararları -->
-            <div class="card">
-                <div class="card-header">
-                    <h2><span class="icon">🤖</span> Son Agent Kararları</h2>
-                    <span class="badge badge-success">Otonom</span>
+        <!-- 6. Two Column Section: Eklenen Özel İndeksler & İndeks Tarama Sayıları -->
+        <div class="two-cols">
+            <!-- Eklenen Özel İndeksler -->
+            <div class="section-card">
+                <div class="section-header">
+                    <h2><span>✨</span> 5. Sizin / VortexDBA'nın Eklediği Özel İndeksler</h2>
+                    <span class="badge badge-success">Canlı Özel İndeksler</span>
                 </div>
-                <div class="card-body">
-                    <div id="decisions" class="loading"><span class="spinner"></span> Yükleniyor...</div>
+                <div class="section-body">
+                    <div class="guide-box">
+                        <strong>💡 Bu Bölüm Ne?</strong> VortexDBA'nın otomatik olarak test edip canlıya aldığı ya da sizin eklediğiniz özel indekslerin listesidir (Primary Key'ler hariçtir).
+                    </div>
+                    <div id="applied-indexes" class="loading"><span class="spinner"></span> Yükleniyor...</div>
                 </div>
             </div>
 
-            <!-- Konfigürasyon -->
-            <div class="card full-width">
-                <div class="card-header">
-                    <h2><span class="icon">⚙️</span> Sistem Konfigürasyonu</h2>
-                    <span class="badge badge-info">Ayarlar</span>
+            <!-- Son Agent Kararları -->
+            <div class="section-card">
+                <div class="section-header">
+                    <h2><span>🤖</span> 6. Son Otonom Kararlar (Audit Log)</h2>
+                    <span class="badge badge-success">Güvenlik & Geçmiş</span>
                 </div>
-                <div class="card-body">
-                    <div id="config-info" class="loading"><span class="spinner"></span> Yükleniyor...</div>
+                <div class="section-body">
+                    <div class="guide-box">
+                        <strong>💡 Karar Anlamları:</strong> <code>applied</code> = İndeks eklendi | <code>safety_skip</code> = Güvenlik kuralı nedeniyle reddedildi | <code>rollback</code> = Geri alındı.
+                    </div>
+                    <div id="decisions" class="loading"><span class="spinner"></span> Yükleniyor...</div>
                 </div>
+            </div>
+        </div>
+
+        <!-- 7. İndeks Tarama Sayıları (DMV Sayaçları) -->
+        <div class="section-card">
+            <div class="section-header">
+                <h2><span>🔍</span> 7. Tüm İndekslerin Tarama Sayıları (DMV Metrikleri)</h2>
+                <span class="badge badge-info">sys.dm_db_index_usage_stats</span>
+            </div>
+            <div class="section-body">
+                <div id="index-stats" class="loading"><span class="spinner"></span> Yükleniyor...</div>
             </div>
         </div>
     </div>
 
+    <!-- Action Modal -->
+    <div id="action-modal" class="modal-overlay" onclick="closeModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <div class="modal-title" id="modal-title">İşlem Sonucu</div>
+                <button class="btn btn-secondary btn-sm" onclick="closeModalDirect()">✕ Kapat</button>
+            </div>
+            <div class="modal-body" id="modal-body">Yükleniyor...</div>
+        </div>
+    </div>
+
+    <!-- Global Loading Overlay Modal (Cannot be closed while running) -->
+    <div id="loading-modal" class="modal-overlay" style="display:none; z-index: 10000; background: rgba(11, 17, 32, 0.88); backdrop-filter: blur(8px);">
+        <div class="modal-content" style="max-width: 460px; text-align: center; padding: 40px 28px; border: 1px solid #38bdf8; box-shadow: 0 25px 60px rgba(0,0,0,0.85); animation: zoomIn 0.2s ease;">
+            <div style="margin-bottom: 24px;">
+                <div style="width: 58px; height: 58px; border: 4px solid #334155; border-top-color: #38bdf8; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto;"></div>
+            </div>
+            <h3 id="loading-title" style="font-size: 1.3em; color: #f8fafc; margin-bottom: 8px; font-weight: 700;">İşlem Yürütülüyor...</h3>
+            <p id="loading-desc" style="font-size: 0.88em; color: #94a3b8; line-height: 1.6; margin-bottom: 20px;">Lütfen bekleyin, veritabanı operasyonu tamamlanıyor.</p>
+            <div style="display: inline-flex; align-items: center; gap: 8px; background: #0f172a; padding: 6px 16px; border-radius: 20px; font-size: 0.85em; color: #38bdf8; border: 1px solid #334155;">
+                <span>⏱️ Geçen Süre:</span> <strong id="loading-timer">0 sn</strong>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast"></div>
+
     <script>
         const API = '';
-        
-        async function fetchJSON(endpoint) {
+
+        let timerInterval = null;
+        let timerSeconds = 0;
+
+        function showLoading(title, desc) {
+            document.getElementById('loading-title').textContent = title || 'İşlem Yürütülüyor...';
+            document.getElementById('loading-desc').textContent = desc || 'Lütfen bekleyin, işlem tamamlanıyor.';
+            document.getElementById('loading-timer').textContent = '0 sn';
+            timerSeconds = 0;
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timerSeconds++;
+                document.getElementById('loading-timer').textContent = timerSeconds + ' sn';
+            }, 1000);
+            document.getElementById('loading-modal').style.display = 'flex';
+        }
+
+        function hideLoading() {
+            clearInterval(timerInterval);
+            document.getElementById('loading-modal').style.display = 'none';
+        }
+
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.style.borderColor = isError ? '#f87171' : '#38bdf8';
+            toast.style.display = 'block';
+            setTimeout(() => { toast.style.display = 'none'; }, 4000);
+        }
+
+        function showModal(title, contentHtml) {
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-body').innerHTML = contentHtml;
+            document.getElementById('action-modal').style.display = 'flex';
+        }
+
+        function closeModal(e) {
+            if (e.target.id === 'action-modal') closeModalDirect();
+        }
+
+        function closeModalDirect() {
+            document.getElementById('action-modal').style.display = 'none';
+        }
+
+        async function fetchJSON(endpoint, options = {}) {
             try {
-                const r = await fetch(API + endpoint);
-                if (!r.ok) throw new Error(`HTTP ${r.status}`);
-                return await r.json();
+                const r = await fetch(API + endpoint, options);
+                const data = await r.json();
+                if (data && data.error) {
+                    console.warn(`API Uyarısı [${endpoint}]:`, data.error);
+                }
+                return data;
             } catch (e) {
-                console.error(`API hatası: ${endpoint}`, e);
+                console.error(`API Hatası [${endpoint}]:`, e);
                 return null;
             }
         }
@@ -205,12 +415,14 @@
         }
 
         function fmtSize(bytes) {
+            if (!bytes || bytes === 0) return '0 B';
             if (bytes < 1024) return bytes + ' B';
             if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
             return (bytes / 1048576).toFixed(1) + ' MB';
         }
 
         function timeAgo(ts) {
+            if (!ts) return '-';
             const diff = Date.now() - new Date(ts).getTime();
             const mins = Math.floor(diff / 60000);
             if (mins < 1) return 'Az önce';
@@ -220,21 +432,158 @@
             return Math.floor(hrs / 24) + ' gün önce';
         }
 
-        function scanRatio(seq, idx) {
-            const total = seq + idx;
-            if (total === 0) return { pct: 0, label: 'Veri yok', cls: 'badge-info' };
-            const pct = ((idx / total) * 100).toFixed(1);
-            if (pct > 80) return { pct, label: pct + '% indeks', cls: 'badge-success' };
-            if (pct > 50) return { pct, label: pct + '% indeks', cls: 'badge-warning' };
-            return { pct, label: pct + '% indeks', cls: 'badge-danger' };
+        let matrixData = [];
+        let matrixFilter = 'all';
+
+        function setMatrixFilter(filter) {
+            matrixFilter = filter;
+            document.getElementById('mf-all').className = filter === 'all' ? 'filter-tab active' : 'filter-tab';
+            document.getElementById('mf-opt').className = filter === 'optimized' ? 'filter-tab active' : 'filter-tab';
+            document.getElementById('mf-pend').className = filter === 'pending' ? 'filter-tab active' : 'filter-tab';
+            renderMatrixTable();
+        }
+
+        async function loadPerformanceMatrix() {
+            const d = await fetchJSON('/api/performance-matrix');
+            if (!d || !d.matrix) return;
+            matrixData = d.matrix;
+            renderMatrixTable();
+        }
+
+        function renderMatrixTable() {
+            if (!matrixData || !matrixData.length) {
+                document.getElementById('performance-matrix').innerHTML = '<div class="empty-state"><div class="icon">📊</div>Performans verisi bulunamadı.</div>';
+                return;
+            }
+
+            const sortBy = document.getElementById('matrix-sort')?.value || 'slowest';
+            let list = [...matrixData];
+
+            // Filtering
+            if (matrixFilter === 'optimized') {
+                list = list.filter(item => item.has_index || item.speedup_pct > 0);
+            } else if (matrixFilter === 'pending') {
+                list = list.filter(item => !item.has_index && item.current_ms > 40);
+            }
+
+            // Sorting
+            if (sortBy === 'slowest') {
+                // Default: Sort from slowest to fastest
+                list.sort((a, b) => (b.has_index ? b.baseline_ms : b.current_ms) - (a.has_index ? a.baseline_ms : a.current_ms));
+            } else if (sortBy === 'speedup') {
+                list.sort((a, b) => b.multiplier - a.multiplier);
+            } else if (sortBy === 'fastest') {
+                list.sort((a, b) => a.current_ms - b.current_ms);
+            }
+
+            let html = `<table>
+                <thead>
+                    <tr>
+                        <th style="width:28%;">Sorgu Senaryosu & Tablo</th>
+                        <th style="width:14%;">İndekssiz Ham Hız <span style="font-size:0.75em; color:#94a3b8;">(0 İndeks)</span></th>
+                        <th style="width:14%;">İndeksli Canlı Hız <span style="font-size:0.75em; color:#94a3b8;">(Mevcut)</span></th>
+                        <th style="width:20%;">Etkileyen / İlgili İndeks</th>
+                        <th style="width:14%;">Hızlanma Oranı</th>
+                        <th style="width:10%;">Durum</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+
+            list.forEach((item, idx) => {
+                const speedClass = (item.current_ms && item.current_ms < 15) ? 'speed-current' : ((item.current_ms && item.current_ms < 60) ? 'speed-current-slow' : 'speed-baseline');
+
+                let indexBadge = '';
+                if (item.active_indexes && item.active_indexes.length) {
+                    indexBadge = `<div style="display:flex; flex-direction:column; gap:4px;">
+                        ${item.active_indexes.map(idxName => `<span class="badge badge-success" title="Bu indeks SQL Server'da aktif ve sorguyu hızlandırıyor">✅ ${idxName}</span>`).join('')}
+                    </div>`;
+                } else {
+                    indexBadge = `<span class="badge badge-danger" style="font-size:0.75em; padding:4px 8px;" title="Bu sorguyu hızlandıracak bir indeks SQL Server'da henüz mevcut değil">⚠️ İndekssiz (Table Scan)</span>`;
+                }
+
+                let speedCellHtml = '';
+                let speedupHtml = '';
+
+                if (!item.has_index) {
+                    speedCellHtml = `<span style="color:#64748b; font-size:0.82em; font-family:ui-monospace, monospace; font-weight:600; background:#0f172a; padding:4px 8px; border-radius:6px; border:1px solid #1e293b; display:inline-block;">— (İndeks Yok)</span>`;
+                    speedupHtml = `<span style="color:#64748b; font-size:0.82em;">İndekssiz Durum</span>`;
+                } else if (item.current_ms === null || item.current_ms === undefined) {
+                    speedCellHtml = `<span style="color:#fbbf24; font-size:0.82em; font-weight:600; background:#0f172a; padding:4px 8px; border-radius:6px; border:1px solid #3b2d07; display:inline-block;">⏳ Test Edilmedi</span>`;
+                    speedupHtml = `<span style="color:#94a3b8; font-size:0.82em;">Ölçüm Bekliyor</span>`;
+                } else {
+                    speedCellHtml = `
+                        <div class="speed-box ${speedClass}">
+                            <span>⚡</span> ${item.current_ms} ms
+                        </div>
+                        <div style="font-size:0.72em; color:#34d399; margin-top:3px;">İndeksle Ölçüldü</div>
+                    `;
+                    speedupHtml = `
+                        <div style="display:flex; align-items:center; justify-content:space-between;">
+                            <strong style="color:#34d399; font-size:0.9em;">▲ %${item.speedup_pct}</strong>
+                            <span class="speed-multiplier">${item.multiplier}x Hızlı</span>
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill" style="width:${Math.min(item.speedup_pct, 100)}%;"></div>
+                        </div>
+                    `;
+                }
+
+                html += `
+                    <tr>
+                        <td>
+                            <div style="font-weight:700; color:#f8fafc; font-size:0.92em; margin-bottom:2px;">
+                                ${item.title}
+                            </div>
+                            <div style="font-size:0.78em; color:#94a3b8; margin-bottom:4px;">
+                                Tablo: <code>${item.table}</code> | Kolon: <code>${item.columns}</code>
+                            </div>
+                            <div style="font-size:0.75em; color:#64748b;">
+                                ${item.description}
+                            </div>
+                            <div style="margin-top:6px;">
+                                <a href="javascript:void(0)" onclick="toggleSqlRow('sql-${idx}')" style="font-size:0.75em; color:#38bdf8; text-decoration:none; font-weight:600;">
+                                    📝 SQL Kodunu Gör ▾
+                                </a>
+                            </div>
+                            <div id="sql-${idx}" style="display:none; margin-top:8px; background:#080d1a; padding:8px 12px; border-radius:6px; border:1px solid #1e293b; font-family:monospace; font-size:0.78em; color:#cbd5e1; white-space:pre-wrap;">${item.query_sql}</div>
+                        </td>
+                        <td>
+                            <div class="speed-box speed-baseline">
+                                <span>⏱️</span> ${item.baseline_ms} ms
+                            </div>
+                            <div style="font-size:0.72em; color:#f87171; margin-top:3px;">Table Scan Taraması</div>
+                        </td>
+                        <td>
+                            ${speedCellHtml}
+                        </td>
+                        <td>
+                            ${indexBadge}
+                        </td>
+                        <td>
+                            ${speedupHtml}
+                        </td>
+                        <td>
+                            <span class="badge ${item.status_class}">${item.status_label}</span>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += `</tbody></table>`;
+            document.getElementById('performance-matrix').innerHTML = html;
+        }
+
+        function toggleSqlRow(id) {
+            const el = document.getElementById(id);
+            if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
         }
 
         async function loadHealth() {
             const d = await fetchJSON('/health');
             const el = document.getElementById('health-badge');
             if (d && d.status === 'healthy') {
-                el.innerHTML = '<span class="status-dot"></span><span>Sistem Aktif</span>';
-                el.className = 'status-badge status-healthy';
+                el.innerHTML = '<span class="status-dot"></span><span>SQL Server Bağlı & Aktif</span>';
+                el.className = 'status-badge';
             } else {
                 el.innerHTML = '<span class="status-dot" style="background:#f87171"></span><span>Bağlantı Hatası</span>';
                 el.className = 'status-badge';
@@ -247,66 +596,86 @@
             const d = await fetchJSON('/api/stats');
             if (!d) return;
 
-            // Summary
-            document.getElementById('total-tables').textContent = d.tables?.length || 0;
             const totalRows = d.tables?.reduce((s, t) => s + (t.live_tuples || 0), 0) || 0;
             document.getElementById('total-rows').textContent = fmt(totalRows);
-            document.getElementById('total-indexes').textContent = d.indexes?.length || 0;
+            document.getElementById('total-tables').textContent = `${d.tables?.length || 0} tablo (customers, orders)`;
+            
+            const totalSeq = d.tables?.reduce((s, t) => s + (t.seq_scans || 0), 0) || 0;
+            const totalIdx = d.tables?.reduce((s, t) => s + (t.idx_scans || 0), 0) || 0;
+            const totalScans = totalSeq + totalIdx;
+            const healthPct = totalScans > 0 ? ((totalIdx / totalScans) * 100).toFixed(1) : 100;
+            
+            const healthEl = document.getElementById('health-score');
+            healthEl.textContent = `%${healthPct}`;
+            healthEl.className = healthPct >= 80 ? 'value val-green' : (healthPct >= 50 ? 'value val-yellow' : 'value val-red');
 
-            // Tablo istatistikleri
+            document.getElementById('slow-count').textContent = d.top_queries?.filter(q => q.mean_ms > 50).length || 0;
+
+            // 1. Tablo İstatistikleri
             if (d.tables?.length) {
-                let html = '<table><tr><th>Tablo</th><th>Satır</th><th>Seq Tarama</th><th>İndeks Tarama</th><th>Durum</th></tr>';
+                let html = '<table><thead><tr><th>Tablo</th><th>Kayıt Sayısı</th><th>Seq (Full) Tarama</th><th>İndeks Tarama</th><th>Durum</th></tr></thead><tbody>';
                 d.tables.forEach(t => {
-                    const ratio = scanRatio(t.seq_scans, t.idx_scans);
+                    const sum = t.seq_scans + t.idx_scans;
+                    const pct = sum > 0 ? ((t.idx_scans / sum) * 100).toFixed(1) : 100;
+                    let badge = '<span class="badge badge-success">%100 İndeks</span>';
+                    if (pct < 50) badge = '<span class="badge badge-danger">Kritik (Full Scan)</span>';
+                    else if (pct < 80) badge = '<span class="badge badge-warning">Orta</span>';
+
                     html += `<tr>
                         <td><strong>${t.name}</strong></td>
-                        <td>${fmt(t.live_tuples)}</td>
-                        <td>${fmt(t.seq_scans)}</td>
-                        <td>${fmt(t.idx_scans)}</td>
-                        <td><span class="badge ${ratio.cls}">${ratio.label}</span></td>
+                        <td>${fmt(t.live_tuples)} satır</td>
+                        <td><span style="color:${t.seq_scans > 0 ? '#f87171' : '#94a3b8'}">${fmt(t.seq_scans)}</span></td>
+                        <td><span style="color:#34d399">${fmt(t.idx_scans)}</span></td>
+                        <td>${badge}</td>
                     </tr>`;
                 });
-                html += '</table>';
+                html += '</tbody></table>';
                 document.getElementById('table-stats').innerHTML = html;
+            } else {
+                document.getElementById('table-stats').innerHTML = '<div class="empty-state">Tablo istatistiği bulunamadı.</div>';
             }
 
-            // İndeks kullanımı
+            // 2. İndeks Kullanımı
             if (d.indexes?.length) {
                 const sorted = [...d.indexes].sort((a, b) => b.scans - a.scans);
-                let html = '<table><tr><th>İndeks</th><th>Tablo</th><th>Tarama</th><th>Durum</th></tr>';
+                let html = '<table><thead><tr><th>İndeks Adı</th><th>Tablo</th><th>Tarama Sayısı</th><th>Durum</th></tr></thead><tbody>';
                 sorted.forEach(idx => {
-                    let cls = 'badge-success', label = 'Aktif';
-                    if (idx.scans === 0) { cls = 'badge-danger'; label = 'Kullanılmıyor'; }
-                    else if (idx.scans < 10) { cls = 'badge-warning'; label = 'Düşük'; }
+                    let badge = '<span class="badge badge-success">Aktif</span>';
+                    if (idx.scans === 0) badge = '<span class="badge badge-danger">Kullanılmıyor (0)</span>';
+                    else if (idx.scans < 10) badge = '<span class="badge badge-warning">Düşük</span>';
+
                     html += `<tr>
-                        <td><strong>${idx.name}</strong></td>
+                        <td><code style="color:#38bdf8">${idx.name}</code></td>
                         <td>${idx.table}</td>
-                        <td>${fmt(idx.scans)}</td>
-                        <td><span class="badge ${cls}">${label}</span></td>
+                        <td><strong>${fmt(idx.scans)}</strong></td>
+                        <td>${badge}</td>
                     </tr>`;
                 });
-                html += '</table>';
+                html += '</tbody></table>';
                 document.getElementById('index-stats').innerHTML = html;
+            } else {
+                document.getElementById('index-stats').innerHTML = '<div class="empty-state">İndeks bulunamadı.</div>';
             }
 
-            // Yavaş sorgular
+            // 3. Yavaş Sorgular
             if (d.top_queries?.length) {
-                let html = '<table><tr><th>Sorgu</th><th>Çağrı</th><th>Ort. Süre</th><th>Toplam Süre</th><th>Durum</th></tr>';
+                let html = '<table><thead><tr><th>Sorgu Önizleme</th><th>Çalışma Sayısı</th><th>Ortalama Süre</th><th>Önem Seviyesi</th></tr></thead><tbody>';
                 d.top_queries.forEach(q => {
-                    let cls = 'badge-success', label = 'Hızlı';
-                    if (q.mean_ms > 1000) { cls = 'badge-danger'; label = 'Çok Yavaş'; }
-                    else if (q.mean_ms > 100) { cls = 'badge-warning'; label = 'Yavaş'; }
-                    else if (q.mean_ms > 50) { cls = 'badge-info'; label = 'Normal'; }
+                    let badge = '<span class="badge badge-success">Normal</span>';
+                    if (q.mean_ms > 500) badge = '<span class="badge badge-danger">Kritik Yavaş</span>';
+                    else if (q.mean_ms > 50) badge = '<span class="badge badge-warning">Yavaş</span>';
+
                     html += `<tr>
-                        <td title="${q.query}">${q.query.substring(0, 60)}${q.query.length > 60 ? '...' : ''}</td>
-                        <td>${fmt(q.calls)}</td>
-                        <td>${q.mean_ms?.toFixed(1)} ms</td>
-                        <td>${q.total_ms?.toFixed(0)} ms</td>
-                        <td><span class="badge ${cls}">${label}</span></td>
+                        <td><div class="code-box" title="${q.query}">${q.query.substring(0, 90)}${q.query.length > 90 ? '...' : ''}</div></td>
+                        <td>${fmt(q.calls)} kez</td>
+                        <td><strong style="color:${q.mean_ms > 100 ? '#f87171' : '#38bdf8'}">${q.mean_ms?.toFixed(1)} ms</strong></td>
+                        <td>${badge}</td>
                     </tr>`;
                 });
-                html += '</table>';
+                html += '</tbody></table>';
                 document.getElementById('slow-queries').innerHTML = html;
+            } else {
+                document.getElementById('slow-queries').innerHTML = '<div class="empty-state">Henüz yavaş sorgu kaydedilmedi.</div>';
             }
         }
 
@@ -315,21 +684,32 @@
             if (!d) return;
 
             document.getElementById('unused-count').textContent = d.unused_indexes?.length || 0;
-            document.getElementById('unused-size').textContent = d.total_reclaimable ? `${fmtSize(d.total_reclaimable)} geri kazanılabilir` : 'Temiz';
+            document.getElementById('unused-size').textContent = d.total_reclaimable ? `${fmtSize(d.total_reclaimable)} geri kazanılabilir` : 'Tertemiz';
 
             if (d.unused_indexes?.length) {
-                let html = '<table><tr><th>İndeks</th><th>Tablo</th><th>Boyut</th></tr>';
+                let html = '<table><thead><tr><th>İndeks & Tablo</th><th>Neden Kullanılmıyor? (Atıl Sebebi)</th><th>Boyut</th><th>İşlem</th></tr></thead><tbody>';
                 d.unused_indexes.forEach(idx => {
                     html += `<tr>
-                        <td><strong>${idx.name}</strong></td>
-                        <td>${idx.table}</td>
+                        <td>
+                            <code style="color:#f87171; font-weight:700;">${idx.name}</code>
+                            <div style="font-size:0.78em; color:#94a3b8; margin-top:2px;">Tablo: <strong>${idx.table}</strong> (<code>${idx.columns ? idx.columns.join(', ') : '-'}</code>)</div>
+                        </td>
+                        <td>
+                            <div style="font-size:0.82em; color:#fde047; font-weight:600; margin-bottom:2px;">⚠️ ${idx.category || 'Atıl İndeks'}</div>
+                            <div style="font-size:0.78em; color:#cbd5e1;">${idx.reason || 'Kullanılmıyor'}</div>
+                        </td>
                         <td>${idx.size}</td>
+                        <td>
+                            <button class="btn btn-danger btn-sm" onclick="actionDropIndex('${idx.name}', '${idx.table}')">
+                                🗑️ Sil
+                            </button>
+                        </td>
                     </tr>`;
                 });
-                html += '</table>';
+                html += '</tbody></table>';
                 document.getElementById('unused-indexes').innerHTML = html;
             } else {
-                document.getElementById('unused-indexes').innerHTML = '<div class="empty-state"><div class="icon">✅</div>Kullanılmayan indeks yok</div>';
+                document.getElementById('unused-indexes').innerHTML = '<div class="empty-state"><div class="icon">✅</div>Harika! Kullanılmayan gereksiz indeks yok.</div>';
             }
         }
 
@@ -338,65 +718,153 @@
             if (!d) return;
 
             if (d.decisions?.length) {
-                let html = '<table><tr><th>Tür</th><th>Detay</th><th>Zaman</th></tr>';
-                d.decisions.slice(0, 10).forEach(dec => {
-                    let cls = 'badge-info';
-                    if (dec.type.includes('rollback')) cls = 'badge-danger';
-                    if (dec.type.includes('applied')) cls = 'badge-success';
-                    if (dec.type.includes('skip')) cls = 'badge-warning';
+                let html = '<table><thead><tr><th>Karar</th><th>Açıklama</th><th>Zaman</th></tr></thead><tbody>';
+                d.decisions.slice(0, 8).forEach(dec => {
+                    let badge = '<span class="badge badge-info">' + dec.type + '</span>';
+                    if (dec.type.includes('rollback')) badge = '<span class="badge badge-danger">Rollback</span>';
+                    if (dec.type.includes('applied') || dec.type.includes('manual_drop') || dec.type.includes('reset_all')) badge = '<span class="badge badge-success">Uygulandı</span>';
+                    if (dec.type.includes('skip')) badge = '<span class="badge badge-warning">Güvenlik Limiti</span>';
+
                     html += `<tr>
-                        <td><span class="badge ${cls}">${dec.type}</span></td>
-                        <td>${dec.details?.substring(0, 60) || '-'}</td>
-                        <td>${timeAgo(dec.timestamp)}</td>
+                        <td>${badge}</td>
+                        <td><span style="font-size:0.85em;">${dec.details || '-'}</span></td>
+                        <td style="color:#94a3b8; font-size:0.8em;">${timeAgo(dec.timestamp)}</td>
                     </tr>`;
                 });
-                html += '</table>';
+                html += '</tbody></table>';
                 document.getElementById('decisions').innerHTML = html;
             } else {
-                document.getElementById('decisions').innerHTML = '<div class="empty-state"><div class="icon">🤖</div>Henüz karar kaydı yok</div>';
+                document.getElementById('decisions').innerHTML = '<div class="empty-state"><div class="icon">🤖</div>Henüz kaydedilmiş otonom karar yok.</div>';
             }
         }
 
-        async function loadConfig() {
-            const d = await fetchJSON('/api/config');
+        /* --- Live Terminal Interactive Actions --- */
+
+        function clearTerminal() {
+            document.getElementById('terminal-body').innerHTML = '<span style="color:#64748b;">[Konsol temizlendi. Yeni komut bekleniyor...]</span>\n';
+            document.getElementById('terminal-status').innerHTML = '<span style="color:#34d399">● HAZIR</span>';
+        }
+
+        async function runStreamingAction(endpoint, payload = null, btnId = null) {
+            const btn = btnId ? document.getElementById(btnId) : null;
+            if (btn) btn.disabled = true;
+
+            const term = document.getElementById('terminal-body');
+            const statusEl = document.getElementById('terminal-status');
+            statusEl.innerHTML = '<span style="color:#fbbf24; font-weight:bold;">● ÇALIŞIYOR...</span>';
+
+            term.innerHTML += `\n<span style="color:#38bdf8; font-weight:bold;">❯ [${new Date().toLocaleTimeString()}] Başlatılıyor: ${endpoint}</span>\n`;
+            term.scrollTop = term.scrollHeight;
+
+            try {
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: payload ? JSON.stringify(payload) : '{}'
+                });
+
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder('utf-8');
+
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    const text = decoder.decode(value, { stream: true });
+                    
+                    let formatted = text
+                        .replace(/\[OK\]/g, '<span style="color:#34d399;font-weight:bold;">[OK]</span>')
+                        .replace(/\[HATA\]/g, '<span style="color:#f87171;font-weight:bold;">[HATA]</span>')
+                        .replace(/\[KRİTİK YAVAŞ\]/g, '<span style="color:#f87171;font-weight:bold;">[KRİTİK YAVAŞ]</span>')
+                        .replace(/\[YAVAŞ\]/g, '<span style="color:#fbbf24;font-weight:bold;">[YAVAŞ]</span>')
+                        .replace(/\[HIZLI\]/g, '<span style="color:#38bdf8;font-weight:bold;">[HIZLI]</span>')
+                        .replace(/\[SÜPER HIZLI\]/g, '<span style="color:#34d399;font-weight:bold;">[SÜPER HIZLI]</span>')
+                        .replace(/\[GÜVENLİK ATLAMASI\]/g, '<span style="color:#fbbf24;font-weight:bold;">[GÜVENLİK ATLAMASI]</span>')
+                        .replace(/▲/g, '<span style="color:#34d399;font-weight:bold;">▲</span>')
+                        .replace(/▼/g, '<span style="color:#f87171;font-weight:bold;">▼</span>')
+                        .replace(/\[(\d\/\d)\]/g, '<span style="color:#38bdf8;font-weight:bold;">[$1]</span>')
+                        .replace(/✔/g, '<span style="color:#34d399;font-weight:bold;">✔</span>');
+
+                    term.innerHTML += formatted;
+                    term.scrollTop = term.scrollHeight;
+                }
+
+                statusEl.innerHTML = '<span style="color:#34d399; font-weight:bold;">● TAMAMLANDI</span>';
+            } catch (err) {
+                term.innerHTML += `<span style="color:#f87171;font-weight:bold;">❌ Akış Hatası: ${err.message}</span>\n`;
+                statusEl.innerHTML = '<span style="color:#f87171; font-weight:bold;">● HATA</span>';
+            } finally {
+                if (btn) btn.disabled = false;
+                await loadAll();
+            }
+        }
+
+        async function actionSimulateLoad() {
+            await runStreamingAction('/api/stream/simulate-load', null, 'btn-load');
+        }
+
+        async function actionRemediate(dryRun) {
+            await runStreamingAction('/api/stream/remediate', { dry_run: dryRun }, 'btn-remediate');
+        }
+
+        async function actionRunBenchmark() {
+            await runStreamingAction('/api/stream/run-benchmark', null, 'btn-bench');
+        }
+
+        async function actionResetAllIndexes() {
+            if (!confirm('DİKKAT: Veritabanındaki tüm özel indeksler silinecek ve geçmiş kayıtlar sıfırlanacak. Devam etmek istiyor musunuz?')) return;
+            await runStreamingAction('/api/stream/reset-indexes', null, 'btn-reset');
+        }
+
+        async function actionDropIndex(indexName, tableName) {
+            if (!confirm(`[${indexName}] indeksini veritabanından silmek istediğinize emin misiniz?`)) return;
+            await runStreamingAction('/api/stream/drop-index', { index_name: indexName, table_name: tableName });
+        }
+
+        async function loadAppliedIndexes() {
+            const d = await fetchJSON('/api/indexes');
             if (!d) return;
 
-            let html = '<div style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">';
-            
-            // Tespit
-            html += '<div><h3 style="color:#38bdf8; margin-bottom:12px;">🔍 Tespit Ayarları</h3>';
-            html += `<p>Min. ortalama süre: <strong>${d.detection.min_mean_exec_time_ms} ms</strong></p>`;
-            html += `<p>Min. toplam süre: <strong>${d.detection.min_total_exec_time_ms} ms</strong></p>`;
-            html += `<p>Min. çağrı: <strong>${d.detection.min_calls}</strong></p></div>`;
-            
-            // Remediyasyon
-            html += '<div><h3 style="color:#34d399; margin-bottom:12px;">🔧 Remediyasyon</h3>';
-            html += `<p>Durum: <span class="badge ${d.remediation.enabled ? 'badge-success' : 'badge-danger'}">${d.remediation.enabled ? 'Aktif' : 'Pasif'}</span></p>`;
-            html += `<p>Dry-run: <strong>${d.remediation.dry_run_default ? 'Evet' : 'Hayır'}</strong></p>`;
-            html += `<p>Max indeks/tablo: <strong>${d.remediation.max_indexes_per_table}</strong></p>`;
-            html += `<p>Bekleme süresi: <strong>${d.remediation.cooldown_minutes} dk</strong></p></div>`;
-            
-            // Benchmark
-            html += '<div><h3 style="color:#fbbf24; margin-bottom:12px;">📈 Benchmark</h3>';
-            html += `<p>Çalıştırma sayısı: <strong>${d.benchmark.runs}</strong></p>`;
-            html += `<p>Bozulma eşiği: <strong>%${d.benchmark.degradation_threshold_pct}</strong></p></div>`;
-            
-            html += '</div>';
-            document.getElementById('config-info').innerHTML = html;
+            if (d.indexes && d.indexes.length) {
+                let html = '<table><thead><tr><th>İndeks Adı & Kolonlar</th><th>Tablo</th><th>Kullanım Durumu (DMV)</th><th>Açıklama & Neden</th><th>İşlem</th></tr></thead><tbody>';
+                d.indexes.forEach(idx => {
+                    html += `<tr>
+                        <td>
+                            <strong style="color:#38bdf8">${idx.name}</strong>
+                            <div style="font-size:0.78em; color:#94a3b8; margin-top:2px;">Kolonlar: <code>${idx.columns && idx.columns.length ? idx.columns.join(', ') : '-'}</code></div>
+                        </td>
+                        <td><strong>${idx.table}</strong></td>
+                        <td><span class="badge ${idx.status_class}">${idx.status_label}</span></td>
+                        <td><span style="font-size:0.82em; color:${idx.superseded_by && idx.superseded_by.length ? '#fbbf24' : '#cbd5e1'}">${idx.reason}</span></td>
+                        <td>
+                            <button class="btn btn-danger btn-sm" onclick="actionDropIndex('${idx.name}', '${idx.table}')" title="Bu indeksi sil">
+                                🗑️ Sil
+                            </button>
+                        </td>
+                    </tr>`;
+                });
+                html += '</tbody></table>';
+                document.getElementById('applied-indexes').innerHTML = html;
+            } else {
+                document.getElementById('applied-indexes').innerHTML = '<div class="empty-state"><div class="icon">✨</div>Henüz eklenmiş özel bir indeks yok (sadece varsayılan Primary Key\'ler var).</div>';
+            }
         }
 
-        async function loadAll() {
+        async function loadAll(manual = false) {
+            if (manual) showToast('🔄 Veriler güncelleniyor...');
             await Promise.all([
                 loadHealth(),
+                loadPerformanceMatrix(),
                 loadStats(),
                 loadUnusedIndexes(),
-                loadDecisions(),
-                loadConfig()
+                loadAppliedIndexes(),
+                loadDecisions()
             ]);
+            if (manual) showToast('✅ Tüm paneller güncellendi.');
         }
 
+        // Auto load on start & every 20s
         loadAll();
-        setInterval(loadAll, 30000);
+        setInterval(() => loadAll(false), 20000);
     </script>
 </body>
 </html>
