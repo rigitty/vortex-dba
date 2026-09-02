@@ -333,150 +333,76 @@ QUERY_CORE_METADATA = {
         "scan_after": "Covering Index Seek",
         "mechanism": "orders tablosuna gitmeden (Covering Index) müşteri harcamalarını direkt indeks üzerinden toplar.",
     },
-    "group_by_having": {
-        "title": "HAVING Filtreli GROUP BY",
-        "table": "orders",
-        "columns": ["customer_id", "total_amount"],
-        "description": "Müşteri toplam harcamasına göre HAVING koşulu",
-        "baseline_ms": 125.0,
-        "recommended_sql": "CREATE NONCLUSTERED INDEX idx_customers_created_at ON customers(created_at);",
-        "scan_before": "Full Clustered Scan & Hash Match",
-        "scan_after": "Index Range Seek & Stream Aggregate",
-        "mechanism": "Tarih filtresine uyan müşterileri anında filtreleyerek JOIN ve gruplama yükünü hafifletir.",
-    },
     "heavy_join": {
         "title": "Ağır Müşteri-Sipariş JOIN",
-        "table": "customers",
-        "columns": ["country", "customer_id"],
         "description": "customers ve orders arasında gruplamalı JOIN",
-        "baseline_ms": 98.0,
-        "recommended_sql": "CREATE NONCLUSTERED INDEX idx_customers_country ON customers(country);",
-        "scan_before": "Full Scan & Hash Join",
-        "scan_after": "Filtered Index Seek",
-        "mechanism": "Yalnızca seçili ülkedeki müşterileri hafızaya alarak JOIN belleği ve CPU kullanımını düşürür.",
+    },
+    "like_search": {
+        "title": "E-Posta LIKE Arama",
+        "description": "WHERE email LIKE '%...' araması",
+    },
+    "subquery_aggregation": {
+        "title": "Alt Sorgulu Müşteri Harcama Raporu",
+        "description": "WHERE status = 'active' ve alt sorgu toplamları",
+    },
+    "group_by_having": {
+        "title": "GROUP BY & HAVING Filtresi",
+        "description": "WHERE created_at > ... GROUP BY city, country HAVING...",
     },
     "range_scan_large": {
         "title": "Tarih Aralığı Taraması (Range Scan)",
-        "table": "orders",
-        "columns": ["order_date"],
         "description": "WHERE order_date BETWEEN ... aralık araması",
-        "baseline_ms": 78.0,
-        "recommended_sql": "CREATE NONCLUSTERED INDEX idx_orders_order_date ON orders(order_date);",
-        "scan_before": "Table Scan (Tüm Satırlar)",
-        "scan_after": "B-Tree Range Seek (Tarih Bloğu)",
-        "mechanism": "Tarih aralığı dışındaki tüm kayıtları atlar, diskten sadece ilgili tarih dilimini okur.",
     },
     "multi_condition_no_index": {
         "title": "Çoklu Kolon Filtresi (Multi-Condition)",
-        "table": "customers",
-        "columns": ["city", "country", "status"],
-        "description": "city, country, status çoklu AND araması",
-        "baseline_ms": 32.0,
-        "recommended_sql": "CREATE NONCLUSTERED INDEX idx_customers_city_country_status ON customers(city, country, status);",
-        "scan_before": "Full Scan (Her satıra 3 ayrı kontrol)",
-        "scan_after": "Composite Index Seek",
-        "mechanism": "3 kolonu tek bir B-Tree kompozit anahtarda birleştirir, 3 filtreyi tek hamlede çözer.",
-    },
-    "full_scan_no_index": {
-        "title": "Müşteri Şehir Filtresi",
-        "table": "customers",
-        "columns": ["city"],
-        "description": "WHERE city = '...' araması",
-        "baseline_ms": 11.5,
-        "recommended_sql": "CREATE NONCLUSTERED INDEX idx_customers_city ON customers(city);",
-        "scan_before": "Table Scan (100K Satır)",
-        "scan_after": "Direct Index Seek (B-Tree Eşleşme)",
-        "mechanism": "Aranan şehre ait müşteri ID'lerini doğrudan indeks fihristinden bulur.",
+        "description": "WHERE status, product_category, total_amount ve city araması",
     },
     "order_by_unindexed_amount": {
         "title": "İndekssiz Tutar Sıralaması (ORDER BY)",
-        "table": "orders",
-        "columns": ["status", "total_amount"],
         "description": "WHERE status = 'completed' ORDER BY total_amount DESC",
-        "baseline_ms": 135.0,
-        "recommended_sql": "CREATE NONCLUSTERED INDEX idx_orders_status_amount_sort ON orders(status, total_amount DESC);",
-        "scan_before": "Table Scan & Memory Sort",
-        "scan_after": "Pre-sorted Index Scan",
-        "mechanism": "Bellekte ağır sort işlemi yapmadan B-Tree üzerinde önceden sıralanmış veriyi okur.",
     },
     "category_revenue_aggregation": {
         "title": "Kategori Gelir & Hacim Raporu",
-        "table": "orders",
-        "columns": ["order_date", "product_category", "total_amount"],
         "description": "WHERE order_date >= ... GROUP BY product_category",
-        "baseline_ms": 115.0,
-        "recommended_sql": "CREATE NONCLUSTERED INDEX idx_orders_date_category_amount ON orders(order_date, product_category) INCLUDE (total_amount);",
-        "scan_before": "Full Table Scan & Hash Aggregate",
-        "scan_after": "Filtered Index Seek & Stream Aggregate",
-        "mechanism": "Tarih ve kategori indeksinden toplam ciroyu tabloya gitmeden hesaplar.",
     },
     "customer_created_status_filter": {
         "title": "Askıdaki Yeni Müşteri Taraması",
-        "table": "customers",
-        "columns": ["status", "created_at"],
         "description": "WHERE status = 'suspended' AND created_at >= ...",
-        "baseline_ms": 65.0,
-        "recommended_sql": "CREATE NONCLUSTERED INDEX idx_customers_status_created ON customers(status, created_at);",
-        "scan_before": "Table Scan (100K Müşteri)",
-        "scan_after": "Composite Index Seek",
-        "mechanism": "Askıdaki hesapları kayıt tarihine göre anında filtreler.",
     },
     "unindexed_phone_lookup": {
         "title": "Aktif Müşteri Telefon Araması",
-        "table": "customers",
-        "columns": ["status", "phone"],
         "description": "WHERE phone LIKE '%555%' AND status = 'active'",
-        "baseline_ms": 82.0,
-        "recommended_sql": "CREATE NONCLUSTERED INDEX idx_customers_status_phone ON customers(status, phone);",
-        "scan_before": "Full Table Scan",
-        "scan_after": "Filtered Index Scan",
-        "mechanism": "Sadece aktif müşterilerin telefon numaraları üzerinden dar yaprak taraması yapar.",
     },
     "high_value_recent_orders": {
         "title": "Yüksek Tutarlı Son Siparişler JOIN",
-        "table": "orders",
-        "columns": ["order_date", "total_amount", "status"],
         "description": "WHERE order_date >= ... AND total_amount > 2500",
-        "baseline_ms": 190.0,
-        "recommended_sql": "CREATE NONCLUSTERED INDEX idx_orders_recent_high_val ON orders(order_date, total_amount, status);",
-        "scan_before": "Full Scan & Hash Match",
-        "scan_after": "Index Range Seek & Nested Loops",
-        "mechanism": "Yüksek tutarlı siparişleri B-Tree filtreleyerek müşteriler ile anında eşler.",
     },
     "inactive_customers_with_orders": {
         "title": "Pasif Müşteriler & Sipariş Analizi",
-        "table": "customers",
-        "columns": ["status", "id"],
         "description": "WHERE c.status = 'inactive' JOIN orders",
-        "baseline_ms": 140.0,
-        "recommended_sql": "CREATE NONCLUSTERED INDEX idx_customers_status_id ON customers(status, id);",
-        "scan_before": "Full Clustered Scan",
-        "scan_after": "Covering Index Seek",
-        "mechanism": "Pasif müşterileri doğrudan indeks üzerinden JOIN yaparak sorgu süresini kısaltır.",
     },
     "category_and_shipping_filter": {
         "title": "Kategori & Bekleyen Sipariş Filtresi",
-        "table": "orders",
-        "columns": ["product_category", "status", "total_amount", "order_date"],
         "description": "WHERE product_category = '...' AND status = 'pending'",
-        "baseline_ms": 95.0,
-        "recommended_sql": "CREATE NONCLUSTERED INDEX idx_orders_cat_status_amount ON orders(product_category, status, total_amount, order_date);",
-        "scan_before": "Table Scan (Tüm Satırlar)",
-        "scan_after": "Multi-column Composite Seek",
-        "mechanism": "4 kriterli filtreyi tek hamlede B-Tree ağacında bularak sonuca gider.",
     },
 }
 
 
 @app.get("/api/performance-matrix")
 async def api_performance_matrix():
-    """Get before/after performance comparison matrix dynamically matched to SQL Server."""
+    """Get before/after performance comparison matrix dynamically analyzed by IndexAdvisor."""
     try:
         from db_connection import execute_query
         from slow_queries import SLOW_QUERIES
-        from state_store import get_benchmark_history, get_latest_baseline
+        from index_advisor import recommend_index_for_query
+        from state_store import get_active_indexes, get_benchmark_history, get_latest_baseline
 
-        # Query all live indexes and their column lists from SQL Server
+        # Applied custom indexes tracked by VortexDBA
+        vortex_applied = get_active_indexes()
+        vortex_applied_names = {idx.index_name for idx in vortex_applied}
+
+        # Query all live custom indexes from SQL Server (excluding base schema defaults)
+        DEFAULT_SCHEMA_INDEXES = {"idx_orders_customer_id", "idx_customers_email"}
         q_idx = """
             SELECT 
                 t.name AS table_name,
@@ -486,37 +412,50 @@ async def api_performance_matrix():
             JOIN sys.tables t ON t.object_id = i.object_id
             JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
             JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
-            WHERE t.is_ms_shipped = 0 AND i.name IS NOT NULL AND i.is_primary_key = 0 AND ic.is_included_column = 0
+            WHERE t.is_ms_shipped = 0 AND i.name IS NOT NULL 
+              AND i.is_primary_key = 0 AND i.is_unique_constraint = 0 AND ic.is_included_column = 0
             GROUP BY t.name, i.name
         """
-        active_rows = execute_query(q_idx) or []
+        all_active_rows = execute_query(q_idx) or []
+        active_custom_rows = [r for r in all_active_rows if r["index_name"] not in DEFAULT_SCHEMA_INDEXES]
 
         matrix = []
         for q in SLOW_QUERIES:
             name = q["name"]
             meta = QUERY_CORE_METADATA.get(name, {
                 "title": name,
-                "table": "N/A",
-                "columns": [],
                 "description": q.get("description", ""),
-                "baseline_ms": 100.0,
             })
 
-            target_table = meta["table"]
-            target_cols = set(meta["columns"])
             latest_base = get_latest_baseline(name)
-            baseline_ms = latest_base if (latest_base is not None and latest_base > 0) else meta["baseline_ms"]
+            # Pure dynamic baseline from live measurements (None if unmeasured/after reset)
+            baseline_ms = latest_base if (latest_base is not None and latest_base > 0) else None
 
-            # Dynamically find which active SQL Server indexes cover these query columns
+            # Option B: Strict Runtime Model - recommendations generated only when workload has been measured
+            if baseline_ms is not None:
+                rec = recommend_index_for_query(q["query"])
+                target_table = rec.table if rec else ("orders" if "orders" in q["query"].lower() else "customers")
+                target_cols = set(rec.columns) if rec else set()
+                recommended_sql = rec.create_statement if rec else None
+                reason = rec.reason if rec else ""
+                columns_display = ", ".join(rec.columns) if rec else "-"
+            else:
+                target_table = "orders" if "orders" in q["query"].lower() else "customers"
+                target_cols = set()
+                recommended_sql = None
+                reason = "Trafik simülasyonu bekliyor..."
+                columns_display = "-"
+
+            # Dynamically match active custom optimization indexes in SQL Server
             matching_active_indexes = []
             matching_active_index_sqls = []
-            for row in active_rows:
+            for row in active_custom_rows:
                 tbl = row["table_name"]
                 idx_name = row["index_name"]
                 idx_cols = set([c.strip() for c in row["columns"].split(",")] if row["columns"] else [])
 
-                # Match if same table and shares filter columns
-                if (tbl in target_table or target_table in tbl) and (target_cols.intersection(idx_cols)):
+                # Match if same table and index covers query target columns or was explicitly applied
+                if tbl == target_table and ((target_cols and target_cols.issubset(idx_cols)) or (target_cols and target_cols.intersection(idx_cols)) or idx_name in vortex_applied_names):
                     matching_active_indexes.append(idx_name)
                     matching_active_index_sqls.append(f"CREATE NONCLUSTERED INDEX [{idx_name}] ON [{tbl}] ({row['columns']});")
 
@@ -540,14 +479,32 @@ async def api_performance_matrix():
                 # Real benchmark history is available
                 current_ms = hist[0].mean_ms
 
-                if current_ms > baseline_ms and baseline_ms > 0:
-                    speedup_pct = -round(((current_ms - baseline_ms) / baseline_ms) * 100, 1)
-                    multiplier = round(baseline_ms / current_ms, 2)
-                    status_label = "⚠️ Yavaşladı"
-                    status_class = "badge-danger"
-                elif baseline_ms > current_ms and current_ms > 0:
-                    speedup_pct = round(((baseline_ms - current_ms) / baseline_ms) * 100, 1)
-                    multiplier = round(baseline_ms / current_ms, 1)
+                if baseline_ms is not None and baseline_ms > 0:
+                    if current_ms > baseline_ms:
+                        speedup_pct = -round(((current_ms - baseline_ms) / baseline_ms) * 100, 1)
+                        multiplier = round(baseline_ms / current_ms, 2)
+                        status_label = "⚠️ Yavaşladı"
+                        status_class = "badge-danger"
+                    elif baseline_ms > current_ms:
+                        speedup_pct = round(((baseline_ms - current_ms) / baseline_ms) * 100, 1)
+                        multiplier = round(baseline_ms / current_ms, 1)
+                        if current_ms < 15:
+                            status_label = "🚀 Süper Hızlı"
+                            status_class = "badge-success"
+                        elif current_ms < 50:
+                            status_label = "⚡ Hızlı"
+                            status_class = "badge-info"
+                        else:
+                            status_label = "Orta"
+                            status_class = "badge-warning"
+                    else:
+                        speedup_pct = 0.0
+                        multiplier = 1.0
+                        status_label = "Değişmedi"
+                        status_class = "badge-neutral"
+                else:
+                    speedup_pct = None
+                    multiplier = None
                     if current_ms < 15:
                         status_label = "🚀 Süper Hızlı"
                         status_class = "badge-success"
@@ -555,29 +512,22 @@ async def api_performance_matrix():
                         status_label = "⚡ Hızlı"
                         status_class = "badge-info"
                     else:
-                        status_label = "Orta"
-                        status_class = "badge-warning"
-                else:
-                    speedup_pct = 0.0
-                    multiplier = 1.0
-                    status_label = "Değişmedi"
-                    status_class = "badge-neutral"
+                        status_label = "Aktif"
+                        status_class = "badge-success"
 
             matrix.append({
                 "name": name,
                 "title": meta["title"],
-                "table": meta["table"],
-                "columns": ", ".join(meta["columns"]),
+                "table": target_table,
+                "columns": columns_display,
                 "active_indexes": matching_active_indexes,
                 "applied_index_sqls": matching_active_index_sqls,
                 "has_index": has_index,
                 "description": meta["description"],
-                "recommended_sql": meta.get("recommended_sql", ""),
-                "scan_before": meta.get("scan_before", "Table Scan"),
-                "scan_after": meta.get("scan_after", "Index Seek"),
-                "mechanism": meta.get("mechanism", ""),
+                "recommended_sql": recommended_sql or "",
+                "reason": reason,
                 "query_sql": q["query"].strip(),
-                "baseline_ms": round(baseline_ms, 2),
+                "baseline_ms": round(baseline_ms, 2) if baseline_ms is not None else None,
                 "current_ms": round(current_ms, 2) if current_ms is not None else None,
                 "speedup_pct": speedup_pct,
                 "multiplier": multiplier,
@@ -585,8 +535,8 @@ async def api_performance_matrix():
                 "status_class": status_class,
             })
 
-        matrix.sort(key=lambda x: x["baseline_ms"], reverse=True)
-        return {"matrix": matrix, "active_index_count": len(active_rows)}
+        matrix.sort(key=lambda x: (x["baseline_ms"] if x["baseline_ms"] is not None else 0), reverse=True)
+        return {"matrix": matrix, "active_index_count": len(active_custom_rows)}
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -726,16 +676,10 @@ async def api_stream_simulate_load():
         import time
         from slow_queries import SLOW_QUERIES, run_query
         from state_store import record_baseline
-        from db_connection import execute_query
-
-        # Check existing custom indexes count
-        q_cnt = "SELECT COUNT(*) as cnt FROM sys.indexes i JOIN sys.tables t ON t.object_id = i.object_id WHERE t.is_ms_shipped = 0 AND i.name IS NOT NULL AND i.is_primary_key = 0 AND i.type_desc = 'NONCLUSTERED'"
-        idx_res = execute_query(q_cnt)
-        no_custom_indexes = bool(not idx_res or idx_res[0]["cnt"] == 0)
 
         t0 = datetime.now().strftime("%H:%M:%S")
         yield f"[{t0}] ⚡ SQL Server Yavaş Sorgu Trafiği Başlatılıyor...\n"
-        yield f"[{t0}] Toplam {len(SLOW_QUERIES)} sorgu senaryosu çalıştırılacak.\n"
+        yield f"[{t0}] Toplam {len(SLOW_QUERIES)} sorgu senaryosu çalıştırılacak ve başlangıç süreleri (baseline) kaydedilecek.\n"
         yield "=" * 65 + "\n"
 
         total_ms = 0
@@ -744,15 +688,15 @@ async def api_stream_simulate_load():
             yield f"[{t_now}] [{i}/{len(SLOW_QUERIES)}] Koşturuluyor: {q['name']} ... "
             res = run_query(q)
             total_ms += res.duration_ms
-            if no_custom_indexes:
-                record_baseline(q["name"], res.duration_ms)
+            # Record measured baseline execution time for every query unconditionally
+            record_baseline(q["name"], res.duration_ms)
             status_color = "[KRİTİK YAVAŞ]" if res.duration_ms > 500 else ("[YAVAŞ]" if res.duration_ms > 50 else "[HIZLI]")
             yield f"{res.duration_ms:.2f} ms | {res.row_count:,} satır {status_color}\n"
-            time.sleep(0.03)
+            time.sleep(0.02)
 
         t_end = datetime.now().strftime("%H:%M:%S")
         yield "=" * 65 + "\n"
-        yield f"[{t_end}] ✔ Tamamlandı! Toplam süre: {total_ms:.2f} ms. SQL Server DMV sayaçları güncellendi.\n"
+        yield f"[{t_end}] ✔ Tamamlandı! Toplam süre: {total_ms:.2f} ms. SQL Server DMV sayaçları ve başlangıç ölçümleri güncellendi.\n"
 
     return StreamingResponse(gen(), media_type="text/plain; charset=utf-8")
 
@@ -867,20 +811,26 @@ async def api_stream_run_benchmark():
         from datetime import datetime
         from auto_remediator import get_slow_queries_for_benchmark
         from benchmark import run_benchmark
-        from state_store import get_benchmark_history, record_benchmark, record_baseline
+        from state_store import get_benchmark_history, record_benchmark, record_baseline, get_active_indexes
         from db_connection import execute_query
+        from index_advisor import recommend_index_for_query
 
-        # Check existing custom indexes
+        # Applied custom indexes tracked by VortexDBA
+        vortex_applied = get_active_indexes()
+        vortex_applied_names = {idx.index_name for idx in vortex_applied}
+
+        DEFAULT_SCHEMA_INDEXES = {"idx_orders_customer_id", "idx_customers_email"}
         q_idx = """
-            SELECT t.name AS table_name, STRING_AGG(c.name, ', ') WITHIN GROUP (ORDER BY ic.key_ordinal) AS columns
+            SELECT t.name AS table_name, i.name AS index_name, STRING_AGG(c.name, ', ') WITHIN GROUP (ORDER BY ic.key_ordinal) AS columns
             FROM sys.indexes i
             JOIN sys.tables t ON t.object_id = i.object_id
             JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
             JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
-            WHERE t.is_ms_shipped = 0 AND i.name IS NOT NULL AND i.is_primary_key = 0 AND ic.is_included_column = 0
+            WHERE t.is_ms_shipped = 0 AND i.name IS NOT NULL AND i.is_primary_key = 0 AND i.is_unique_constraint = 0 AND ic.is_included_column = 0
             GROUP BY t.name, i.name
         """
-        active_idx_rows = execute_query(q_idx) or []
+        all_idx_rows = execute_query(q_idx) or []
+        active_custom_rows = [r for r in all_idx_rows if r["index_name"] not in DEFAULT_SCHEMA_INDEXES]
 
         t0 = datetime.now().strftime("%H:%M:%S")
         yield f"[{t0}] 📊 Canlı Hız & Performans Testi Başlatıldı (Her sorgu 3 tur test ediliyor)...\n"
@@ -892,15 +842,16 @@ async def api_stream_run_benchmark():
             yield f"[{t_now}] [{i}/{len(queries)}] Test ediliyor: {q['name']} ... "
             res = run_benchmark(q["name"], q["query"], q.get("params"), runs=3)
 
-            meta = QUERY_CORE_METADATA.get(q["name"], {})
-            target_cols = set(meta.get("columns", []))
-            target_tbl = meta.get("table", "")
+            rec = recommend_index_for_query(q["query"])
+            target_table = rec.table if rec else ("orders" if "orders" in q["query"].lower() else "customers")
+            target_cols = set(rec.columns) if rec else set()
 
-            # Check if this query currently has an index in SQL Server
+            # Check if this query currently has an active custom optimization index in SQL Server
             has_idx = any(
-                (target_tbl in row["table_name"] or row["table_name"] in target_tbl) and
-                bool(target_cols.intersection(set([c.strip() for c in row["columns"].split(",")] if row["columns"] else [])))
-                for row in active_idx_rows
+                row["table_name"] == target_table and
+                ((target_cols and target_cols.issubset(set([c.strip() for c in row["columns"].split(",")] if row["columns"] else []))) or
+                 row["index_name"] in vortex_applied_names)
+                for row in active_custom_rows
             )
 
             if not has_idx:
@@ -931,16 +882,17 @@ async def api_stream_run_benchmark():
 
 @app.post("/api/stream/reset-indexes")
 async def api_stream_reset_indexes():
-    """Stream reset-indexes logs line by line."""
+    """Stream reset-indexes logs (drops custom indexes only)."""
     def gen():
         from datetime import datetime
         from db_connection import get_connection, execute_query
-        import sqlite3
-        from state_store import DB_PATH, record_decision
+        from state_store import record_decision
 
         t0 = datetime.now().strftime("%H:%M:%S")
-        yield f"[{t0}] 🧹 Tüm Özel İndeksleri Sıfırlama İşlemi Başlatıldı...\n"
+        yield f"[{t0}] 🧹 Özel İndeksleri Kaldırma İşlemi Başlatıldı...\n"
         yield "=" * 65 + "\n"
+
+        DEFAULT_SCHEMA_INDEXES = {"idx_orders_customer_id", "idx_customers_email"}
 
         query = """
             SELECT s.name AS schema_name, t.name AS table_name, i.name AS index_name
@@ -951,18 +903,90 @@ async def api_stream_reset_indexes():
               AND i.is_primary_key = 0 AND i.is_unique_constraint = 0
         """
         indexes = execute_query(query) or []
-        yield f"[{t0}] SQL Server üzerinde {len(indexes)} adet özel indeks tespit edildi.\n"
+        custom_indexes_to_drop = [idx for idx in indexes if idx['index_name'] not in DEFAULT_SCHEMA_INDEXES]
+
+        yield f"[{t0}] SQL Server üzerinde {len(custom_indexes_to_drop)} adet özel optimizasyon indeksi tespit edildi.\n"
 
         conn = get_connection(autocommit=True)
         with conn.cursor() as cur:
-            for idx in indexes:
+            for idx in custom_indexes_to_drop:
                 t = idx['table_name']
                 name = idx['index_name']
-                yield f"  🗑️ Siliniyor: [{name}] on [{t}] ... "
+                yield f"  🗑️ Drop ediliyor: [{name}] on [{t}] ... "
                 cur.execute(f"DROP INDEX IF EXISTS [{name}] ON [{t}]")
                 yield "[OK]\n"
+
             try:
-                yield f"[{t0}] SQL Server sorgu önbelleği temizleniyor (DBCC FREEPROCCACHE) ... "
+                cur.execute("DBCC FREEPROCCACHE")
+            except Exception:
+                pass
+        conn.close()
+
+        record_decision("manual_reset_indexes", f"Tüm özel indeksler ({len(custom_indexes_to_drop)} adet) kaldırıldı.")
+        t_end = datetime.now().strftime("%H:%M:%S")
+        yield "=" * 65 + "\n"
+        yield f"[{t_end}] ✔ İNDEKS SIFIRLAMA TAMAMLANDI. Özel indeksler kaldırıldı!\n"
+
+    return StreamingResponse(gen(), media_type="text/plain; charset=utf-8")
+
+
+@app.post("/api/stream/reset-all")
+async def api_stream_reset_all():
+    """Stream full factory reset logs line by line."""
+    def gen():
+        from datetime import datetime
+        from db_connection import get_connection, execute_query
+        import sqlite3
+        from state_store import DB_PATH, record_decision
+
+        t0 = datetime.now().strftime("%H:%M:%S")
+        yield f"[{t0}] 💥 TÜM HER ŞEYİ FABRİKA AYARLARINA SIFIRLAMA BAŞLATILDI...\n"
+        yield "=" * 65 + "\n"
+
+        DEFAULT_SCHEMA_INDEXES = {"idx_orders_customer_id", "idx_customers_email"}
+
+        query = """
+            SELECT s.name AS schema_name, t.name AS table_name, i.name AS index_name
+            FROM sys.indexes i
+            JOIN sys.tables t ON t.object_id = i.object_id
+            JOIN sys.schemas s ON s.schema_id = t.schema_id
+            WHERE t.is_ms_shipped = 0 AND i.name IS NOT NULL
+              AND i.is_primary_key = 0 AND i.is_unique_constraint = 0
+        """
+        indexes = execute_query(query) or []
+        custom_indexes_to_drop = [idx for idx in indexes if idx['index_name'] not in DEFAULT_SCHEMA_INDEXES]
+
+        yield f"[{t0}] [1/4] SQL Server üzerindeki {len(custom_indexes_to_drop)} adet özel optimizasyon indeksi kaldırılıyor...\n"
+
+        conn = get_connection(autocommit=True)
+        with conn.cursor() as cur:
+            for idx in custom_indexes_to_drop:
+                t = idx['table_name']
+                name = idx['index_name']
+                yield f"  🗑️ Drop ediliyor: [{name}] on [{t}] ... "
+                cur.execute(f"DROP INDEX IF EXISTS [{name}] ON [{t}]")
+                yield "[OK]\n"
+
+            # Re-ensure base schema indexes exist
+            try:
+                cur.execute("""
+                    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_orders_customer_id' AND object_id = OBJECT_ID('orders'))
+                    BEGIN
+                        CREATE NONCLUSTERED INDEX idx_orders_customer_id ON orders(customer_id);
+                    END
+                """)
+                cur.execute("""
+                    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_customers_email' AND object_id = OBJECT_ID('customers'))
+                    BEGIN
+                        CREATE NONCLUSTERED INDEX idx_customers_email ON customers(email);
+                    END
+                """)
+                yield f"[{t0}] [2/4] Şema varsayılan indeksleri (01_schema.sql) korundu ... [OK]\n"
+            except Exception as e:
+                yield f"[{t0}] [2/4] Şema kontrol notu: {e}\n"
+
+            try:
+                yield f"[{t0}] [3/4] SQL Server yürütme planı önbelleği temizleniyor (DBCC FREEPROCCACHE) ... "
                 cur.execute("DBCC FREEPROCCACHE")
                 yield "[OK]\n"
             except Exception as e:
@@ -971,17 +995,17 @@ async def api_stream_reset_indexes():
 
         if DB_PATH.exists():
             sconn = sqlite3.connect(str(DB_PATH))
-            sconn.execute("DELETE FROM applied_indexes")
-            sconn.execute("DELETE FROM agent_decisions")
-            sconn.execute("DELETE FROM benchmark_history")
+            sconn.execute("DELETE FROM applied_indexes;")
+            sconn.execute("DELETE FROM agent_decisions;")
+            sconn.execute("DELETE FROM benchmark_history;")
             sconn.commit()
             sconn.close()
-            yield f"[{t0}] SQLite karar, indeks ve benchmark geçmişi sıfırlandı ... [OK]\n"
+            yield f"[{t0}] [4/4] SQLite kayıtları, canlı ölçümler ve indekssiz süreler tamamen sıfırlandı ... [OK]\n"
 
-        record_decision("reset_all", f"Tüm özel indeksler ({len(indexes)} adet) sıfırlandı.")
+        record_decision("reset_all", f"Tüm sistem, özel indeksler ({len(custom_indexes_to_drop)} adet) ve ölçümler fabrika ayarlarına sıfırlandı.")
         t_end = datetime.now().strftime("%H:%M:%S")
         yield "=" * 65 + "\n"
-        yield f"[{t_end}] ✔ SIFIRLAMA TAMAMLANDI. Sistem tertemiz başlangıç durumunda!\n"
+        yield f"[{t_end}] ✔ TAM FABRİKA SIFIRLAMASI BAŞARIYLA TAMAMLANDI. Tüm süreler ve durumlar ilk temiz haline döndürüldü!\n"
 
     return StreamingResponse(gen(), media_type="text/plain; charset=utf-8")
 

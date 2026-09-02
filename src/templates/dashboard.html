@@ -302,6 +302,19 @@
             grid-template-columns: 1fr 1fr;
             gap: 16px;
         }
+        .grid-1 {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+        .index-hub-card {
+            background: #09090d;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
 
         /* Data Tables */
         table {
@@ -465,6 +478,127 @@
             font-size: 12px;
         }
 
+        /* App Slide-Over Drawer Styles */
+        .drawer-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.78);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            z-index: 9998;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.25s;
+        }
+        .drawer-backdrop.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        .drawer-panel {
+            position: fixed;
+            top: 0;
+            right: -700px;
+            width: 640px;
+            max-width: 92vw;
+            height: 100vh;
+            background: #08080c;
+            border-left: 1px solid #232330;
+            box-shadow: -20px 0 50px rgba(0, 0, 0, 0.95);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            transition: right 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .drawer-panel.active {
+            right: 0;
+        }
+        .drawer-header {
+            background: #0d0d14;
+            border-bottom: 1px solid var(--border);
+            padding: 14px 18px 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .drawer-close-btn {
+            background: #13131c;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            border-radius: 6px;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .drawer-close-btn:hover {
+            color: #ffffff;
+            border-color: var(--border-hover);
+            background: #1f1f2c;
+        }
+        .drawer-navbar {
+            display: flex;
+            background: #040406;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 2px;
+            gap: 2px;
+        }
+        .drawer-tab-btn {
+            flex: 1;
+            padding: 7px 12px;
+            background: transparent;
+            border: none;
+            border-radius: 4px;
+            font-size: 11.5px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            text-align: center;
+        }
+        .drawer-tab-btn.active {
+            background: #1a1a24;
+            color: #ffffff;
+            font-weight: 600;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+        }
+        .drawer-body {
+            flex: 1;
+            overflow-y: auto;
+            background: #08080c;
+        }
+        .floating-drawer-pill {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: #12121c;
+            border: 1px solid var(--border-hover);
+            color: #ffffff;
+            padding: 9px 16px;
+            border-radius: 9999px;
+            font-size: 11.5px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 25px rgba(0,0,0,0.85);
+            z-index: 100;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .floating-drawer-pill:hover {
+            transform: translateY(-2px);
+            border-color: var(--emerald);
+            box-shadow: 0 6px 30px rgba(16, 185, 129, 0.25);
+            background: #161624;
+        }
+
         @media (max-width: 960px) {
             .metric-grid { grid-template-columns: repeat(2, 1fr); }
             .grid-2 { grid-template-columns: 1fr; }
@@ -487,6 +621,13 @@
                 <span class="status-dot"></span>
                 <span>Port 1433 [Connected]</span>
             </div>
+            
+            <!-- Drawer Trigger in Navbar -->
+            <button class="btn btn-default btn-sm" onclick="openIndexDrawer('applied')" style="background:#13131c; border-color:var(--border-hover); font-weight:600;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--emerald)"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline></svg>
+                <span>⚡ İndeks Çekmecesi</span>
+            </button>
+
             <button class="btn btn-default btn-sm" onclick="loadAll(true)" id="btn-refresh">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
                 Yenile
@@ -512,8 +653,11 @@
                 <button class="btn btn-warning" onclick="actionRunBenchmark()" id="btn-bench">
                     <span>3. Canlı Benchmark Testi</span>
                 </button>
-                <button class="btn btn-danger btn-sm" onclick="actionResetAllIndexes()" id="btn-reset">
-                    <span>Tüm İndeksleri Sıfırla</span>
+                <button class="btn btn-default btn-sm" onclick="actionResetIndexesOnly()" id="btn-reset-idx" style="background:#13131c; border-color:var(--border-hover);" title="Yalnızca SQL Server'daki özel indeksleri kaldırır">
+                    <span>4. İndeksleri Sıfırla</span>
+                </button>
+                <button class="btn btn-danger btn-sm" onclick="actionFullFactoryReset()" id="btn-reset-all" title="Tüm özel indeksleri, canlı ölçümleri, benchmark geçmişini ve dinamik süreleri fabrika ayarlarına sıfırlar">
+                    <span>5. 💥 Tüm Her Şeyi Sıfırla</span>
                 </button>
             </div>
         </div>
@@ -542,8 +686,11 @@
                 <div class="metric-value" id="total-rows" style="color:#ffffff;">-</div>
                 <div class="metric-sub" id="total-tables">2 Tablo</div>
             </div>
-            <div class="metric-card">
-                <div class="metric-label">İndeksli Okuma Verimi</div>
+            <div class="metric-card" onclick="openIndexDrawer('applied')" style="cursor:pointer;" title="Özel İndeksler Çekmecesini Aç">
+                <div class="metric-label">
+                    <span>İndeksli Okuma Verimi</span>
+                    <span style="font-size:10px; color:var(--emerald);">[Çekmece ↗]</span>
+                </div>
                 <div class="metric-value" id="health-score" style="color:var(--emerald);">-%</div>
                 <div class="metric-sub">Index Scan / Total Scans</div>
             </div>
@@ -552,8 +699,11 @@
                 <div class="metric-value" id="slow-count" style="color:var(--amber);">-</div>
                 <div class="metric-sub">> 50ms süren sorgular</div>
             </div>
-            <div class="metric-card">
-                <div class="metric-label">Atıl / Ezilen İndeks</div>
+            <div class="metric-card" onclick="openIndexDrawer('unused')" style="cursor:pointer;" title="Atıl / Ezilen İndeksler Çekmecesini Aç">
+                <div class="metric-label">
+                    <span>Atıl / Ezilen İndeks</span>
+                    <span style="font-size:10px; color:var(--rose);">[Çekmece ↗]</span>
+                </div>
                 <div class="metric-value" id="unused-count" style="color:var(--rose);">-</div>
                 <div class="metric-sub" id="unused-size">Gereksiz indeks sayısı</div>
             </div>
@@ -584,7 +734,62 @@
             </div>
         </div>
 
-        <!-- 2. Tables & Unused Indexes Grid -->
+        <!-- 2. Index Management Hub (Side-by-Side: Applied Custom Indexes vs Unused Indexes with Navbar Switcher) -->
+        <div class="card">
+            <div class="card-header" style="border-bottom: 1px solid var(--border); padding: 10px 16px;">
+                <div class="card-title">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--emerald)"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                    İndeks Yönetim Merkezi (Aktif Özel İndeksler & Atıl İndeksler)
+                </div>
+                
+                <!-- Sub-Navbar Tab Switcher -->
+                <div style="display:flex; background:var(--bg-input); border:1px solid var(--border); border-radius:5px; padding:2px; gap:2px;">
+                    <button class="tab-btn active" onclick="setIndexHubView('split')" id="ih-split">
+                        ◫ Yan Yana (50 / 50)
+                    </button>
+                    <button class="tab-btn" onclick="setIndexHubView('applied')" id="ih-applied">
+                        ✅ Özel İndeksler (Aktif)
+                    </button>
+                    <button class="tab-btn" onclick="setIndexHubView('unused')" id="ih-unused">
+                        ⚠️ Atıl / Ezilen İndeksler
+                    </button>
+                </div>
+            </div>
+            
+            <div class="card-body" style="padding: 12px;">
+                <div id="index-hub-container" class="grid-2" style="gap: 12px; margin-bottom: 0;">
+                    <!-- Sol Sütun: SQL Server'daki Aktif Özel İndeksler -->
+                    <div id="col-applied" class="index-hub-card">
+                        <div class="card-header" style="background:#0c0c12; padding:8px 12px; border-bottom:1px solid var(--border);">
+                            <div class="card-title" style="font-size:12px;">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--emerald)"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                SQL Server'daki Özel İndeksler & DDL Kodları
+                            </div>
+                            <span class="badge badge-success">Live Nonclustered</span>
+                        </div>
+                        <div class="card-body" id="applied-indexes" style="padding:0;">
+                            <div class="empty-text"><span class="spinner"></span> Yükleniyor...</div>
+                        </div>
+                    </div>
+
+                    <!-- Sağ Sütun: Kullanılmayan / Ezilen İndeksler -->
+                    <div id="col-unused" class="index-hub-card">
+                        <div class="card-header" style="background:#0c0c12; padding:8px 12px; border-bottom:1px solid var(--border);">
+                            <div class="card-title" style="font-size:12px;">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--rose)"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                Kullanılmayan / Ezilen İndeksler (0 Tarama)
+                            </div>
+                            <span class="badge badge-danger">Redundant Cleanup</span>
+                        </div>
+                        <div class="card-body" id="unused-indexes" style="padding:0;">
+                            <div class="empty-text"><span class="spinner"></span> Yükleniyor...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Tables Stats & Autonomous Decisions Log Grid -->
         <div class="grid-2">
             <!-- Table Stats -->
             <div class="card">
@@ -596,37 +801,6 @@
                     <span class="badge badge-neutral">sys.dm_db_index_operational_stats</span>
                 </div>
                 <div class="card-body" id="table-stats">
-                    <div class="empty-text"><span class="spinner"></span> Yükleniyor...</div>
-                </div>
-            </div>
-
-            <!-- Unused Indexes -->
-            <div class="card">
-                <div class="card-header">
-                    <div class="card-title">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--rose)"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                        Kullanılmayan / Ezilen İndeksler (0 Tarama)
-                    </div>
-                    <span class="badge badge-danger">Redundant Cleanup</span>
-                </div>
-                <div class="card-body" id="unused-indexes">
-                    <div class="empty-text"><span class="spinner"></span> Yükleniyor...</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- 3. Applied Custom Indexes & Autonomous Decisions Log -->
-        <div class="grid-2">
-            <!-- Applied Custom Indexes -->
-            <div class="card">
-                <div class="card-header">
-                    <div class="card-title">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--emerald)"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                        SQL Server'daki Özel İndeksler & SQL Kodları
-                    </div>
-                    <span class="badge badge-success">Live Nonclustered</span>
-                </div>
-                <div class="card-body" id="applied-indexes">
                     <div class="empty-text"><span class="spinner"></span> Yükleniyor...</div>
                 </div>
             </div>
@@ -660,6 +834,62 @@
             </div>
         </div>
 
+    </div>
+
+    <!-- App Drawer Backdrop (Dark Blur Overlay) -->
+    <div id="drawer-backdrop" class="drawer-backdrop" onclick="closeIndexDrawer()"></div>
+
+    <!-- App Drawer Panel (Slide-Over from Right) -->
+    <div id="drawer-panel" class="drawer-panel">
+        <div class="drawer-header">
+            <div style="display:flex; align-items:center; justify-content:space-between; width:100%;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--emerald)"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline></svg>
+                    <span style="font-size:13.5px; font-weight:700; color:#ffffff;">İndeks Yönetim Çekmecesi</span>
+                </div>
+                <button onclick="closeIndexDrawer()" class="drawer-close-btn" title="Kapat (Esc)">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+
+            <!-- Drawer Sub-Navbar -->
+            <div class="drawer-navbar">
+                <button class="drawer-tab-btn active" onclick="switchDrawerTab('applied')" id="dtab-applied">
+                    ✅ Özel İndeksler (Aktif)
+                </button>
+                <button class="drawer-tab-btn" onclick="switchDrawerTab('unused')" id="dtab-unused">
+                    ⚠️ Atıl / Ezilen İndeksler
+                </button>
+            </div>
+        </div>
+
+        <div class="drawer-body">
+            <!-- Tab 1: Özel İndeksler -->
+            <div id="dview-applied" class="drawer-view">
+                <div style="padding:10px 16px; background:#06060a; border-bottom:1px solid var(--border); font-size:11px; color:var(--text-secondary);">
+                    SQL Server üzerinde çalışan özel DDL indeksleri ve DMV tarama istatistikleri.
+                </div>
+                <div id="drawer-applied-indexes" style="padding:0;">
+                    <div class="empty-text"><span class="spinner"></span> Yükleniyor...</div>
+                </div>
+            </div>
+
+            <!-- Tab 2: Atıl / Ezilen İndeksler -->
+            <div id="dview-unused" class="drawer-view" style="display:none;">
+                <div style="padding:10px 16px; background:#06060a; border-bottom:1px solid var(--border); font-size:11px; color:var(--text-secondary);">
+                    Kompozit indeksler tarafından ezilen veya hiç kullanılmayan atıl indeksler.
+                </div>
+                <div id="drawer-unused-indexes" style="padding:0;">
+                    <div class="empty-text"><span class="spinner"></span> Yükleniyor...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Trigger Pill Button -->
+    <div class="floating-drawer-pill" onclick="openIndexDrawer('applied')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--emerald)"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline></svg>
+        <span>İndeks Çekmecesi</span>
     </div>
 
     <!-- Toast Notification -->
@@ -710,7 +940,7 @@
             return `${Math.floor(hrs / 24)} gün önce`;
         }
 
-        /* --- Performance Matrix --- */
+        /* --- Performance Matrix Filter --- */
         let matrixData = [];
         let matrixFilter = 'all';
 
@@ -722,6 +952,76 @@
             renderMatrixTable();
         }
 
+        /* --- Index Hub Tab Switcher --- */
+        let currentHubView = 'split';
+        function setIndexHubView(view) {
+            currentHubView = view;
+            const container = document.getElementById('index-hub-container');
+            const colApplied = document.getElementById('col-applied');
+            const colUnused = document.getElementById('col-unused');
+            
+            document.getElementById('ih-split').className = view === 'split' ? 'tab-btn active' : 'tab-btn';
+            document.getElementById('ih-applied').className = view === 'applied' ? 'tab-btn active' : 'tab-btn';
+            document.getElementById('ih-unused').className = view === 'unused' ? 'tab-btn active' : 'tab-btn';
+
+            if (view === 'split') {
+                container.className = 'grid-2';
+                colApplied.style.display = 'flex';
+                colUnused.style.display = 'flex';
+            } else if (view === 'applied') {
+                container.className = 'grid-1';
+                colApplied.style.display = 'flex';
+                colUnused.style.display = 'none';
+            } else if (view === 'unused') {
+                container.className = 'grid-1';
+                colApplied.style.display = 'none';
+                colUnused.style.display = 'flex';
+            }
+        }
+
+        /* --- App Drawer Methods --- */
+        function openIndexDrawer(tab = 'applied') {
+            switchDrawerTab(tab);
+            const backdrop = document.getElementById('drawer-backdrop');
+            const panel = document.getElementById('drawer-panel');
+            if (backdrop) backdrop.classList.add('active');
+            if (panel) panel.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeIndexDrawer() {
+            const backdrop = document.getElementById('drawer-backdrop');
+            const panel = document.getElementById('drawer-panel');
+            if (backdrop) backdrop.classList.remove('active');
+            if (panel) panel.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        function switchDrawerTab(tab) {
+            const tabApplied = document.getElementById('dtab-applied');
+            const tabUnused = document.getElementById('dtab-unused');
+            const viewApplied = document.getElementById('dview-applied');
+            const viewUnused = document.getElementById('dview-unused');
+
+            if (tab === 'applied') {
+                if (tabApplied) tabApplied.className = 'drawer-tab-btn active';
+                if (tabUnused) tabUnused.className = 'drawer-tab-btn';
+                if (viewApplied) viewApplied.style.display = 'block';
+                if (viewUnused) viewUnused.style.display = 'none';
+            } else {
+                if (tabApplied) tabApplied.className = 'drawer-tab-btn';
+                if (tabUnused) tabUnused.className = 'drawer-tab-btn active';
+                if (viewApplied) viewApplied.style.display = 'none';
+                if (viewUnused) viewUnused.style.display = 'block';
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeIndexDrawer();
+            }
+        });
+
         async function loadPerformanceMatrix() {
             const d = await fetchJSON('/api/performance-matrix');
             if (!d || !d.matrix) return;
@@ -729,11 +1029,28 @@
 
             const totalCount = matrixData.length;
             const slowOrUnindexed = matrixData.filter(m => !m.has_index || (m.current_ms && m.current_ms > 50)).length;
+            const optCount = matrixData.filter(m => m.has_index).length;
+            const pendCount = matrixData.filter(m => !m.has_index).length;
+
             const slowEl = document.getElementById('slow-count');
             if (slowEl) slowEl.textContent = `${slowOrUnindexed} / ${totalCount}`;
 
             const mfAll = document.getElementById('mf-all');
             if (mfAll) mfAll.textContent = `Tümü (${totalCount})`;
+
+            const mfOpt = document.getElementById('mf-opt');
+            if (mfOpt) mfOpt.textContent = `İndekslenmiş (${optCount})`;
+
+            const mfPend = document.getElementById('mf-pend');
+            if (mfPend) mfPend.textContent = `İndeks Bekleyen (${pendCount})`;
+
+            // Auto-fallback to 'all' filter if currently on 'optimized' with 0 indexes
+            if (matrixFilter === 'optimized' && optCount === 0) {
+                matrixFilter = 'all';
+                if (mfAll) mfAll.className = 'tab-btn active';
+                if (mfOpt) mfOpt.className = 'tab-btn';
+                if (mfPend) mfPend.className = 'tab-btn';
+            }
 
             renderMatrixTable();
         }
@@ -754,7 +1071,7 @@
             }
 
             if (sortBy === 'slowest') {
-                list.sort((a, b) => (b.has_index ? (b.baseline_ms) : b.baseline_ms) - (a.has_index ? (a.baseline_ms) : a.baseline_ms));
+                list.sort((a, b) => (b.baseline_ms || 0) - (a.baseline_ms || 0));
             } else if (sortBy === 'speedup') {
                 list.sort((a, b) => (b.multiplier || 0) - (a.multiplier || 0));
             } else if (sortBy === 'fastest') {
@@ -815,7 +1132,7 @@
                 if (item.has_index && item.applied_index_sqls && item.applied_index_sqls.length) {
                     indexSqlBlock = `
                         <div style="font-size:10px; font-weight:600; color:var(--emerald); margin-top:6px; letter-spacing:0.02em;">
-                            UYGULANAN İNDEKS (SQL SERVER):
+                            UYGULANAN ÖZEL İNDEKS (SQL SERVER):
                         </div>
                         ${item.applied_index_sqls.map(asql => `
                             <div class="sql-snippet" style="border-color:var(--emerald-border);">
@@ -824,16 +1141,30 @@
                             </div>
                         `).join('')}
                     `;
-                } else {
+                } else if (item.recommended_sql) {
                     indexSqlBlock = `
-                        <div style="font-size:10px; font-weight:600; color:var(--rose); margin-top:6px; letter-spacing:0.02em;">
-                            GEREKLİ / ÖNERİLEN İNDEKS (HENÜZ EKLENMEDİ):
+                        <div style="font-size:10px; font-weight:600; color:var(--amber); margin-top:6px; letter-spacing:0.02em;">
+                            ⚡ DİNAMİK İNDEKS ÖNERİSİ (IndexAdvisor):
                         </div>
-                        <div class="sql-snippet" style="border-color:var(--rose-border);">
-                            <span class="sql-text" style="color:#fda4af;">${recSql}</span>
-                            <button class="copy-btn" onclick="copySql('${recSql.replace(/'/g, "\\'")}')">Kopyala</button>
+                        <div class="sql-snippet" style="border-color:rgba(245,158,11,0.25);">
+                            <span class="sql-text" style="color:#fde68a;">${item.recommended_sql}</span>
+                            <button class="copy-btn" onclick="copySql('${item.recommended_sql.replace(/'/g, "\\'")}')">Kopyala</button>
                         </div>
                     `;
+                } else {
+                    indexSqlBlock = `
+                        <div style="font-size:11px; color:var(--text-muted); margin-top:6px; font-style:italic; display:flex; align-items:center; gap:5px;">
+                            <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--border);"></span>
+                            <span>İndeks Önerisi: 1. Adım (Yavaş Trafik Simülasyonu) çalıştırıldığında üretilecektir.</span>
+                        </div>
+                    `;
+                }
+
+                let baselineCell = '';
+                if (item.baseline_ms === null || item.baseline_ms === undefined) {
+                    baselineCell = `<span class="badge badge-neutral font-mono" style="font-size:10px;">— (Ölçüm Bekliyor)</span>`;
+                } else {
+                    baselineCell = `<div class="speed-pill speed-slow">${item.baseline_ms} ms</div>`;
                 }
 
                 html += `
@@ -850,15 +1181,20 @@
                             <!-- Concrete Applied or Recommended SQL Definition -->
                             ${indexSqlBlock}
 
-                            <div style="margin-top:6px;">
-                                <a href="javascript:void(0)" onclick="toggleSqlRow('sql-${idx}')" style="font-size:10.5px; color:var(--cyan); text-decoration:none;">
-                                    [Çalışan SQL Sorgusunu Göster / Gizle]
-                                </a>
+                            <!-- Always Visible Concrete Test SQL Query -->
+                            <div style="margin-top:8px;">
+                                <div style="font-size:10px; font-weight:600; color:var(--cyan); margin-bottom:3px; text-transform:uppercase; letter-spacing:0.04em; display:flex; align-items:center; gap:5px;">
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+                                    <span>Çalıştırılan Yavaş Test SQL Sorgusu:</span>
+                                </div>
+                                <div style="background:#040406; padding:8px 10px; border-radius:4px; border:1px solid var(--border); position:relative;">
+                                    <pre style="margin:0; font-family:'JetBrains Mono',monospace; font-size:11px; color:#cbd5e1; white-space:pre-wrap; word-break:break-all; line-height:1.4;">${item.query_sql}</pre>
+                                    <button class="copy-btn" style="position:absolute; top:6px; right:8px;" onclick="copySql('${item.query_sql.replace(/'/g, "\\'").replace(/\n/g, "\\n")}')">Kopyala</button>
+                                </div>
                             </div>
-                            <div id="sql-${idx}" style="display:none; margin-top:5px; background:#040406; padding:6px 8px; border-radius:4px; border:1px solid var(--border); font-family:'JetBrains Mono',monospace; font-size:10.5px; color:#cbd5e1; white-space:pre-wrap;">${item.query_sql}</div>
                         </td>
                         <td>
-                            <div class="speed-pill speed-slow">${item.baseline_ms} ms</div>
+                            ${baselineCell}
                         </td>
                         <td>
                             ${speedCell}
@@ -872,11 +1208,6 @@
 
             html += `</tbody></table>`;
             document.getElementById('performance-matrix').innerHTML = html;
-        }
-
-        function toggleSqlRow(id) {
-            const el = document.getElementById(id);
-            if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
         }
 
         /* --- Stats & Health --- */
@@ -906,11 +1237,16 @@
             const totalSeq = d.tables?.reduce((s, t) => s + (t.seq_scans || 0), 0) || 0;
             const totalIdx = d.tables?.reduce((s, t) => s + (t.idx_scans || 0), 0) || 0;
             const totalScans = totalSeq + totalIdx;
-            const healthPct = totalScans > 0 ? ((totalIdx / totalScans) * 100).toFixed(1) : 100;
             
             const healthEl = document.getElementById('health-score');
-            healthEl.textContent = `%${healthPct}`;
-            healthEl.style.color = healthPct >= 80 ? 'var(--emerald)' : (healthPct >= 50 ? 'var(--amber)' : 'var(--rose)');
+            if (totalScans === 0) {
+                healthEl.textContent = '-%';
+                healthEl.style.color = 'var(--text-muted)';
+            } else {
+                const healthPct = ((totalIdx / totalScans) * 100).toFixed(1);
+                healthEl.textContent = `%${healthPct}`;
+                healthEl.style.color = healthPct >= 80 ? 'var(--emerald)' : (healthPct >= 50 ? 'var(--amber)' : 'var(--rose)');
+            }
 
             if (!matrixData || !matrixData.length) {
                 const slowNum = d.top_queries?.filter(q => q.mean_ms > 50).length || 0;
@@ -1011,8 +1347,13 @@
                 });
                 html += '</tbody></table>';
                 document.getElementById('unused-indexes').innerHTML = html;
+                const dUnused = document.getElementById('drawer-unused-indexes');
+                if (dUnused) dUnused.innerHTML = html;
             } else {
-                document.getElementById('unused-indexes').innerHTML = '<div class="empty-text" style="color:var(--emerald);">✔ Harika! Atıl veya gereksiz indeks tespit edilmedi.</div>';
+                const emptyMsg = '<div class="empty-text" style="color:var(--emerald);">✔ Harika! Atıl veya gereksiz indeks tespit edilmedi.</div>';
+                document.getElementById('unused-indexes').innerHTML = emptyMsg;
+                const dUnused = document.getElementById('drawer-unused-indexes');
+                if (dUnused) dUnused.innerHTML = emptyMsg;
             }
         }
 
@@ -1071,6 +1412,8 @@
             }
 
             document.getElementById('applied-indexes').innerHTML = html;
+            const dApplied = document.getElementById('drawer-applied-indexes');
+            if (dApplied) dApplied.innerHTML = html;
         }
 
         /* --- Decisions Log --- */
@@ -1169,9 +1512,16 @@
             await runStreamingAction('/api/stream/run-benchmark', null, 'btn-bench');
         }
 
-        async function actionResetAllIndexes() {
-            if (!confirm('Tüm özel indeksler veritabanından kaldırılacak. Onaylıyor musunuz?')) return;
-            await runStreamingAction('/api/stream/reset-indexes', null, 'btn-reset');
+        async function actionResetIndexesOnly() {
+            if (!confirm('SQL Server üzerindeki tüm özel optimizasyon indeksleri kaldırılacak. Onaylıyor musunuz?')) return;
+            setMatrixFilter('all');
+            await runStreamingAction('/api/stream/reset-indexes', null, 'btn-reset-idx');
+        }
+
+        async function actionFullFactoryReset() {
+            if (!confirm('DİKKAT: Tüm özel indeksler, benchmark ölçümleri, karar geçmişi ve dinamik süreler tamamen silinip fabrika ayarlarına sıfırlanacak. Onaylıyor musunuz?')) return;
+            setMatrixFilter('all');
+            await runStreamingAction('/api/stream/reset-all', null, 'btn-reset-all');
         }
 
         async function actionDropIndex(indexName, tableName) {
