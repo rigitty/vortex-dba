@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build script for creating standalone VortexDBA.exe executable using PyInstaller."""
+"""Build script for creating standalone native VortexDBA.exe using PyInstaller and PyQt6."""
 
 import os
 import sys
@@ -10,7 +10,7 @@ ROOT_DIR = Path(__file__).parent.resolve()
 
 def build_exe():
     print("=" * 65)
-    print("   VORTEX DBA - STANDALONE .EXE BUILDER (PYINSTALLER)")
+    print("   VORTEX DBA - NATIVE STANDALONE .EXE BUILDER (PYQT6)")
     print("=" * 65)
     print()
 
@@ -21,7 +21,6 @@ def build_exe():
         print("[*] PyInstaller yukleniyor...")
         subprocess.run([sys.executable, "-m", "pip", "install", "pyinstaller"], check=True)
 
-    templates_dir = ROOT_DIR / "src" / "templates"
     config_file = ROOT_DIR / "config.yaml"
 
     cmd = [
@@ -32,27 +31,14 @@ def build_exe():
         "--onedir",
         "--windowed",
         "--name=VortexDBA",
-        f"--add-data={templates_dir}{os.pathsep}src/templates",
         f"--add-data={config_file}{os.pathsep}.",
-        "--hidden-import=uvicorn.logging",
-        "--hidden-import=uvicorn.loops",
-        "--hidden-import=uvicorn.loops.auto",
-        "--hidden-import=uvicorn.protocols",
-        "--hidden-import=uvicorn.protocols.http",
-        "--hidden-import=uvicorn.protocols.http.auto",
-        "--hidden-import=uvicorn.protocols.websockets",
-        "--hidden-import=uvicorn.protocols.websockets.auto",
-        "--hidden-import=uvicorn.lifespan",
-        "--hidden-import=uvicorn.lifespan.on",
-        "--hidden-import=fastapi",
+        "--hidden-import=PyQt6",
+        "--hidden-import=PyQt6.QtCore",
+        "--hidden-import=PyQt6.QtGui",
+        "--hidden-import=PyQt6.QtWidgets",
+        "--hidden-import=qtawesome",
         "--hidden-import=pymssql",
-        "--hidden-import=webview",
-        "--hidden-import=webview.platforms.winforms",
-        "--hidden-import=webview.platforms.edgechromium",
-        "--hidden-import=jinja2",
         "--hidden-import=yaml",
-        "--hidden-import=clr_loader",
-        "--hidden-import=pythonnet",
         str(ROOT_DIR / "app.py"),
     ]
 
@@ -64,7 +50,7 @@ def build_exe():
     if res.returncode == 0:
         print()
         print("=" * 65)
-        print("✔ DERLEME BASARILI!")
+        print("[OK] DERLEME BASARILI!")
         print(f"Masaustu Uygulamasi: {ROOT_DIR / 'dist' / 'VortexDBA' / 'VortexDBA.exe'}")
         print("=" * 65)
     else:

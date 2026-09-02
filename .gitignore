@@ -1,38 +1,71 @@
-# Virtual Environment
-.venv/
+# ==============================================================================
+# VortexDBA .gitignore
+# ==============================================================================
+
+# --- Python Bytecode & Caches ---
 __pycache__/
 *.py[cod]
+*$py.class
+*.pyd
+*.pyo
 
-# Environment & Secrets
+# --- Virtual Environments ---
+venv/
+.venv/
+env/
+.env/
+ENV/
+
+# --- Environment Secrets & Config Overrides ---
 .env
+.env.local
+.env.*.local
+*.local.yaml
+*.local.json
 
-# PostgreSQL / SQL Server Data
+# --- PyInstaller & Executable Builds ---
+dist/
+build/
+*.spec
+*.exe
+*.manifest
+
+# --- Local Runtime Databases & SQLite State ---
+data/*.db
+data/*.sqlite3
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
 pg_data/
 postgres_data/
 mssql_data/
 
-# IDE & OS
-.vscode/
-.idea/
-.DS_Store
-.rules
-
-# Logs & Reports
+# --- Logs, Diagnostics & Benchmark Reports ---
 *.log
-reports/
 logs/
+reports/
+*.report.json
 
-# State Database
-data/
-
-# Personal notes
-COMMANDS.txt
-
-node_modules/
-frontend/node_modules/
-frontend/dist/
-dist/
-build/
-__pycache__/
-*.pyc
+# --- Testing & Code Quality Caches ---
 .pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# --- Node / Web Fallback Artifacts ---
+node_modules/
+frontend/
+.npm/
+
+# --- IDEs & Operating System Files ---
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+.rules
+COMMANDS.txt
