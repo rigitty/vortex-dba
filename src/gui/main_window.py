@@ -11,7 +11,6 @@ from PyQt6.QtWidgets import (
     QApplication,
     QMainWindow,
     QWidget,
-
     QVBoxLayout,
     QHBoxLayout,
     QGridLayout,
@@ -29,10 +28,12 @@ from PyQt6.QtWidgets import (
     QSplitter,
     QCheckBox,
     QSpinBox,
+    QGraphicsOpacityEffect,
 )
 
-from PyQt6.QtCore import Qt, QTimer, QPoint, QRect
+from PyQt6.QtCore import Qt, QTimer, QPoint, QRect, QPropertyAnimation, QEasingCurve
 from PyQt6.QtGui import QIcon, QFont, QColor
+
 
 import qtawesome as qta
 
@@ -64,10 +65,12 @@ try:
     from src.query_discovery import poll_and_capture_live_dmv_queries, generate_descriptive_title
     from src.index_advisor import recommend_index_for_query
     from src.pg_stats_reader import get_table_stats
-    from src.gui.theme import DARK_THEME_QSS
+    from src.gui.theme import DARK_THEME_QSS, LIGHT_THEME_QSS, get_theme_color
     from src.gui.widgets.stat_card import StatCard
     from src.gui.widgets.toast import ToastOverlay
     from src.gui.widgets.quota_stepper import QuotaStepperWidget
+    from src.gui.widgets.theme_toggle import ThemeToggleSwitch
+    from src.gui.widgets.fade_overlay import ThemeFadeOverlay
     from src.gui.workers import (
         SimulateWorker,
         RemediateWorker,
@@ -103,16 +106,21 @@ except ImportError:
     from query_discovery import poll_and_capture_live_dmv_queries, generate_descriptive_title
     from index_advisor import recommend_index_for_query
     from pg_stats_reader import get_table_stats
-    from gui.theme import DARK_THEME_QSS
+    from gui.theme import DARK_THEME_QSS, LIGHT_THEME_QSS, get_theme_color
     from gui.widgets.stat_card import StatCard
     from gui.widgets.toast import ToastOverlay
     from gui.widgets.quota_stepper import QuotaStepperWidget
+    from gui.widgets.theme_toggle import ThemeToggleSwitch
+    from gui.widgets.fade_overlay import ThemeFadeOverlay
     from gui.workers import (
         SimulateWorker,
         RemediateWorker,
         BenchmarkWorker,
         ResetWorker,
     )
+
+
+
 
 
 
@@ -149,11 +157,11 @@ class MainWindow(QMainWindow):
 
         self.current_worker = None
         self.is_connected = False
+        self.is_light_theme = False
         self.engine_active = True  # Autonomous engine toggle
         self.max_indexes_limit = 5  # Configurable autonomous quota limit
         self.active_editor_rec = None
         self.selected_query_ids = set()
-
 
         # Apply QSS Dark Theme
         self.setStyleSheet(DARK_THEME_QSS)
@@ -161,12 +169,323 @@ class MainWindow(QMainWindow):
         self.init_ui()
         self.center_on_screen()
         self.toast_overlay = ToastOverlay(self)
+        self.fade_overlay = ThemeFadeOverlay(self)
         self.refresh_all()
 
         # Auto-refresh timer (3 seconds) for live telemetry & background DMV sniffing
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.auto_refresh)
         self.timer.start(3000)
+
+    def c(self, key: str) -> str:
+        """Returns theme-aware hex color for the active theme."""
+        return get_theme_color(self.is_light_theme, key)
+
+    def _update_nav_tabs_visuals(self, active_index: int = None):
+        """Visually updates active vs inactive tab buttons with crisp contrast in both themes."""
+        if active_index is None:
+            active_index = self.stacked_widget.currentIndex() if hasattr(self, "stacked_widget") else 0
+        cur_idx = active_index
+        tab_buttons = [
+            getattr(self, "btn_tab_connect", None),
+            getattr(self, "btn_tab_editor", None),
+            getattr(self, "btn_tab_queries", None),
+            getattr(self, "btn_tab_idx_mgmt", None),
+            getattr(self, "btn_tab_mgmt", None),
+        ]
+        is_light = getattr(self, "is_light_theme", False)
+
+        for i, btn in enumerate(tab_buttons):
+            if btn is None:
+                continue
+            is_active = (i == cur_idx)
+            btn.blockSignals(True)
+            btn.setChecked(is_active)
+            btn.blockSignals(False)
+
+            if is_light:
+                if is_active:
+                    btn.setStyleSheet("background-color: #0284c7; color: #ffffff; border: none; border-bottom: 3px solid #0369a1; border-right: 1px solid #0369a1; font-weight: 800; font-size: 12px; font-family: 'JetBrains Mono', monospace; text-transform: uppercase; min-width: 105px; max-width: 105px;")
+                else:
+                    btn.setStyleSheet("background-color: #e2e8f0; color: #334155; border: none; border-right: 1px solid #cbd5e1; font-weight: 700; font-size: 12px; font-family: 'JetBrains Mono', monospace; text-transform: uppercase; min-width: 105px; max-width: 105px;")
+            else:
+                if is_active:
+                    btn.setStyleSheet("background-color: #0e2238; color: #38bdf8; border: none; border-bottom: 3px solid #06b6d4; border-right: 1px solid #1a1a28; font-weight: 800; font-size: 12px; font-family: 'JetBrains Mono', monospace; text-transform: uppercase; min-width: 105px; max-width: 105px;")
+                else:
+                    btn.setStyleSheet("background-color: #090910; color: #8b8b9e; border: none; border-right: 1px solid #1a1a28; font-weight: 700; font-size: 12px; font-family: 'JetBrains Mono', monospace; text-transform: uppercase; min-width: 105px; max-width: 105px;")
+
+    def _apply_all_button_styles(self):
+        """Directly and deterministically applies rich, vibrant color styles to all buttons across the application."""
+        is_light = getattr(self, "is_light_theme", False)
+
+        if is_light:
+            primary_style = "background-color: #0284c7; color: #ffffff; border: 1px solid #0369a1; font-weight: 800; font-size: 11.5px; border-radius: 3px; padding: 7px 16px; font-family: 'JetBrains Mono', monospace;"
+            success_style = "background-color: #059669; color: #ffffff; border: 1px solid #047857; font-weight: 800; font-size: 11.5px; border-radius: 3px; padding: 7px 16px; font-family: 'JetBrains Mono', monospace;"
+            warning_style = "background-color: #d97706; color: #ffffff; border: 1px solid #b45309; font-weight: 800; font-size: 11.5px; border-radius: 3px; padding: 7px 16px; font-family: 'JetBrains Mono', monospace;"
+            danger_style = "background-color: #e11d48; color: #ffffff; border: 1px solid #be123c; font-weight: 800; font-size: 11.5px; border-radius: 3px; padding: 7px 16px; font-family: 'JetBrains Mono', monospace;"
+            secondary_style = "background-color: #e2e8f0; color: #0f172a; border: 1px solid #94a3b8; font-weight: 700; font-size: 11.5px; border-radius: 3px; padding: 7px 14px; font-family: 'JetBrains Mono', monospace;"
+            preset_style = "background-color: #f1f5f9; color: #0284c7; border: 1px solid #cbd5e1; font-weight: 700; font-size: 11px; border-radius: 3px; padding: 6px 12px; font-family: 'JetBrains Mono', monospace;"
+        else:
+            primary_style = "background-color: #1d4ed8; color: #ffffff; border: 1px solid #3b82f6; font-weight: 800; font-size: 11.5px; border-radius: 3px; padding: 7px 16px; font-family: 'JetBrains Mono', monospace;"
+            success_style = "background-color: #065f46; color: #ffffff; border: 1px solid #10b981; font-weight: 800; font-size: 11.5px; border-radius: 3px; padding: 7px 16px; font-family: 'JetBrains Mono', monospace;"
+            warning_style = "background-color: #854d0e; color: #ffffff; border: 1px solid #f59e0b; font-weight: 800; font-size: 11.5px; border-radius: 3px; padding: 7px 16px; font-family: 'JetBrains Mono', monospace;"
+            danger_style = "background-color: #881337; color: #ffffff; border: 1px solid #f43f5e; font-weight: 800; font-size: 11.5px; border-radius: 3px; padding: 7px 16px; font-family: 'JetBrains Mono', monospace;"
+            secondary_style = "background-color: #0c0c14; color: #e2e8f0; border: 1px solid #2a2a3c; font-weight: 700; font-size: 11.5px; border-radius: 3px; padding: 7px 14px; font-family: 'JetBrains Mono', monospace;"
+            preset_style = "background-color: #05080e; color: #38bdf8; border: 1px solid #1e3a5f; font-weight: 700; font-size: 11px; border-radius: 3px; padding: 6px 12px; font-family: 'JetBrains Mono', monospace;"
+
+        # Primary buttons
+        for btn in [getattr(self, "btn_run_sql", None), getattr(self, "btn_refresh_queries", None), getattr(self, "btn_to_editor", None)]:
+            if btn: btn.setStyleSheet(primary_style)
+
+        # Success buttons
+        for btn in [getattr(self, "btn_save_conn", None), getattr(self, "btn_rem", None), getattr(self, "btn_apply_rec", None)]:
+            if btn: btn.setStyleSheet(success_style)
+
+        # Warning buttons
+        for btn in [getattr(self, "btn_bench", None)]:
+            if btn: btn.setStyleSheet(warning_style)
+
+        # Danger buttons
+        for btn in [getattr(self, "btn_reset", None), getattr(self, "btn_delete_selected", None), getattr(self, "btn_clear_all_queries", None)]:
+            if btn: btn.setStyleSheet(danger_style)
+
+        # Secondary / Standard buttons
+        for btn in [getattr(self, "btn_test_conn", None), getattr(self, "btn_to_queries", None), getattr(self, "btn_clear_sql", None), getattr(self, "btn_select_all_queries", None), getattr(self, "btn_clear_audit", None), getattr(self, "btn_save_mode", None)]:
+            if btn: btn.setStyleSheet(secondary_style)
+
+        # Presets & Template buttons
+        for btn in getattr(self, "preset_buttons", []):
+            btn.setStyleSheet(preset_style)
+        for btn in getattr(self, "template_buttons", []):
+            btn.setStyleSheet(preset_style)
+
+    def _update_all_labels_theme(self):
+        """Dynamically updates contrast and text colors for all panel titles and descriptions."""
+        is_light = getattr(self, "is_light_theme", False)
+        title_color = "#0f172a" if is_light else "#ffffff"
+
+        for lbl in [
+            getattr(self, "lbl_conn_title", None),
+            getattr(self, "lbl_server_title", None),
+            getattr(self, "lbl_editor_title", None),
+            getattr(self, "lbl_queries_title", None),
+            getattr(self, "lbl_batch_ops", None),
+        ]:
+            if lbl:
+                lbl.setStyleSheet(f"font-size: 13px; font-weight: 800; color: {title_color}; font-family: 'JetBrains Mono', monospace;")
+
+    def toggle_engine_state(self):
+        """Toggles the autonomous indexing engine ON/OFF and updates all UI badges and buttons."""
+        self.engine_active = not self.engine_active
+        if self.engine_active:
+            self.show_toast("OTONOM MOTOR AKTİF", "7/24 Canlı DMV dinleme ve otomatik optimizasyon devrede.", "success")
+            if hasattr(self, "term_log"):
+                self.term_log.appendPlainText("▶ [MOTOR AKTİF]: Arka plan DMV sorgu dinleyici ve otonom optimizasyon devrede.")
+            self.run_autonomous_optimizer_tick()
+        else:
+            self.show_toast("OTONOM MOTOR DURDURULDU", "Otomatik optimizasyon durduruldu (Manuel Mod).", "warning")
+            if hasattr(self, "term_log"):
+                self.term_log.appendPlainText("⏸ [MOTOR DURDURULDU]: Otonom dinleme ve otomatik indeksleme duraklatıldı.")
+        self.refresh_engine_ui()
+
+    def refresh_engine_ui(self):
+        """Updates autonomous motor status badges and buttons across header and management pages."""
+        if hasattr(self, "btn_top_engine"):
+            if self.engine_active:
+                self.btn_top_engine.setText("● OTONOM: AKTİF (7/24)")
+                self.btn_top_engine.setStyleSheet(
+                    f"font-size: 11px; font-weight: 800; font-family: 'JetBrains Mono', monospace; padding: 5px 12px; background: {self.c('badge_engine_on_bg')}; color: {self.c('badge_engine_on_text')}; border: 1px solid {self.c('badge_engine_on_border')}; border-radius: 2px;"
+                )
+            else:
+                self.btn_top_engine.setText("○ OTONOM: KAPALI")
+                self.btn_top_engine.setStyleSheet(
+                    f"font-size: 11px; font-weight: 800; font-family: 'JetBrains Mono', monospace; padding: 5px 12px; background: {self.c('badge_engine_off_bg')}; color: {self.c('badge_engine_off_text')}; border: 1px solid {self.c('badge_engine_off_border')}; border-radius: 2px;"
+                )
+
+        if hasattr(self, "btn_toggle_engine"):
+            if self.engine_active:
+                self.btn_toggle_engine.setText("● OTONOM MOTOR: AKTİF (7/24)")
+                self.btn_toggle_engine.setStyleSheet(
+                    f"font-size: 11px; font-weight: 800; font-family: 'JetBrains Mono', monospace; padding: 7px 14px; background: {self.c('badge_engine_on_bg')}; color: {self.c('badge_engine_on_text')}; border: 1px solid {self.c('badge_engine_on_border')}; border-radius: 2px;"
+                )
+            else:
+                self.btn_toggle_engine.setText("○ OTONOM MOTOR: KAPALI")
+                self.btn_toggle_engine.setStyleSheet(
+                    f"font-size: 11px; font-weight: 800; font-family: 'JetBrains Mono', monospace; padding: 7px 14px; background: {self.c('badge_engine_off_bg')}; color: {self.c('badge_engine_off_text')}; border: 1px solid {self.c('badge_engine_off_border')}; border-radius: 2px;"
+                )
+
+        if hasattr(self, "sc_engine"):
+            if self.engine_active:
+                self.sc_engine.set_value("7/24 AKTİF", "Canlı DMV Dinleme Açık")
+            else:
+                self.sc_engine.set_value("DURDURULDU", "Manuel Mod (Dinleme Kapalı)")
+
+    def switch_page(self, index: int):
+        """Switches stacked widget to target page index and synchronizes contiguous navigation buttons."""
+        if hasattr(self, "stacked_widget"):
+            self.stacked_widget.setCurrentIndex(index)
+
+        # Update visuals of contiguous nav tab buttons
+        self._update_nav_tabs_visuals(index)
+        self._apply_all_button_styles()
+        self._update_all_labels_theme()
+
+        # Refresh the activated page
+        if index == 0:
+            self.refresh_connect_page()
+        elif index == 1:
+            if hasattr(self, "sql_editor_input"):
+                self.sql_editor_input.setFocus()
+        elif index == 2:
+            self.load_queries_only_table()
+        elif index == 3:
+            self.load_index_mgmt_table()
+        elif index == 4:
+            self.refresh_mgmt_page()
+
+    def set_theme(self, is_light: bool):
+        """Smoothly crossfades between Dark and Light theme with 60fps hardware-accelerated snapshot."""
+        if hasattr(self, "fade_overlay") and self.isVisible():
+            snapshot = self.grab()
+            self.fade_overlay.start_crossfade(snapshot, duration_ms=220)
+
+        self.is_light_theme = is_light
+        app_inst = QApplication.instance()
+        qss = LIGHT_THEME_QSS if is_light else DARK_THEME_QSS
+        if app_inst:
+            app_inst.setStyleSheet(qss)
+        self.setStyleSheet(qss)
+
+        # Update Nav Tabs Box (Seamless contiguous segmented tabs with uniform width)
+        if hasattr(self, "nav_tabs_box"):
+            if is_light:
+                self.nav_tabs_box.setStyleSheet("background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 0px; padding: 0px;")
+            else:
+                self.nav_tabs_box.setStyleSheet("background: #090910; border: 1px solid #1a1a28; border-radius: 0px; padding: 0px;")
+
+        self._update_nav_tabs_visuals()
+        self.refresh_engine_ui()
+        self._apply_all_button_styles()
+        self._update_all_labels_theme()
+        if hasattr(self, "toast_overlay"):
+            self.toast_overlay.set_theme(is_light)
+
+
+
+
+
+
+        if hasattr(self, "brand_lbl"):
+            self.brand_lbl.setStyleSheet(
+                f"font-size: 16px; font-weight: 800; color: {self.c('text_primary')}; letter-spacing: 0.8px; font-family: 'JetBrains Mono', monospace;"
+            )
+
+        if hasattr(self, "lbl_server_info"):
+            self.lbl_server_info.setStyleSheet(
+                f"font-size: 11px; font-weight: 700; color: {self.c('text_muted')}; font-family: 'JetBrains Mono', monospace; background: {self.c('bg_subtle')}; border: 1px solid {self.c('border_card')}; padding: 5px 10px; border-radius: 2px;"
+            )
+
+        # Update Top Autonomous Engine Badge
+        if hasattr(self, "btn_top_engine"):
+            if self.engine_active:
+                self.btn_top_engine.setText("● OTONOM: AKTİF (7/24)")
+                self.btn_top_engine.setStyleSheet(
+                    f"font-size: 11px; font-weight: 800; font-family: 'JetBrains Mono', monospace; padding: 5px 12px; background: {self.c('badge_engine_on_bg')}; color: {self.c('badge_engine_on_text')}; border: 1px solid {self.c('badge_engine_on_border')}; border-radius: 2px;"
+                )
+            else:
+                self.btn_top_engine.setText("○ OTONOM: KAPALI")
+                self.btn_top_engine.setStyleSheet(
+                    f"font-size: 11px; font-weight: 800; font-family: 'JetBrains Mono', monospace; padding: 5px 12px; background: {self.c('badge_engine_off_bg')}; color: {self.c('badge_engine_off_text')}; border: 1px solid {self.c('badge_engine_off_border')}; border-radius: 2px;"
+                )
+
+        # Update Health Box
+        if hasattr(self, "lbl_health_box"):
+            cfg = get_config()
+            if self.is_connected:
+                self.lbl_health_box.setText(f"ONLINE | :{cfg.database.port}")
+                self.lbl_health_box.setStyleSheet(
+                    f"font-size: 11px; font-weight: 800; font-family: 'JetBrains Mono', monospace; padding: 5px 12px; background: {self.c('badge_online_bg')}; color: {self.c('badge_online_text')}; border: 1px solid {self.c('badge_online_border')}; border-radius: 2px;"
+                )
+            else:
+                self.lbl_health_box.setText("OFFLINE | BAĞLANTI YOK")
+                self.lbl_health_box.setStyleSheet(
+                    f"font-size: 11px; font-weight: 800; font-family: 'JetBrains Mono', monospace; padding: 5px 12px; background: {self.c('badge_offline_bg')}; color: {self.c('badge_offline_text')}; border: 1px solid {self.c('badge_offline_border')}; border-radius: 2px;"
+                )
+
+        # Update Execution Stats Strip
+        if hasattr(self, "lbl_exec_stats"):
+            self.lbl_exec_stats.setStyleSheet(
+                f"background: {self.c('strip_bg')}; border: 1px solid {self.c('strip_border')}; padding: 6px 12px; font-size: 11px; font-weight: 700; color: {self.c('strip_text')}; font-family: 'JetBrains Mono', monospace;"
+            )
+
+        # Update Dynamic Index Recommendation Banner
+        if hasattr(self, "rec_frame"):
+            self.rec_frame.setStyleSheet(
+                f"background: {self.c('rec_bg')}; border: 1px solid {self.c('rec_border')}; padding: 8px;"
+            )
+        if hasattr(self, "lbl_rec_text"):
+            self.lbl_rec_text.setStyleSheet(
+                f"color: {self.c('rec_text')}; font-size: 11px; font-family: 'JetBrains Mono', monospace;"
+            )
+
+        # Update Connection Diagnostic Label
+        if hasattr(self, "lbl_test_diag"):
+            self.lbl_test_diag.setStyleSheet(
+                f"background: {self.c('bg_subtle')}; border: 1px solid {self.c('border_card')}; padding: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: {self.c('text_primary')};"
+            )
+
+        # Update Last Action Label
+        if hasattr(self, "lbl_last_action"):
+            self.lbl_last_action.setStyleSheet(
+                f"color: {self.c('text_primary')}; font-weight: 700; font-size: 11px; font-family: 'JetBrains Mono', monospace;"
+            )
+
+        # Update Windows Control buttons
+        if hasattr(self, "btn_min") and hasattr(self, "btn_max") and hasattr(self, "btn_close"):
+            win_color = "#334155" if is_light else "#cbd5e1"
+            hover_bg = "#e2e8f0" if is_light else "#151522"
+            hover_border = "#cbd5e1" if is_light else "#2e2e42"
+            win_style = f"""
+                QPushButton {{
+                    background: transparent;
+                    border: 1px solid transparent;
+                    color: {win_color};
+                    font-family: 'Segoe UI', Arial, sans-serif;
+                    font-size: 13px;
+                    font-weight: 700;
+                    padding: 0;
+                }}
+                QPushButton:hover {{
+                    background: {hover_bg};
+                    border: 1px solid {hover_border};
+                    color: {"#0f172a" if is_light else "#ffffff"};
+                }}
+            """
+            self.btn_min.setStyleSheet(win_style)
+            self.btn_max.setStyleSheet(win_style)
+
+        # Update Quota Stepper Widgets
+        if hasattr(self, "spin_quota_mgmt"):
+            self.spin_quota_mgmt.apply_theme(is_light)
+
+        # Update StatCards
+        for sc in self.findChildren(StatCard):
+            sc.apply_theme(is_light)
+
+        # Reload only the currently active page for instant, freeze-free response
+        cur_idx = self.stacked_widget.currentIndex() if hasattr(self, "stacked_widget") else 0
+        if cur_idx == 0:
+            self.refresh_connect_page()
+        elif cur_idx == 2:
+            self.load_queries_only_table()
+        elif cur_idx == 3:
+            self.load_index_mgmt_table()
+        elif cur_idx == 4:
+            self.refresh_mgmt_page()
+
+
+
+
 
     def center_on_screen(self):
         """Center the window perfectly on the primary screen available geometry."""
@@ -180,12 +499,15 @@ class MainWindow(QMainWindow):
     def show_toast(self, title: str, message: str, toast_type: str = "success"):
         """Displays a sleek floating non-blocking persistent toast notification."""
         if hasattr(self, "toast_overlay"):
-            self.toast_overlay.add_toast(title, message, toast_type)
+            self.toast_overlay.add_toast(title, message, toast_type, is_light=getattr(self, "is_light_theme", False))
+
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
         if hasattr(self, "toast_overlay"):
             self.toast_overlay.reposition()
+        if hasattr(self, "fade_overlay"):
+            self.fade_overlay.resize(self.size())
 
 
     def toggle_maximize(self):
@@ -420,52 +742,60 @@ class MainWindow(QMainWindow):
                 pass
         brand_box.addWidget(logo_lbl)
 
-        brand_lbl = QLabel("VORTEX DBA")
-        brand_lbl.setStyleSheet("font-size: 16px; font-weight: 800; color: #ffffff; letter-spacing: 0.8px; font-family: 'JetBrains Mono', monospace;")
-        brand_box.addWidget(brand_lbl)
+        self.brand_lbl = QLabel("VORTEX DBA")
+        self.brand_lbl.setStyleSheet("font-size: 16px; font-weight: 800; color: #ffffff; letter-spacing: 0.8px; font-family: 'JetBrains Mono', monospace;")
+        brand_box.addWidget(self.brand_lbl)
         header_layout.addLayout(brand_box)
 
         header_layout.addSpacing(6)
 
-        # 5 Tab Navigation Buttons
-        nav_tabs_box = QFrame()
-        nav_tabs_box.setStyleSheet("background: #040407; border: 1px solid #1a1a24; padding: 2px;")
-        nav_tabs_layout = QHBoxLayout(nav_tabs_box)
-        nav_tabs_layout.setContentsMargins(2, 2, 2, 2)
-        nav_tabs_layout.setSpacing(3)
+        # 5 Tab Navigation Buttons (Contiguous Segmented Bar)
+        self.nav_tabs_box = QFrame()
+        self.nav_tabs_box.setStyleSheet("background: #090910; border: 1px solid #1a1a28; border-radius: 0px; padding: 0px;")
+        nav_tabs_layout = QHBoxLayout(self.nav_tabs_box)
+        nav_tabs_layout.setContentsMargins(0, 0, 0, 0)
+        nav_tabs_layout.setSpacing(0)
 
-        self.btn_tab_connect = QPushButton("SUNUCU BAĞLANTISI")
+
+        self.btn_tab_connect = QPushButton("SUNUCU")
         self.btn_tab_connect.setProperty("class", "nav-tab-btn")
+        self.btn_tab_connect.setFixedWidth(105)
         self.btn_tab_connect.setCheckable(True)
         self.btn_tab_connect.setChecked(True)
         self.btn_tab_connect.clicked.connect(lambda: self.switch_page(0))
         nav_tabs_layout.addWidget(self.btn_tab_connect)
 
-        self.btn_tab_editor = QPushButton("SQL EDİTÖRÜ")
+        self.btn_tab_editor = QPushButton("SQL")
         self.btn_tab_editor.setProperty("class", "nav-tab-btn")
+        self.btn_tab_editor.setFixedWidth(105)
         self.btn_tab_editor.setCheckable(True)
         self.btn_tab_editor.clicked.connect(lambda: self.switch_page(1))
         nav_tabs_layout.addWidget(self.btn_tab_editor)
 
         self.btn_tab_queries = QPushButton("SORGULAR")
         self.btn_tab_queries.setProperty("class", "nav-tab-btn")
+        self.btn_tab_queries.setFixedWidth(105)
         self.btn_tab_queries.setCheckable(True)
         self.btn_tab_queries.clicked.connect(lambda: self.switch_page(2))
         nav_tabs_layout.addWidget(self.btn_tab_queries)
 
-        self.btn_tab_idx_mgmt = QPushButton("İNDEKS YÖNETİMİ")
+        self.btn_tab_idx_mgmt = QPushButton("İNDEKS")
         self.btn_tab_idx_mgmt.setProperty("class", "nav-tab-btn")
+        self.btn_tab_idx_mgmt.setFixedWidth(105)
         self.btn_tab_idx_mgmt.setCheckable(True)
         self.btn_tab_idx_mgmt.clicked.connect(lambda: self.switch_page(3))
         nav_tabs_layout.addWidget(self.btn_tab_idx_mgmt)
 
-        self.btn_tab_mgmt = QPushButton("YÖNETİM & TELEMETRİ")
+        self.btn_tab_mgmt = QPushButton("YÖNETİM")
         self.btn_tab_mgmt.setProperty("class", "nav-tab-btn")
+        self.btn_tab_mgmt.setFixedWidth(105)
         self.btn_tab_mgmt.setCheckable(True)
         self.btn_tab_mgmt.clicked.connect(lambda: self.switch_page(4))
         nav_tabs_layout.addWidget(self.btn_tab_mgmt)
 
-        header_layout.addWidget(nav_tabs_box)
+
+
+        header_layout.addWidget(self.nav_tabs_box)
         header_layout.addStretch()
 
         # Right Side Server Info & Status
@@ -486,6 +816,10 @@ class MainWindow(QMainWindow):
         self.lbl_health_box.setStyleSheet("font-size: 11px; font-weight: 800; font-family: 'JetBrains Mono', monospace; padding: 5px 12px; background: #1f060c; color: #f43f5e; border: 1px solid #f43f5e;")
         header_layout.addWidget(self.lbl_health_box)
 
+        # Dark / Light Animated Theme Toggle Switch (from Uiverse.io Madflows)
+        self.theme_switch = ThemeToggleSwitch(is_light=False)
+        self.theme_switch.toggled.connect(self.set_theme)
+        header_layout.addWidget(self.theme_switch)
 
         # Crisp Windows Controls
         win_controls = QHBoxLayout()
@@ -550,7 +884,8 @@ class MainWindow(QMainWindow):
 
         # 2. STACKED WIDGET FOR 5 PAGES
         self.stacked_widget = QStackedWidget()
-        self.stacked_widget.setStyleSheet("background-color: #000000;")
+        self.stacked_widget.setStyleSheet("background-color: transparent;")
+
 
         # Create 5 Pages
         self.page_connect = self.create_connect_page()
@@ -568,6 +903,13 @@ class MainWindow(QMainWindow):
 
         root_layout.addWidget(self.stacked_widget, 1)
         self._apply_hand_cursor_recursively(self)
+        self._update_nav_tabs_visuals()
+        self.refresh_engine_ui()
+        self._apply_all_button_styles()
+        self._update_all_labels_theme()
+
+
+
 
 
     def _apply_hand_cursor_recursively(self, widget: QWidget):
@@ -578,32 +920,9 @@ class MainWindow(QMainWindow):
             cb.setCursor(Qt.CursorShape.PointingHandCursor)
 
     # -------------------------------------------------------------------------
-    # TAB NAVIGATION
-    # -------------------------------------------------------------------------
-    def switch_page(self, index: int):
-
-        self.btn_tab_connect.setChecked(index == 0)
-        self.btn_tab_editor.setChecked(index == 1)
-        self.btn_tab_queries.setChecked(index == 2)
-        self.btn_tab_idx_mgmt.setChecked(index == 3)
-        self.btn_tab_mgmt.setChecked(index == 4)
-
-        self.stacked_widget.setCurrentIndex(index)
-
-        if index == 0:
-            self.refresh_connect_page()
-        elif index == 1:
-            pass
-        elif index == 2:
-            self.load_queries_only_table()
-        elif index == 3:
-            self.load_index_mgmt_table()
-        elif index == 4:
-            self.refresh_mgmt_page()
-
-    # -------------------------------------------------------------------------
     # PAGE 0: SUNUCU BAĞLANTISI (Server Login)
     # -------------------------------------------------------------------------
+
     def create_connect_page(self) -> QWidget:
         page = QWidget()
         layout = QHBoxLayout(page)
@@ -619,12 +938,12 @@ class MainWindow(QMainWindow):
         l_layout.setContentsMargins(18, 18, 18, 18)
         l_layout.setSpacing(12)
 
-        t_lbl = QLabel("HEDEF SQL SERVER BAĞLANTI PARAMETRELERİ")
-        t_lbl.setStyleSheet("font-size: 13px; font-weight: 800; color: #ffffff; font-family: 'JetBrains Mono', monospace;")
-        l_layout.addWidget(t_lbl)
+        self.lbl_conn_title = QLabel("HEDEF SQL SERVER BAĞLANTI PARAMETRELERİ")
+        self.lbl_conn_title.setStyleSheet(f"font-size: 13px; font-weight: 800; color: {self.c('text_primary')}; font-family: 'JetBrains Mono', monospace;")
+        l_layout.addWidget(self.lbl_conn_title)
 
         desc_lbl = QLabel("VortexDBA otonom optimizasyon motorunun bağlanacağı Microsoft SQL Server TDS bağlantı ayarlarını girin:")
-        desc_lbl.setStyleSheet("color: #9494a8; font-size: 11px;")
+        desc_lbl.setStyleSheet(f"color: {self.c('text_muted')}; font-size: 11px;")
         desc_lbl.setWordWrap(True)
         l_layout.addWidget(desc_lbl)
 
@@ -665,6 +984,8 @@ class MainWindow(QMainWindow):
         btn_p2.clicked.connect(lambda: self.set_preset("127.0.0.1", 1433, "master", "sa", "VortexPassword123!"))
         preset_box.addWidget(btn_p2)
         l_layout.addLayout(preset_box)
+        self.preset_buttons = [btn_p1, btn_p2]
+
 
         # Action Buttons
         btn_box = QHBoxLayout()
@@ -695,9 +1016,9 @@ class MainWindow(QMainWindow):
         r_layout.setContentsMargins(18, 18, 18, 18)
         r_layout.setSpacing(12)
 
-        rt_lbl = QLabel("CANLI SUNUCU DURUMU & TABLOLAR")
-        rt_lbl.setStyleSheet("font-size: 13px; font-weight: 800; color: #ffffff; font-family: 'JetBrains Mono', monospace;")
-        r_layout.addWidget(rt_lbl)
+        self.lbl_server_title = QLabel("CANLI SUNUCU DURUMU & TABLOLAR")
+        self.lbl_server_title.setStyleSheet(f"font-size: 13px; font-weight: 800; color: {self.c('text_primary')}; font-family: 'JetBrains Mono', monospace;")
+        r_layout.addWidget(self.lbl_server_title)
 
         self.lbl_conn_state = QLabel("Bağlantı durumu kontrol ediliyor...")
         self.lbl_conn_state.setStyleSheet("color: #06b6d4; font-size: 11.5px; font-weight: 700; font-family: 'JetBrains Mono', monospace;")
@@ -715,15 +1036,16 @@ class MainWindow(QMainWindow):
         r_layout.addWidget(self.table_db_stats, 1)
 
         nav_btns = QHBoxLayout()
-        btn_to_editor = QPushButton("SQL Editörüne Geç ➔")
-        btn_to_editor.setProperty("class", "btn-primary")
-        btn_to_editor.clicked.connect(lambda: self.switch_page(1))
-        nav_btns.addWidget(btn_to_editor)
+        self.btn_to_editor = QPushButton("SQL Editörüne Geç ➔")
+        self.btn_to_editor.setProperty("class", "btn-primary")
+        self.btn_to_editor.clicked.connect(lambda: self.switch_page(1))
+        nav_btns.addWidget(self.btn_to_editor)
 
-        btn_to_queries = QPushButton("Sorguları İncele ➔")
-        btn_to_queries.clicked.connect(lambda: self.switch_page(2))
-        nav_btns.addWidget(btn_to_queries)
+        self.btn_to_queries = QPushButton("Sorguları İncele ➔")
+        self.btn_to_queries.clicked.connect(lambda: self.switch_page(2))
+        nav_btns.addWidget(self.btn_to_queries)
         r_layout.addLayout(nav_btns)
+
 
         layout.addWidget(right_card, 1)
         return page
@@ -791,24 +1113,28 @@ class MainWindow(QMainWindow):
             self.table_db_stats.setRowCount(len(stats))
             for i, st in enumerate(stats):
                 item_name = QTableWidgetItem(st.relname)
-                item_name.setForeground(QColor("#ffffff"))
+                item_name.setForeground(QColor(self.c("text_primary")))
 
                 item_rows = QTableWidgetItem(f"{st.n_live_tup:,}")
                 item_rows.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+                item_rows.setForeground(QColor(self.c("text_secondary")))
 
                 item_seq = QTableWidgetItem(f"{st.seq_scan:,}")
                 item_seq.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
                 if st.seq_scan > 0:
-                    item_seq.setForeground(QColor("#f43f5e"))
+                    item_seq.setForeground(QColor(self.c("accent_danger")))
+                else:
+                    item_seq.setForeground(QColor(self.c("text_muted")))
 
                 item_idx = QTableWidgetItem(f"{st.idx_scan:,}")
                 item_idx.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-                item_idx.setForeground(QColor("#10b981"))
+                item_idx.setForeground(QColor(self.c("accent_success")))
 
                 self.table_db_stats.setItem(i, 0, item_name)
                 self.table_db_stats.setItem(i, 1, item_rows)
                 self.table_db_stats.setItem(i, 2, item_seq)
                 self.table_db_stats.setItem(i, 3, item_idx)
+
         except Exception:
             pass
 
@@ -829,14 +1155,15 @@ class MainWindow(QMainWindow):
 
         # Top Toolbar
         top_bar = QHBoxLayout()
-        t_title = QLabel("İNTERAKTİF T-SQL EDİTÖRÜ & CANLI İNDEKS ANALİZİ")
-        t_title.setStyleSheet("font-size: 13px; font-weight: 800; color: #ffffff; font-family: 'JetBrains Mono', monospace;")
-        top_bar.addWidget(t_title)
+        self.lbl_editor_title = QLabel("İNTERAKTİF T-SQL EDİTÖRÜ & CANLI İNDEKS ANALİZİ")
+        self.lbl_editor_title.setStyleSheet(f"font-size: 13px; font-weight: 800; color: {self.c('text_primary')}; font-family: 'JetBrains Mono', monospace;")
+        top_bar.addWidget(self.lbl_editor_title)
         top_bar.addStretch()
 
-        btn_clear = QPushButton("Temizle")
-        btn_clear.clicked.connect(self.clear_sql_editor)
-        top_bar.addWidget(btn_clear)
+
+        self.btn_clear_sql = QPushButton("Temizle")
+        self.btn_clear_sql.clicked.connect(self.clear_sql_editor)
+        top_bar.addWidget(self.btn_clear_sql)
 
         self.btn_run_sql = QPushButton("SORGUYU ÇALIŞTIR (Ctrl+Enter)")
         self.btn_run_sql.setProperty("class", "btn-primary")
@@ -869,6 +1196,8 @@ class MainWindow(QMainWindow):
 
         samples_box.addStretch()
         c_layout.addLayout(samples_box)
+        self.template_buttons = [btn_s1, btn_s2, btn_s3, btn_s4]
+
 
         # Code Input Editor
         self.sql_editor_input = QPlainTextEdit()
@@ -940,6 +1269,7 @@ class MainWindow(QMainWindow):
                         rows = cur.fetchmany(500)
 
                     self.lbl_exec_stats.setText(f"YÜRÜTME SÜRESİ: {elapsed_ms} ms   |   DÖNEN SATIR: {len(rows)}   |   SÜTUN SAYISI: {len(cols)}")
+                    self.lbl_exec_stats.setStyleSheet(f"background: {self.c('strip_bg')}; border: 1px solid {self.c('strip_border')}; padding: 6px 12px; font-size: 11px; font-weight: 700; color: {self.c('strip_text')}; font-family: 'JetBrains Mono', monospace;")
 
                     self.table_sql_results.setColumnCount(len(cols))
                     self.table_sql_results.setRowCount(len(rows))
@@ -951,7 +1281,9 @@ class MainWindow(QMainWindow):
                             txt = str(val) if val is not None else "NULL"
                             item = QTableWidgetItem(txt)
                             if val is None:
-                                item.setForeground(QColor("#525266"))
+                                item.setForeground(QColor(self.c("text_dim")))
+                            else:
+                                item.setForeground(QColor(self.c("text_primary")))
                             self.table_sql_results.setItem(r_idx, c_idx, item)
 
                     # Persist user query to captured_queries list
@@ -983,8 +1315,6 @@ class MainWindow(QMainWindow):
                     else:
                         record_baseline(q_name, elapsed_ms)
 
-
-
                     # Sync with DMV tracker using actual execution stats from SQL Server
                     try:
                         with conn.cursor(as_dict=True) as cur_s:
@@ -1009,15 +1339,14 @@ class MainWindow(QMainWindow):
                     self.load_index_mgmt_table()
                     self.refresh_mgmt_page()
 
-
-
-
                     # Dynamic Index Recommendation check
                     rec = recommend_index_for_query(query)
                     if rec and rec.create_statement:
                         self.active_editor_rec = rec
                         self.active_editor_rec_query = query
                         self.rec_frame.setVisible(True)
+                        self.rec_frame.setStyleSheet(f"background: {self.c('rec_bg')}; border: 1px solid {self.c('rec_border')}; padding: 8px;")
+                        self.lbl_rec_text.setStyleSheet(f"color: {self.c('rec_text')}; font-size: 11px; font-family: 'JetBrains Mono', monospace;")
                         self.lbl_rec_text.setText(f"DİNAMİK İNDEKS ÖNERİSİ (IndexAdvisor):\n{rec.create_statement}")
                     else:
                         self.rec_frame.setVisible(False)
@@ -1029,7 +1358,10 @@ class MainWindow(QMainWindow):
             t1 = time.perf_counter()
             elapsed_ms = round((t1 - t0) * 1000.0, 2)
             self.lbl_exec_stats.setText(f"HATA ({elapsed_ms} ms): {e}")
+            self.lbl_exec_stats.setStyleSheet(f"background: {self.c('strip_bg')}; border: 1px solid {self.c('accent_danger')}; padding: 6px 12px; font-size: 11px; font-weight: 700; color: {self.c('accent_danger')}; font-family: 'JetBrains Mono', monospace;")
             self.rec_frame.setVisible(False)
+            QMessageBox.critical(self, "SQL Hatası", str(e))
+
             QMessageBox.critical(self, "SQL Hatası", str(e))
 
     def apply_editor_rec(self):
@@ -1073,10 +1405,11 @@ class MainWindow(QMainWindow):
 
         # Header Toolbar with Refresh, Select & Delete Actions
         top_bar = QHBoxLayout()
-        t_title = QLabel("YAKALANAN VE ÇALIŞTIRILAN TÜM SORGULAR")
-        t_title.setStyleSheet("font-size: 13px; font-weight: 800; color: #ffffff; font-family: 'JetBrains Mono', monospace;")
-        top_bar.addWidget(t_title)
+        self.lbl_queries_title = QLabel("YAKALANAN VE ÇALIŞTIRILAN TÜM SORGULAR")
+        self.lbl_queries_title.setStyleSheet(f"font-size: 13px; font-weight: 800; color: {self.c('text_primary')}; font-family: 'JetBrains Mono', monospace;")
+        top_bar.addWidget(self.lbl_queries_title)
         top_bar.addStretch()
+
 
         self.btn_refresh_queries = QPushButton("🔄 YENİLE")
         self.btn_refresh_queries.setProperty("class", "btn-primary")
@@ -1188,17 +1521,13 @@ class MainWindow(QMainWindow):
             # 1. Title & Table
             t_str = f"{q.get('title', 'Sorgu')}\nTablo: [{target_tbl}]"
             it_1 = QTableWidgetItem(t_str)
-            it_1.setForeground(QColor("#ffffff"))
+            it_1.setForeground(QColor(self.c("text_primary")))
             self.table_queries_only.setItem(row_idx, 1, it_1)
 
             # 2. SQL
             it_2 = QTableWidgetItem(query_sql)
-            it_2.setForeground(QColor("#93c5fd"))
+            it_2.setForeground(QColor(self.c("text_code")))
             self.table_queries_only.setItem(row_idx, 2, it_2)
-
-            # 3. Index Status with Hover Tooltip
-            rec = recommend_index_for_query(query_sql)
-            target_cols = set(rec.columns) if rec else set()
 
             # 3. Index Status (Preserves execution time snapshot - NEVER changes retroactively)
             applied_idx = q.get("applied_index", "")
@@ -1217,14 +1546,14 @@ class MainWindow(QMainWindow):
                 )
 
                 it_idx = QTableWidgetItem("[İNDEKS UYGULANDI]")
-                it_idx.setForeground(QColor("#10b981"))
+                it_idx.setForeground(QColor(self.c("accent_success")))
                 it_idx.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                 it_idx.setToolTip(tooltip_text)
             else:
                 rec = recommend_index_for_query(query_sql)
                 rec_hint = f"\n\nÖnerilen İndeks: {rec.index_name} ON ({', '.join(rec.columns)})" if rec else ""
                 it_idx = QTableWidgetItem("[İndekssiz]")
-                it_idx.setForeground(QColor("#9494a8"))
+                it_idx.setForeground(QColor(self.c("text_muted")))
                 it_idx.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                 it_idx.setToolTip(f"Bu sorgu çalıştırıldığı sırada indekssiz olarak yürütülmüştür.{rec_hint}")
             
@@ -1232,7 +1561,7 @@ class MainWindow(QMainWindow):
 
             # 4. Timestamp
             it_4 = QTableWidgetItem(q.get("created_at", "-"))
-            it_4.setForeground(QColor("#06b6d4"))
+            it_4.setForeground(QColor(self.c("accent_cyan")))
             it_4.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table_queries_only.setItem(row_idx, 4, it_4)
 
@@ -1240,11 +1569,12 @@ class MainWindow(QMainWindow):
             ms_val = q.get("initial_ms")
             ms_str = f"{ms_val} ms" if ms_val is not None else "—"
             it_5 = QTableWidgetItem(ms_str)
-            it_5.setForeground(QColor("#f43f5e") if (ms_val and ms_val > 20) else QColor("#cbd5e1"))
+            it_5.setForeground(QColor(self.c("accent_danger")) if (ms_val and ms_val > 20) else QColor(self.c("text_secondary")))
             it_5.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table_queries_only.setItem(row_idx, 5, it_5)
 
         self.table_queries_only.resizeRowsToContents()
+
 
 
 
@@ -1308,36 +1638,29 @@ class MainWindow(QMainWindow):
         tb_layout.setContentsMargins(14, 10, 14, 10)
         tb_layout.setSpacing(10)
 
-        lbl_ops = QLabel("TOPLU İNDEKS OPERASYONLARI:")
-        lbl_ops.setStyleSheet("font-size: 11.5px; font-weight: 800; color: #ffffff; font-family: 'JetBrains Mono', monospace;")
-        tb_layout.addWidget(lbl_ops)
-
-        # Autonomous Quota Control with Custom Cyber Stepper
-        lbl_quota = QLabel("⚡ MAKSİMUM İNDEKS KOTASI:")
-        lbl_quota.setStyleSheet("font-size: 11px; font-weight: 800; color: #38bdf8; font-family: 'JetBrains Mono', monospace; margin-left: 8px;")
-        tb_layout.addWidget(lbl_quota)
-
-        self.spin_quota_idx = QuotaStepperWidget(value=self.max_indexes_limit, min_val=1, max_val=20)
-        self.spin_quota_idx.valueChanged.connect(self.set_max_indexes_quota)
-        tb_layout.addWidget(self.spin_quota_idx)
-
+        self.lbl_batch_ops = QLabel("TOPLU İNDEKS OPERASYONLARI:")
+        self.lbl_batch_ops.setStyleSheet(f"font-size: 11.5px; font-weight: 800; color: {self.c('text_primary')}; font-family: 'JetBrains Mono', monospace;")
+        tb_layout.addWidget(self.lbl_batch_ops)
         tb_layout.addStretch()
 
 
-        btn_rem = QPushButton("TÜM HEPSİNİ OTOMATİK UYGULA")
-        btn_rem.setProperty("class", "btn-success")
-        btn_rem.clicked.connect(self.run_remediate_worker)
-        tb_layout.addWidget(btn_rem)
 
-        btn_bench = QPushButton("TÜM HEPSİNİ BENCHMARK ET")
-        btn_bench.setProperty("class", "btn-warning")
-        btn_bench.clicked.connect(self.run_benchmark_worker)
-        tb_layout.addWidget(btn_bench)
 
-        btn_reset = QPushButton("İNDEKSLERİ SIFIRLA")
-        btn_reset.setProperty("class", "btn-danger")
-        btn_reset.clicked.connect(self.run_reset_worker)
-        tb_layout.addWidget(btn_reset)
+        self.btn_rem = QPushButton("TÜM HEPSİNİ OTOMATİK UYGULA")
+        self.btn_rem.setProperty("class", "btn-success")
+        self.btn_rem.clicked.connect(self.run_remediate_worker)
+        tb_layout.addWidget(self.btn_rem)
+
+        self.btn_bench = QPushButton("TÜM HEPSİNİ BENCHMARK ET")
+        self.btn_bench.setProperty("class", "btn-warning")
+        self.btn_bench.clicked.connect(self.run_benchmark_worker)
+        tb_layout.addWidget(self.btn_bench)
+
+        self.btn_reset = QPushButton("İNDEKSLERİ SIFIRLA")
+        self.btn_reset.setProperty("class", "btn-danger")
+        self.btn_reset.clicked.connect(self.run_reset_worker)
+        tb_layout.addWidget(self.btn_reset)
+
 
         layout.addWidget(tb_card)
 
@@ -1350,7 +1673,7 @@ class MainWindow(QMainWindow):
         c1_layout.setSpacing(8)
 
         t1_lbl = QLabel("SORGULAR VE EŞLEŞEN İNDEKS NUMARALARI")
-        t1_lbl.setStyleSheet("font-size: 12px; font-weight: 800; color: #ffffff; font-family: 'JetBrains Mono', monospace;")
+        t1_lbl.setStyleSheet(f"font-size: 12px; font-weight: 800; color: {self.c('text_primary')}; font-family: 'JetBrains Mono', monospace;")
         c1_layout.addWidget(t1_lbl)
 
         self.table_idx_mgmt = QTableWidget()
@@ -1364,14 +1687,15 @@ class MainWindow(QMainWindow):
             "HIZLANMA ORANI",
             "İŞLEMLER & TEST"
         ])
-        self.table_idx_mgmt.horizontalHeader().setMinimumSectionSize(110)
-        self.table_idx_mgmt.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        self.table_idx_mgmt.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        self.table_idx_mgmt.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-        self.table_idx_mgmt.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
-        self.table_idx_mgmt.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
-        self.table_idx_mgmt.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
-        self.table_idx_mgmt.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)
+        self.table_idx_mgmt.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        self.table_idx_mgmt.horizontalHeader().setStretchLastSection(False)
+        self.table_idx_mgmt.setColumnWidth(0, 180)
+        self.table_idx_mgmt.setColumnWidth(1, 280)
+        self.table_idx_mgmt.setColumnWidth(2, 140)
+        self.table_idx_mgmt.setColumnWidth(3, 110)
+        self.table_idx_mgmt.setColumnWidth(4, 110)
+        self.table_idx_mgmt.setColumnWidth(5, 110)
+        self.table_idx_mgmt.setColumnWidth(6, 130)
         c1_layout.addWidget(self.table_idx_mgmt)
         layout.addWidget(card1, 3)
 
@@ -1384,7 +1708,7 @@ class MainWindow(QMainWindow):
         c2_layout.setSpacing(8)
 
         t2_lbl = QLabel("OLUŞTURULAN & ÖNERİLEN İNDEKS KATALOĞU (NUMARALI DETAY LİSTESİ)")
-        t2_lbl.setStyleSheet("font-size: 12px; font-weight: 800; color: #ffffff; font-family: 'JetBrains Mono', monospace;")
+        t2_lbl.setStyleSheet(f"font-size: 12px; font-weight: 800; color: {self.c('text_primary')}; font-family: 'JetBrains Mono', monospace;")
         c2_layout.addWidget(t2_lbl)
 
         self.table_idx_catalog = QTableWidget()
@@ -1397,14 +1721,17 @@ class MainWindow(QMainWindow):
             "BU İNDEKSİ KULLANAN SORGULAR",
             "İŞLEM"
         ])
-        self.table_idx_catalog.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        self.table_idx_catalog.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        self.table_idx_catalog.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-        self.table_idx_catalog.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
-        self.table_idx_catalog.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
-        self.table_idx_catalog.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
+        self.table_idx_catalog.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        self.table_idx_catalog.horizontalHeader().setStretchLastSection(False)
+        self.table_idx_catalog.setColumnWidth(0, 90)
+        self.table_idx_catalog.setColumnWidth(1, 180)
+        self.table_idx_catalog.setColumnWidth(2, 120)
+        self.table_idx_catalog.setColumnWidth(3, 280)
+        self.table_idx_catalog.setColumnWidth(4, 210)
+        self.table_idx_catalog.setColumnWidth(5, 130)
         c2_layout.addWidget(self.table_idx_catalog)
         layout.addWidget(card2, 2)
+
 
         return page
 
@@ -1562,18 +1889,18 @@ class MainWindow(QMainWindow):
 
             # 0. Title & Table
             it_0 = QTableWidgetItem(f"{item['title']}\nTablo: [{target_table}]")
-            it_0.setForeground(QColor("#ffffff"))
+            it_0.setForeground(QColor(self.c("text_primary")))
             self.table_idx_mgmt.setItem(row_idx, 0, it_0)
 
             # 1. SQL Query Summary
             it_1 = QTableWidgetItem(query_sql)
-            it_1.setForeground(QColor("#93c5fd"))
+            it_1.setForeground(QColor(self.c("text_code")))
             self.table_idx_mgmt.setItem(row_idx, 1, it_1)
 
             # 2. Matched Index Number Badge
             if idx_meta:
                 it_2 = QTableWidgetItem(f"● {idx_num_str} ({idx_meta['name']})")
-                it_2.setForeground(QColor("#10b981") if has_index else QColor("#fde68a"))
+                it_2.setForeground(QColor(self.c("accent_success")) if has_index else QColor(self.c("accent_warning")))
                 it_2.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                 tooltip_txt = (
                     f"{idx_num_str} Detayı:\n"
@@ -1586,13 +1913,13 @@ class MainWindow(QMainWindow):
                 it_2.setToolTip(tooltip_txt)
             else:
                 it_2 = QTableWidgetItem("—")
-                it_2.setForeground(QColor("#9494a8"))
+                it_2.setForeground(QColor(self.c("text_muted")))
                 it_2.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table_idx_mgmt.setItem(row_idx, 2, it_2)
 
             # 3. Before MS
             it_3 = QTableWidgetItem(f"{baseline_ms} ms" if baseline_ms else "—")
-            it_3.setForeground(QColor("#f43f5e"))
+            it_3.setForeground(QColor(self.c("accent_danger")))
             it_3.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table_idx_mgmt.setItem(row_idx, 3, it_3)
 
@@ -1600,11 +1927,11 @@ class MainWindow(QMainWindow):
             if has_index:
                 after_str = f"{current_ms} ms" if current_ms is not None else "Ölçüm Bekliyor"
                 it_4 = QTableWidgetItem(after_str)
-                it_4.setForeground(QColor("#10b981") if current_ms is not None else QColor("#fde68a"))
+                it_4.setForeground(QColor(self.c("accent_success")) if current_ms is not None else QColor(self.c("accent_warning")))
             else:
                 after_str = "İndekssiz"
                 it_4 = QTableWidgetItem(after_str)
-                it_4.setForeground(QColor("#9494a8"))
+                it_4.setForeground(QColor(self.c("text_muted")))
             it_4.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table_idx_mgmt.setItem(row_idx, 4, it_4)
 
@@ -1612,11 +1939,11 @@ class MainWindow(QMainWindow):
             if has_index and multiplier is not None:
                 gain_str = f"{multiplier}x (+%{speedup_pct})"
                 it_5 = QTableWidgetItem(gain_str)
-                it_5.setForeground(QColor("#10b981"))
+                it_5.setForeground(QColor(self.c("accent_success")))
             else:
                 gain_str = "—"
                 it_5 = QTableWidgetItem(gain_str)
-                it_5.setForeground(QColor("#9494a8"))
+                it_5.setForeground(QColor(self.c("text_muted")))
             it_5.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table_idx_mgmt.setItem(row_idx, 5, it_5)
 
@@ -1640,21 +1967,28 @@ class MainWindow(QMainWindow):
             if not has_index:
                 b_apply = QPushButton("İndeksle")
                 b_apply.setProperty("class", "btn-success")
-                b_apply.setStyleSheet("padding: 4px 10px; font-size: 11px; font-weight: 800; min-width: 65px;")
+                b_apply.setStyleSheet("background-color: #059669; color: #ffffff; border: 1px solid #047857; font-weight: 800; font-size: 11px; border-radius: 2px; padding: 3px 8px;" if self.is_light_theme else "background-color: #065f46; color: #ffffff; border: 1px solid #10b981; font-weight: 800; font-size: 11px; border-radius: 2px; padding: 3px 8px;")
+                b_apply.setMinimumWidth(80)
+                b_apply.setMinimumHeight(24)
                 b_apply.clicked.connect(lambda checked, it=item_pass: self.apply_index_only(it))
                 btn_layout.addWidget(b_apply)
             else:
                 b_test = QPushButton("Test")
                 b_test.setProperty("class", "btn-warning")
-                b_test.setStyleSheet("padding: 4px 8px; font-size: 11px; font-weight: 800; min-width: 45px;")
+                b_test.setStyleSheet("background-color: #d97706; color: #ffffff; border: 1px solid #b45309; font-weight: 800; font-size: 11px; border-radius: 2px; padding: 3px 6px;" if self.is_light_theme else "background-color: #854d0e; color: #ffffff; border: 1px solid #f59e0b; font-weight: 800; font-size: 11px; border-radius: 2px; padding: 3px 6px;")
+                b_test.setMinimumWidth(55)
+                b_test.setMinimumHeight(24)
                 b_test.clicked.connect(lambda checked, it=item_pass: self.benchmark_single_index_query(it))
                 btn_layout.addWidget(b_test)
 
                 b_drop = QPushButton("Sil")
                 b_drop.setProperty("class", "btn-danger")
-                b_drop.setStyleSheet("padding: 4px 8px; font-size: 11px; font-weight: 800; min-width: 40px;")
+                b_drop.setStyleSheet("background-color: #e11d48; color: #ffffff; border: 1px solid #be123c; font-weight: 800; font-size: 11px; border-radius: 2px; padding: 3px 6px;" if self.is_light_theme else "background-color: #881337; color: #ffffff; border: 1px solid #f43f5e; font-weight: 800; font-size: 11px; border-radius: 2px; padding: 3px 6px;")
+                b_drop.setMinimumWidth(50)
+                b_drop.setMinimumHeight(24)
                 b_drop.clicked.connect(lambda checked, it=item_pass: self.drop_single_index_row(it["active_indexes"][0], it["table"]))
                 btn_layout.addWidget(b_drop)
+
 
             self.table_idx_mgmt.setCellWidget(row_idx, 6, btn_cell)
 
@@ -1669,38 +2003,39 @@ class MainWindow(QMainWindow):
         for c_idx, meta in enumerate(catalog_list):
             # 0. Index Number
             it_c0 = QTableWidgetItem(meta["num"])
-            it_c0.setForeground(QColor("#06b6d4"))
+            it_c0.setForeground(QColor(self.c("accent_cyan")))
             it_c0.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table_idx_catalog.setItem(c_idx, 0, it_c0)
 
             # 1. Index Name & Table
             it_c1 = QTableWidgetItem(f"[{meta['name']}]\nTablo: {meta['table']}")
-            it_c1.setForeground(QColor("#ffffff"))
+            it_c1.setForeground(QColor(self.c("text_primary")))
             self.table_idx_catalog.setItem(c_idx, 1, it_c1)
 
             # 2. Status
             it_c2 = QTableWidgetItem("● Aktif (SQL Server)" if meta["is_active"] else "○ Önerilen")
-            it_c2.setForeground(QColor("#10b981") if meta["is_active"] else QColor("#fde68a"))
+            it_c2.setForeground(QColor(self.c("accent_success")) if meta["is_active"] else QColor(self.c("accent_warning")))
             it_c2.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table_idx_catalog.setItem(c_idx, 2, it_c2)
 
             # 3. Columns & DDL
             ddl_preview = f"Kolonlar: ({meta['columns']})\n{meta['ddl']}"
             it_c3 = QTableWidgetItem(ddl_preview)
-            it_c3.setForeground(QColor("#6ee7b7") if meta["is_active"] else QColor("#cbd5e1"))
+            it_c3.setForeground(QColor(self.c("accent_success")) if meta["is_active"] else QColor(self.c("text_secondary")))
             self.table_idx_catalog.setItem(c_idx, 3, it_c3)
 
             # 4. Queries Using This Index
             q_count = len(meta["queries"])
             q_summary = f"{', '.join(meta['queries'])}\n({q_count} Sorgu Paylaşıyor)"
             it_c4 = QTableWidgetItem(q_summary)
-            it_c4.setForeground(QColor("#e0e7ff"))
+            it_c4.setForeground(QColor(self.c("text_secondary")))
             self.table_idx_catalog.setItem(c_idx, 4, it_c4)
+
 
             # 5. Actions
             act_widget = QWidget()
             act_layout = QHBoxLayout(act_widget)
-            act_layout.setContentsMargins(2, 2, 2, 2)
+            act_layout.setContentsMargins(4, 2, 4, 2)
             act_layout.setSpacing(4)
 
             cat_item = {
@@ -1717,15 +2052,22 @@ class MainWindow(QMainWindow):
             if not meta["is_active"]:
                 b_c_apply = QPushButton("İndeksi Oluştur")
                 b_c_apply.setProperty("class", "btn-success")
-                b_c_apply.setStyleSheet("padding: 4px 10px; font-size: 11px; font-weight: 800; min-width: 100px;")
+                b_c_apply.setStyleSheet("background-color: #059669; color: #ffffff; border: 1px solid #047857; font-weight: 800; font-size: 11px; border-radius: 2px; padding: 3px 10px;" if self.is_light_theme else "background-color: #065f46; color: #ffffff; border: 1px solid #10b981; font-weight: 800; font-size: 11px; border-radius: 2px; padding: 3px 10px;")
+                b_c_apply.setMinimumWidth(125)
+                b_c_apply.setMinimumHeight(24)
                 b_c_apply.clicked.connect(lambda checked, it=cat_item: self.apply_index_only(it))
                 act_layout.addWidget(b_c_apply)
             else:
                 b_c_drop = QPushButton("İndeksi Kaldır")
                 b_c_drop.setProperty("class", "btn-danger")
-                b_c_drop.setStyleSheet("padding: 4px 10px; font-size: 11px; font-weight: 800; min-width: 100px;")
+                b_c_drop.setStyleSheet("background-color: #e11d48; color: #ffffff; border: 1px solid #be123c; font-weight: 800; font-size: 11px; border-radius: 2px; padding: 3px 10px;" if self.is_light_theme else "background-color: #881337; color: #ffffff; border: 1px solid #f43f5e; font-weight: 800; font-size: 11px; border-radius: 2px; padding: 3px 10px;")
+                b_c_drop.setMinimumWidth(125)
+                b_c_drop.setMinimumHeight(24)
                 b_c_drop.clicked.connect(lambda checked, it=cat_item: self.drop_single_index_row(it["active_indexes"][0], it["table"]))
                 act_layout.addWidget(b_c_drop)
+
+
+
 
             self.table_idx_catalog.setCellWidget(c_idx, 5, act_widget)
 
@@ -1858,9 +2200,10 @@ class MainWindow(QMainWindow):
         m_info = QVBoxLayout()
         m_info.addWidget(QLabel("EN SON YAPILAN İNDEKS UYGULAMASI:"))
         self.lbl_last_action = QLabel("Henüz özel indeks uygulanmadı.")
-        self.lbl_last_action.setStyleSheet("color: #ffffff; font-weight: 700; font-size: 11px; font-family: 'JetBrains Mono', monospace;")
+        self.lbl_last_action.setStyleSheet(f"color: {self.c('text_primary')}; font-weight: 700; font-size: 11px; font-family: 'JetBrains Mono', monospace;")
         m_info.addWidget(self.lbl_last_action)
         ic_layout.addLayout(m_info, 1)
+
 
         # Right Safety & Quota Control
         r_info = QVBoxLayout()
@@ -1895,9 +2238,9 @@ class MainWindow(QMainWindow):
         a_head.addWidget(QLabel("OTONOM KARAR GEÇMİŞİ (AUDIT TRAIL):"))
         a_head.addStretch()
 
-        btn_clear_decisions = QPushButton("🧹 Karar Geçmişini Temizle")
-        btn_clear_decisions.clicked.connect(self.clear_audit_trail_prompt)
-        a_head.addWidget(btn_clear_decisions)
+        self.btn_clear_audit = QPushButton("🧹 Karar Geçmişini Temizle")
+        self.btn_clear_audit.clicked.connect(self.clear_audit_trail_prompt)
+        a_head.addWidget(self.btn_clear_audit)
         a_layout.addLayout(a_head)
 
         self.table_decisions = QTableWidget()
@@ -1925,28 +2268,8 @@ class MainWindow(QMainWindow):
         layout.addWidget(splitter, 1)
         return page
 
-    def toggle_engine_state(self):
-        self.engine_active = not self.engine_active
-        if self.engine_active:
-            self.btn_toggle_engine.setText("● OTONOM MOTOR: AKTİF (7/24)")
-            self.btn_toggle_engine.setStyleSheet("background: #041a12; border: 1px solid #10b981; color: #6ee7b7; font-weight: 800; padding: 7px 14px; font-family: 'JetBrains Mono', monospace;")
-            if hasattr(self, "btn_top_engine"):
-                self.btn_top_engine.setText("● OTONOM: AKTİF (7/24)")
-                self.btn_top_engine.setStyleSheet("font-size: 11px; font-weight: 800; font-family: 'JetBrains Mono', monospace; padding: 5px 12px; background: #041a12; color: #10b981; border: 1px solid #10b981; border-radius: 2px;")
-            self.sc_engine.set_value("7/24 AKTİF", "Canlı DMV Dinleme Açık")
-            self.term_log.appendPlainText("▶ [MOTOR AKTİF]: Arka plan DMV sorgu dinleyici ve otonom optimizasyon devrede.")
-            self.run_autonomous_optimizer_tick()
-        else:
-            self.btn_toggle_engine.setText("○ OTONOM MOTOR: KAPALI (MANUEL)")
-            self.btn_toggle_engine.setStyleSheet("background: #181822; border: 1px solid #3e3e56; color: #9494a8; font-weight: 800; padding: 7px 14px; font-family: 'JetBrains Mono', monospace;")
-            if hasattr(self, "btn_top_engine"):
-                self.btn_top_engine.setText("○ OTONOM: KAPALI")
-                self.btn_top_engine.setStyleSheet("font-size: 11px; font-weight: 800; font-family: 'JetBrains Mono', monospace; padding: 5px 12px; background: #181822; color: #9494a8; border: 1px solid #3e3e56; border-radius: 2px;")
-            self.sc_engine.set_value("DURDURULDU", "Manuel Mod (Dinleme Kapalı)")
-            self.term_log.appendPlainText("⏸ [MOTOR DURDURULDU]: Otonom dinleme ve otomatik indeksleme duraklatıldı.")
-
-
     def clear_audit_trail_prompt(self):
+
         ret = QMessageBox.question(self, "Karar Geçmişini Temizle", "Tüm otonom karar kayıtları silinecektir. Onaylıyor musunuz?")
         if ret == QMessageBox.StandardButton.Yes:
             clear_agent_decisions()
@@ -1993,18 +2316,19 @@ class MainWindow(QMainWindow):
         self.table_decisions.setRowCount(len(decisions))
         for r_idx, dec in enumerate(decisions):
             it_type = QTableWidgetItem(dec.decision_type)
-            it_type.setForeground(QColor("#06b6d4"))
+            it_type.setForeground(QColor(self.c("accent_cyan")))
             self.table_decisions.setItem(r_idx, 0, it_type)
 
             it_det = QTableWidgetItem(dec.details)
-            it_det.setForeground(QColor("#ffffff"))
+            it_det.setForeground(QColor(self.c("text_primary")))
             self.table_decisions.setItem(r_idx, 1, it_det)
 
             it_time = QTableWidgetItem(dec.created_at[:19])
-            it_time.setForeground(QColor("#9494a8"))
+            it_time.setForeground(QColor(self.c("text_muted")))
             self.table_decisions.setItem(r_idx, 2, it_time)
 
         self.table_decisions.resizeRowsToContents()
+
 
     # -------------------------------------------------------------------------
     # GLOBAL WORKERS & STREAMING
@@ -2184,7 +2508,7 @@ class MainWindow(QMainWindow):
 
         if reachable:
             self.lbl_health_box.setText(f"ONLINE | :{cfg.database.port}")
-            self.lbl_health_box.setStyleSheet("font-size: 11px; font-weight: 800; font-family: 'JetBrains Mono', monospace; padding: 5px 12px; background: #041a12; color: #10b981; border: 1px solid #10b981;")
+            self.lbl_health_box.setStyleSheet(f"font-size: 11px; font-weight: 800; font-family: 'JetBrains Mono', monospace; padding: 5px 12px; background: {self.c('badge_online_bg')}; color: {self.c('badge_online_text')}; border: 1px solid {self.c('badge_online_border')}; border-radius: 2px;")
             
             # Live DMV query sniffing & autonomous optimization if engine is active
             if self.engine_active:
@@ -2198,7 +2522,8 @@ class MainWindow(QMainWindow):
                     pass
         else:
             self.lbl_health_box.setText("OFFLINE | BAĞLANTI YOK")
-            self.lbl_health_box.setStyleSheet("font-size: 11px; font-weight: 800; font-family: 'JetBrains Mono', monospace; padding: 5px 12px; background: #1f060c; color: #f43f5e; border: 1px solid #f43f5e;")
+            self.lbl_health_box.setStyleSheet(f"font-size: 11px; font-weight: 800; font-family: 'JetBrains Mono', monospace; padding: 5px 12px; background: {self.c('badge_offline_bg')}; color: {self.c('badge_offline_text')}; border: 1px solid {self.c('badge_offline_border')}; border-radius: 2px;")
+
 
         cur_idx = self.stacked_widget.currentIndex()
         if cur_idx == 0:

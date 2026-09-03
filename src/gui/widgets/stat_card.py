@@ -1,5 +1,4 @@
-"""Shadcn UI styled Stat Metric Card Widget for PyQt6."""
-
+"""Shadcn UI styled Stat Metric Card Widget for PyQt6 with Theme Support."""
 from PyQt6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel
 from PyQt6.QtCore import Qt
 import qtawesome as qta
@@ -43,8 +42,15 @@ class StatCard(QFrame):
         self.sub_lbl.setStyleSheet("font-size: 9.5px; color: #54687d;")
         layout.addWidget(self.sub_lbl)
 
+    def apply_theme(self, is_light: bool):
+        if is_light:
+            self.title_lbl.setStyleSheet("font-size: 9.5px; font-weight: 700; color: #64748b; letter-spacing: 0.5px;")
+            self.sub_lbl.setStyleSheet("font-size: 9.5px; color: #94a3b8;")
+        else:
+            self.title_lbl.setStyleSheet("font-size: 9.5px; font-weight: 700; color: #728499; letter-spacing: 0.5px;")
+            self.sub_lbl.setStyleSheet("font-size: 9.5px; color: #54687d;")
+
     def set_value(self, val: str, subtitle: str = None):
         self.value_lbl.setText(val)
         if subtitle is not None:
             self.sub_lbl.setText(subtitle)
-
