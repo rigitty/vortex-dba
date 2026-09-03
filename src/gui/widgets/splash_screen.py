@@ -1,7 +1,8 @@
 """Seamless Borderless Splash Screen for VortexDBA."""
+import sys
 from pathlib import Path
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QLabel, QProgressBar
+    QWidget, QVBoxLayout, QLabel, QProgressBar, QPushButton, QApplication
 )
 from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, pyqtSignal
 from PyQt6.QtGui import QIcon
@@ -24,11 +25,35 @@ class SplashScreen(QWidget):
         self.center_on_screen()
 
         self._elapsed_ms = 0
-
+        self._is_cancelled = False
         self.TOTAL_DURATION_MS = 3000
+
+        # Close [✖] Button in Top Right
+        self.btn_close = QPushButton("✖", self)
+        self.btn_close.setGeometry(446, 10, 24, 24)
+        self.btn_close.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_close.setStyleSheet("""
+            QPushButton {
+                background: transparent;
+                border: none;
+                color: #64748b;
+                font-size: 13px;
+                font-weight: 700;
+                padding: 0;
+            }
+            QPushButton:hover {
+                color: #f43f5e;
+                background: rgba(244, 63, 94, 0.15);
+                border-radius: 2px;
+            }
+        """)
+        self.btn_close.clicked.connect(self.cancel_and_quit)
+        self.btn_close.show()
+        self.btn_close.raise_()
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(40, 40, 40, 40)
+
         layout.setSpacing(16)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -110,7 +135,22 @@ class SplashScreen(QWidget):
             y = geo.y() + (geo.height() - self.height()) // 2
             self.move(x, y)
 
+    def cancel_and_quit(self):
+        """Immediately abort application startup and terminate process."""
+        self._is_cancelled = True
+        if hasattr(self, "timer"):
+            self.timer.stop()
+        if hasattr(self, "anim"):
+            self.anim.stop()
+        self.close()
+        app = QApplication.instance()
+        if app:
+            app.quit()
+        sys.exit(0)
+
     def _fade_out_and_finish(self):
+        if self._is_cancelled:
+            return
         # Smooth fade-out from 1.0 down to 0.0
         self.anim = QPropertyAnimation(self, b"windowOpacity")
         self.anim.setDuration(700)
@@ -121,6 +161,8 @@ class SplashScreen(QWidget):
         self.anim.start()
 
     def _on_fade_finished(self):
-        self.finished.emit()
+        if not self._is_cancelled:
+            self.finished.emit()
         self.close()
+
 

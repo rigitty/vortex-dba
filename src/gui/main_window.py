@@ -67,8 +67,8 @@ try:
     from src.gui.theme import DARK_THEME_QSS
     from src.gui.widgets.stat_card import StatCard
     from src.gui.widgets.toast import ToastOverlay
+    from src.gui.widgets.quota_stepper import QuotaStepperWidget
     from src.gui.workers import (
-
         SimulateWorker,
         RemediateWorker,
         BenchmarkWorker,
@@ -106,12 +106,14 @@ except ImportError:
     from gui.theme import DARK_THEME_QSS
     from gui.widgets.stat_card import StatCard
     from gui.widgets.toast import ToastOverlay
+    from gui.widgets.quota_stepper import QuotaStepperWidget
     from gui.workers import (
         SimulateWorker,
         RemediateWorker,
         BenchmarkWorker,
         ResetWorker,
     )
+
 
 
 
@@ -200,9 +202,12 @@ class MainWindow(QMainWindow):
     # -------------------------------------------------------------------------
     # 8-DIRECTIONAL BORDER RESIZING & TITLE BAR DRAGGING
     # -------------------------------------------------------------------------
+    BORDER_MARGIN = 10
+
     def _get_resize_edge(self, pos: QPoint, rect: QRect) -> str | None:
         if self.isMaximized():
             return None
+
         x, y = pos.x(), pos.y()
         w, h = rect.width(), rect.height()
         m = self.BORDER_MARGIN
@@ -310,6 +315,37 @@ class MainWindow(QMainWindow):
         super().mouseReleaseEvent(event)
 
     def eventFilter(self, obj, event):
+        if not self.isMaximized():
+            if event.type() in (event.Type.HoverMove, event.Type.MouseMove):
+                g_pos = event.globalPosition().toPoint() if hasattr(event, "globalPosition") else None
+                if g_pos:
+                    pos = self.mapFromGlobal(g_pos)
+                    rect = self.rect()
+                    edge = self._get_resize_edge(pos, rect)
+                    if getattr(self, "_resizing_edge", None) is not None:
+                        self.mouseMoveEvent(event)
+                        return True
+                    self._update_resize_cursor(edge)
+
+            elif event.type() == event.Type.MouseButtonPress:
+                if event.button() == Qt.MouseButton.LeftButton:
+                    g_pos = event.globalPosition().toPoint() if hasattr(event, "globalPosition") else None
+                    if g_pos:
+                        pos = self.mapFromGlobal(g_pos)
+                        rect = self.rect()
+                        edge = self._get_resize_edge(pos, rect)
+                        if edge is not None:
+                            self._resizing_edge = edge
+                            self._resize_start_pos = g_pos
+                            self._resize_start_geom = self.geometry()
+                            return True
+
+            elif event.type() == event.Type.MouseButtonRelease:
+                if getattr(self, "_resizing_edge", None) is not None:
+                    self._resizing_edge = None
+                    self.unsetCursor()
+                    return True
+
         if obj == getattr(self, "header_frame", None):
             pos = event.position().toPoint() if hasattr(event, "position") else QPoint(0, 0)
             rect = self.rect()
@@ -345,6 +381,7 @@ class MainWindow(QMainWindow):
                     self.toggle_maximize()
                     return True
         return super().eventFilter(obj, event)
+
 
     # -------------------------------------------------------------------------
     # UI SETUP
@@ -436,10 +473,19 @@ class MainWindow(QMainWindow):
         self.lbl_server_info.setStyleSheet("font-size: 11px; font-weight: 700; color: #9494a8; font-family: 'JetBrains Mono', monospace; background: #050508; border: 1px solid #1a1a24; padding: 5px 10px;")
         header_layout.addWidget(self.lbl_server_info)
 
+        # Top Autonomous Engine Status Badge (Live & Clickable)
+        self.btn_top_engine = QPushButton("● OTONOM: AKTİF (7/24)")
+        self.btn_top_engine.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_top_engine.setToolTip("Otonom İndeksleme Motorunu Aç/Kapat (Tıkla)")
+        self.btn_top_engine.setStyleSheet("font-size: 11px; font-weight: 800; font-family: 'JetBrains Mono', monospace; padding: 5px 12px; background: #041a12; color: #10b981; border: 1px solid #10b981; border-radius: 2px;")
+        self.btn_top_engine.clicked.connect(self.toggle_engine_state)
+        header_layout.addWidget(self.btn_top_engine)
+
         # Health Box (Green when connected, Red when disconnected)
         self.lbl_health_box = QLabel("OFFLINE")
         self.lbl_health_box.setStyleSheet("font-size: 11px; font-weight: 800; font-family: 'JetBrains Mono', monospace; padding: 5px 12px; background: #1f060c; color: #f43f5e; border: 1px solid #f43f5e;")
         header_layout.addWidget(self.lbl_health_box)
+
 
         # Crisp Windows Controls
         win_controls = QHBoxLayout()
@@ -1266,20 +1312,17 @@ class MainWindow(QMainWindow):
         lbl_ops.setStyleSheet("font-size: 11.5px; font-weight: 800; color: #ffffff; font-family: 'JetBrains Mono', monospace;")
         tb_layout.addWidget(lbl_ops)
 
-        # Autonomous Quota Control
+        # Autonomous Quota Control with Custom Cyber Stepper
         lbl_quota = QLabel("⚡ MAKSİMUM İNDEKS KOTASI:")
-        lbl_quota.setStyleSheet("font-size: 11px; font-weight: 800; color: #38bdf8; font-family: 'JetBrains Mono', monospace; margin-left: 10px;")
+        lbl_quota.setStyleSheet("font-size: 11px; font-weight: 800; color: #38bdf8; font-family: 'JetBrains Mono', monospace; margin-left: 8px;")
         tb_layout.addWidget(lbl_quota)
 
-        self.spin_quota_idx = QSpinBox()
-        self.spin_quota_idx.setRange(1, 20)
-        self.spin_quota_idx.setValue(self.max_indexes_limit)
-        self.spin_quota_idx.setSuffix(" İndeks")
-        self.spin_quota_idx.setStyleSheet("background: #020204; border: 1px solid #38bdf8; color: #38bdf8; font-weight: 800; padding: 4px 8px;")
+        self.spin_quota_idx = QuotaStepperWidget(value=self.max_indexes_limit, min_val=1, max_val=20)
         self.spin_quota_idx.valueChanged.connect(self.set_max_indexes_quota)
         tb_layout.addWidget(self.spin_quota_idx)
 
         tb_layout.addStretch()
+
 
         btn_rem = QPushButton("TÜM HEPSİNİ OTOMATİK UYGULA")
         btn_rem.setProperty("class", "btn-success")
@@ -1827,11 +1870,7 @@ class MainWindow(QMainWindow):
         q_lbl.setStyleSheet("color: #38bdf8; font-weight: 700; font-size: 11px;")
         q_row.addWidget(q_lbl)
 
-        self.spin_quota_mgmt = QSpinBox()
-        self.spin_quota_mgmt.setRange(1, 20)
-        self.spin_quota_mgmt.setValue(self.max_indexes_limit)
-        self.spin_quota_mgmt.setSuffix(" İndeks")
-        self.spin_quota_mgmt.setStyleSheet("background: #020204; border: 1px solid #38bdf8; color: #38bdf8; font-weight: 800; padding: 4px 8px;")
+        self.spin_quota_mgmt = QuotaStepperWidget(value=self.max_indexes_limit, min_val=1, max_val=20)
         self.spin_quota_mgmt.valueChanged.connect(self.set_max_indexes_quota)
         q_row.addWidget(self.spin_quota_mgmt)
         r_info.addLayout(q_row)
@@ -1840,7 +1879,6 @@ class MainWindow(QMainWindow):
         lbl_safety.setStyleSheet("color: #94a3b8; font-size: 10px; font-family: 'JetBrains Mono', monospace;")
         r_info.addWidget(lbl_safety)
         ic_layout.addLayout(r_info, 1)
-
 
         layout.addWidget(info_card)
 
@@ -1892,13 +1930,21 @@ class MainWindow(QMainWindow):
         if self.engine_active:
             self.btn_toggle_engine.setText("● OTONOM MOTOR: AKTİF (7/24)")
             self.btn_toggle_engine.setStyleSheet("background: #041a12; border: 1px solid #10b981; color: #6ee7b7; font-weight: 800; padding: 7px 14px; font-family: 'JetBrains Mono', monospace;")
+            if hasattr(self, "btn_top_engine"):
+                self.btn_top_engine.setText("● OTONOM: AKTİF (7/24)")
+                self.btn_top_engine.setStyleSheet("font-size: 11px; font-weight: 800; font-family: 'JetBrains Mono', monospace; padding: 5px 12px; background: #041a12; color: #10b981; border: 1px solid #10b981; border-radius: 2px;")
             self.sc_engine.set_value("7/24 AKTİF", "Canlı DMV Dinleme Açık")
             self.term_log.appendPlainText("▶ [MOTOR AKTİF]: Arka plan DMV sorgu dinleyici ve otonom optimizasyon devrede.")
+            self.run_autonomous_optimizer_tick()
         else:
             self.btn_toggle_engine.setText("○ OTONOM MOTOR: KAPALI (MANUEL)")
             self.btn_toggle_engine.setStyleSheet("background: #181822; border: 1px solid #3e3e56; color: #9494a8; font-weight: 800; padding: 7px 14px; font-family: 'JetBrains Mono', monospace;")
+            if hasattr(self, "btn_top_engine"):
+                self.btn_top_engine.setText("○ OTONOM: KAPALI")
+                self.btn_top_engine.setStyleSheet("font-size: 11px; font-weight: 800; font-family: 'JetBrains Mono', monospace; padding: 5px 12px; background: #181822; color: #9494a8; border: 1px solid #3e3e56; border-radius: 2px;")
             self.sc_engine.set_value("DURDURULDU", "Manuel Mod (Dinleme Kapalı)")
             self.term_log.appendPlainText("⏸ [MOTOR DURDURULDU]: Otonom dinleme ve otomatik indeksleme duraklatıldı.")
+
 
     def clear_audit_trail_prompt(self):
         ret = QMessageBox.question(self, "Karar Geçmişini Temizle", "Tüm otonom karar kayıtları silinecektir. Onaylıyor musunuz?")
