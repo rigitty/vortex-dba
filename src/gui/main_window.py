@@ -71,6 +71,8 @@ try:
     from src.gui.widgets.quota_stepper import QuotaStepperWidget
     from src.gui.widgets.theme_toggle import ThemeToggleSwitch
     from src.gui.widgets.fade_overlay import ThemeFadeOverlay
+    from src.gui.widgets.lang_toggle import LanguageToggle
+    from src.i18n import t, get_language, set_language
     from src.gui.workers import (
         SimulateWorker,
         RemediateWorker,
@@ -112,12 +114,15 @@ except ImportError:
     from gui.widgets.quota_stepper import QuotaStepperWidget
     from gui.widgets.theme_toggle import ThemeToggleSwitch
     from gui.widgets.fade_overlay import ThemeFadeOverlay
+    from gui.widgets.lang_toggle import LanguageToggle
+    from i18n import t, get_language, set_language
     from gui.workers import (
         SimulateWorker,
         RemediateWorker,
         BenchmarkWorker,
         ResetWorker,
     )
+
 
 
 
@@ -259,6 +264,27 @@ class MainWindow(QMainWindow):
         for btn in getattr(self, "template_buttons", []):
             btn.setStyleSheet(preset_style)
 
+        # Password toggle button
+        btn_pass = getattr(self, "btn_toggle_pass", None)
+        if btn_pass:
+            if is_light:
+                btn_pass.setStyleSheet("QPushButton { background: #e2e8f0; border: 1px solid #cbd5e1; color: #334155; font-size: 13px; font-weight: bold; border-radius: 2px; } QPushButton:hover { background: #cbd5e1; color: #0284c7; border-color: #0284c7; }")
+            else:
+                btn_pass.setStyleSheet("QPushButton { background: #12121e; border: 1px solid #2e2e42; color: #94a3b8; font-size: 13px; font-weight: bold; border-radius: 2px; } QPushButton:hover { background: #1e1e30; color: #38bdf8; border-color: #38bdf8; }")
+
+    def toggle_password_visibility(self):
+        """Toggles SQL Server connection password visibility between masked and plain text."""
+        if not hasattr(self, "input_pass") or not hasattr(self, "btn_toggle_pass"):
+            return
+        if self.input_pass.echoMode() == QLineEdit.EchoMode.Password:
+            self.input_pass.setEchoMode(QLineEdit.EchoMode.Normal)
+            self.btn_toggle_pass.setText("👁‍🗨")
+            self.btn_toggle_pass.setToolTip(t("connect.hide_pass"))
+        else:
+            self.input_pass.setEchoMode(QLineEdit.EchoMode.Password)
+            self.btn_toggle_pass.setText("👁")
+            self.btn_toggle_pass.setToolTip(t("connect.show_pass"))
+
     def _update_all_labels_theme(self):
         """Dynamically updates contrast and text colors for all panel titles and descriptions."""
         is_light = getattr(self, "is_light_theme", False)
@@ -278,47 +304,49 @@ class MainWindow(QMainWindow):
         """Toggles the autonomous indexing engine ON/OFF and updates all UI badges and buttons."""
         self.engine_active = not self.engine_active
         if self.engine_active:
-            self.show_toast("OTONOM MOTOR AKTİF", "7/24 Canlı DMV dinleme ve otomatik optimizasyon devrede.", "success")
+            self.show_toast(t("toast.engine_active_title"), t("toast.engine_active_msg"), "success")
             if hasattr(self, "term_log"):
-                self.term_log.appendPlainText("▶ [MOTOR AKTİF]: Arka plan DMV sorgu dinleyici ve otonom optimizasyon devrede.")
+                self.term_log.appendPlainText("▶ [ENGINE ACTIVE]: Background DMV query listener & autonomous optimization enabled." if get_language() == "en" else "▶ [MOTOR AKTİF]: Arka plan DMV sorgu dinleyici ve otonom optimizasyon devrede.")
             self.run_autonomous_optimizer_tick()
         else:
-            self.show_toast("OTONOM MOTOR DURDURULDU", "Otomatik optimizasyon durduruldu (Manuel Mod).", "warning")
+            self.show_toast(t("toast.engine_stopped_title"), t("toast.engine_stopped_msg"), "warning")
             if hasattr(self, "term_log"):
-                self.term_log.appendPlainText("⏸ [MOTOR DURDURULDU]: Otonom dinleme ve otomatik indeksleme duraklatıldı.")
+                self.term_log.appendPlainText("⏸ [ENGINE STOPPED]: Autonomous listening and automatic indexing paused." if get_language() == "en" else "⏸ [MOTOR DURDURULDU]: Otonom dinleme ve otomatik indeksleme duraklatıldı.")
         self.refresh_engine_ui()
 
     def refresh_engine_ui(self):
         """Updates autonomous motor status badges and buttons across header and management pages."""
         if hasattr(self, "btn_top_engine"):
             if self.engine_active:
-                self.btn_top_engine.setText("● OTONOM: AKTİF (7/24)")
+                self.btn_top_engine.setText(t("header.engine_active"))
                 self.btn_top_engine.setStyleSheet(
                     f"font-size: 11px; font-weight: 800; font-family: 'JetBrains Mono', monospace; padding: 5px 12px; background: {self.c('badge_engine_on_bg')}; color: {self.c('badge_engine_on_text')}; border: 1px solid {self.c('badge_engine_on_border')}; border-radius: 2px;"
                 )
             else:
-                self.btn_top_engine.setText("○ OTONOM: KAPALI")
+                self.btn_top_engine.setText(t("header.engine_inactive"))
                 self.btn_top_engine.setStyleSheet(
                     f"font-size: 11px; font-weight: 800; font-family: 'JetBrains Mono', monospace; padding: 5px 12px; background: {self.c('badge_engine_off_bg')}; color: {self.c('badge_engine_off_text')}; border: 1px solid {self.c('badge_engine_off_border')}; border-radius: 2px;"
                 )
+            self.btn_top_engine.setToolTip(t("header.engine_tip"))
 
         if hasattr(self, "btn_toggle_engine"):
             if self.engine_active:
-                self.btn_toggle_engine.setText("● OTONOM MOTOR: AKTİF (7/24)")
+                self.btn_toggle_engine.setText(t("mgmt.btn_engine_active"))
                 self.btn_toggle_engine.setStyleSheet(
                     f"font-size: 11px; font-weight: 800; font-family: 'JetBrains Mono', monospace; padding: 7px 14px; background: {self.c('badge_engine_on_bg')}; color: {self.c('badge_engine_on_text')}; border: 1px solid {self.c('badge_engine_on_border')}; border-radius: 2px;"
                 )
             else:
-                self.btn_toggle_engine.setText("○ OTONOM MOTOR: KAPALI")
+                self.btn_toggle_engine.setText(t("mgmt.btn_engine_inactive"))
                 self.btn_toggle_engine.setStyleSheet(
                     f"font-size: 11px; font-weight: 800; font-family: 'JetBrains Mono', monospace; padding: 7px 14px; background: {self.c('badge_engine_off_bg')}; color: {self.c('badge_engine_off_text')}; border: 1px solid {self.c('badge_engine_off_border')}; border-radius: 2px;"
                 )
 
         if hasattr(self, "sc_engine"):
             if self.engine_active:
-                self.sc_engine.set_value("7/24 AKTİF", "Canlı DMV Dinleme Açık")
+                self.sc_engine.set_value(t("mgmt.stat_engine_active_val"), t("mgmt.stat_engine_active_sub"))
             else:
-                self.sc_engine.set_value("DURDURULDU", "Manuel Mod (Dinleme Kapalı)")
+                self.sc_engine.set_value(t("mgmt.stat_engine_stopped_val"), t("mgmt.stat_engine_stopped_sub"))
+
 
     def switch_page(self, index: int):
         """Switches stacked widget to target page index and synchronizes contiguous navigation buttons."""
@@ -386,17 +414,7 @@ class MainWindow(QMainWindow):
             )
 
         # Update Top Autonomous Engine Badge
-        if hasattr(self, "btn_top_engine"):
-            if self.engine_active:
-                self.btn_top_engine.setText("● OTONOM: AKTİF (7/24)")
-                self.btn_top_engine.setStyleSheet(
-                    f"font-size: 11px; font-weight: 800; font-family: 'JetBrains Mono', monospace; padding: 5px 12px; background: {self.c('badge_engine_on_bg')}; color: {self.c('badge_engine_on_text')}; border: 1px solid {self.c('badge_engine_on_border')}; border-radius: 2px;"
-                )
-            else:
-                self.btn_top_engine.setText("○ OTONOM: KAPALI")
-                self.btn_top_engine.setStyleSheet(
-                    f"font-size: 11px; font-weight: 800; font-family: 'JetBrains Mono', monospace; padding: 5px 12px; background: {self.c('badge_engine_off_bg')}; color: {self.c('badge_engine_off_text')}; border: 1px solid {self.c('badge_engine_off_border')}; border-radius: 2px;"
-                )
+        self.refresh_engine_ui()
 
         # Update Health Box
         if hasattr(self, "lbl_health_box"):
@@ -407,10 +425,11 @@ class MainWindow(QMainWindow):
                     f"font-size: 11px; font-weight: 800; font-family: 'JetBrains Mono', monospace; padding: 5px 12px; background: {self.c('badge_online_bg')}; color: {self.c('badge_online_text')}; border: 1px solid {self.c('badge_online_border')}; border-radius: 2px;"
                 )
             else:
-                self.lbl_health_box.setText("OFFLINE | BAĞLANTI YOK")
+                self.lbl_health_box.setText(t("header.health_offline"))
                 self.lbl_health_box.setStyleSheet(
                     f"font-size: 11px; font-weight: 800; font-family: 'JetBrains Mono', monospace; padding: 5px 12px; background: {self.c('badge_offline_bg')}; color: {self.c('badge_offline_text')}; border: 1px solid {self.c('badge_offline_border')}; border-radius: 2px;"
                 )
+
 
         # Update Execution Stats Strip
         if hasattr(self, "lbl_exec_stats"):
@@ -472,6 +491,9 @@ class MainWindow(QMainWindow):
         for sc in self.findChildren(StatCard):
             sc.apply_theme(is_light)
 
+        if hasattr(self, "lang_toggle"):
+            self.lang_toggle.set_theme(is_light)
+
         # Reload only the currently active page for instant, freeze-free response
         cur_idx = self.stacked_widget.currentIndex() if hasattr(self, "stacked_widget") else 0
         if cur_idx == 0:
@@ -482,6 +504,134 @@ class MainWindow(QMainWindow):
             self.load_index_mgmt_table()
         elif cur_idx == 4:
             self.refresh_mgmt_page()
+
+    def on_language_changed(self, lang: str):
+        """Called when user switches language between EN and TR."""
+        set_language(lang)
+        self.retranslate_ui()
+
+    def retranslate_ui(self):
+        """Dynamically translates all static and dynamic UI elements into the active language."""
+        # Top Nav Tabs
+        if hasattr(self, "btn_tab_connect"): self.btn_tab_connect.setText(t("nav.server"))
+        if hasattr(self, "btn_tab_editor"): self.btn_tab_editor.setText(t("nav.sql"))
+        if hasattr(self, "btn_tab_queries"): self.btn_tab_queries.setText(t("nav.queries"))
+        if hasattr(self, "btn_tab_idx_mgmt"): self.btn_tab_idx_mgmt.setText(t("nav.index"))
+        if hasattr(self, "btn_tab_mgmt"): self.btn_tab_mgmt.setText(t("nav.management"))
+
+        # Header controls
+        if hasattr(self, "btn_min"): self.btn_min.setToolTip(t("header.win_min"))
+        if hasattr(self, "btn_max"): self.btn_max.setToolTip(t("header.win_max"))
+        if hasattr(self, "btn_close"): self.btn_close.setToolTip(t("header.win_close"))
+        if hasattr(self, "theme_switch"): self.theme_switch.setToolTip(t("header.theme_tip"))
+        if hasattr(self, "lang_toggle"): self.lang_toggle.setToolTip(t("header.lang_tip"))
+
+        # Connect Page
+        if hasattr(self, "lbl_conn_title"): self.lbl_conn_title.setText(t("connect.target_conn_title"))
+        if hasattr(self, "lbl_conn_desc"): self.lbl_conn_desc.setText(t("connect.target_conn_desc"))
+        if hasattr(self, "lbl_form_host"): self.lbl_form_host.setText(t("connect.host"))
+        if hasattr(self, "lbl_form_port"): self.lbl_form_port.setText(t("connect.port"))
+        if hasattr(self, "lbl_form_dbname"): self.lbl_form_dbname.setText(t("connect.dbname"))
+        if hasattr(self, "lbl_form_user"): self.lbl_form_user.setText(t("connect.user"))
+        if hasattr(self, "lbl_form_pass"): self.lbl_form_pass.setText(t("connect.pass"))
+        if hasattr(self, "lbl_presets_head"): self.lbl_presets_head.setText(t("connect.quick_presets"))
+        if hasattr(self, "btn_p1"): self.btn_p1.setText(t("connect.preset_docker"))
+        if hasattr(self, "btn_p2"): self.btn_p2.setText(t("connect.preset_master"))
+        if hasattr(self, "btn_test_conn"): self.btn_test_conn.setText(t("connect.btn_test"))
+        if hasattr(self, "btn_save_conn"): self.btn_save_conn.setText(t("connect.btn_save"))
+        if hasattr(self, "lbl_server_title"): self.lbl_server_title.setText(t("connect.live_server_title"))
+        if hasattr(self, "lbl_tbls_head"): self.lbl_tbls_head.setText(t("connect.tables_section"))
+        if hasattr(self, "table_db_stats"):
+            self.table_db_stats.setHorizontalHeaderLabels([t("connect.tbl_col_name"), t("connect.tbl_col_rows"), t("connect.tbl_col_scan"), t("connect.tbl_col_seek")])
+        if hasattr(self, "btn_to_editor"): self.btn_to_editor.setText(t("connect.btn_to_editor"))
+        if hasattr(self, "btn_to_queries"): self.btn_to_queries.setText(t("connect.btn_to_queries"))
+
+        # Editor Page
+        if hasattr(self, "lbl_editor_title"): self.lbl_editor_title.setText(t("editor.title"))
+        if hasattr(self, "btn_clear_sql"): self.btn_clear_sql.setText(t("editor.btn_clear"))
+        if hasattr(self, "btn_run_sql"): self.btn_run_sql.setText(t("editor.btn_run"))
+        if hasattr(self, "lbl_sample_queries"): self.lbl_sample_queries.setText(t("editor.sample_queries"))
+        if hasattr(self, "btn_s1"): self.btn_s1.setText(t("editor.sample_p1"))
+        if hasattr(self, "btn_s2"): self.btn_s2.setText(t("editor.sample_p2"))
+        if hasattr(self, "btn_s3"): self.btn_s3.setText(t("editor.sample_p3"))
+        if hasattr(self, "btn_s4"): self.btn_s4.setText(t("editor.sample_p4"))
+        if hasattr(self, "btn_apply_editor_rec"): self.btn_apply_editor_rec.setText(t("editor.rec_btn"))
+        if hasattr(self, "lbl_results_head"): self.lbl_results_head.setText("QUERY RESULTS (DATA GRID):" if get_language() == "en" else "SORGU SONUÇLARI (DATA GRID):")
+
+        # Queries Page
+        if hasattr(self, "lbl_queries_title"): self.lbl_queries_title.setText(t("queries.title"))
+        if hasattr(self, "btn_refresh_queries"): self.btn_refresh_queries.setText(t("queries.btn_refresh"))
+        if hasattr(self, "btn_select_all_queries"): self.btn_select_all_queries.setText(t("queries.btn_select_all"))
+        if hasattr(self, "btn_delete_selected"): self.btn_delete_selected.setText(t("queries.btn_delete_selected"))
+        if hasattr(self, "btn_clear_all_queries"): self.btn_clear_all_queries.setText(t("queries.btn_clear_all"))
+        if hasattr(self, "table_queries_only"):
+            self.table_queries_only.setHorizontalHeaderLabels([
+                t("queries.col_select"),
+                t("queries.col_title"),
+                t("queries.col_sql"),
+                t("queries.col_status"),
+                t("queries.col_time"),
+                t("queries.col_dur")
+            ])
+
+        # Index Management Page
+        if hasattr(self, "lbl_batch_ops"): self.lbl_batch_ops.setText(t("index.batch_ops"))
+        if hasattr(self, "btn_rem"): self.btn_rem.setText(t("index.btn_apply_all"))
+        if hasattr(self, "btn_bench"): self.btn_bench.setText(t("index.btn_benchmark_all"))
+        if hasattr(self, "btn_reset"): self.btn_reset.setText(t("index.btn_reset"))
+        if hasattr(self, "lbl_idx_table1_title"): self.lbl_idx_table1_title.setText(t("index.table1_title"))
+        if hasattr(self, "table_idx_mgmt"):
+            self.table_idx_mgmt.setHorizontalHeaderLabels([
+                t("index.t1_col_query"),
+                t("index.t1_col_sql"),
+                t("index.t1_col_match"),
+                t("index.t1_col_before"),
+                t("index.t1_col_after"),
+                t("index.t1_col_speedup"),
+                t("index.t1_col_actions")
+            ])
+        if hasattr(self, "lbl_idx_table2_title"): self.lbl_idx_table2_title.setText(t("index.table2_title"))
+        if hasattr(self, "table_idx_catalog"):
+            self.table_idx_catalog.setHorizontalHeaderLabels([
+                t("index.t2_col_no"),
+                t("index.t2_col_name"),
+                t("index.t2_col_status"),
+                t("index.t2_col_ddl"),
+                t("index.t2_col_queries"),
+                t("index.t2_col_actions")
+            ])
+
+        # Connect Page Password Toggle Tooltip
+        if hasattr(self, "btn_toggle_pass") and hasattr(self, "input_pass"):
+            self.btn_toggle_pass.setToolTip(t("connect.hide_pass") if self.input_pass.echoMode() == QLineEdit.EchoMode.Normal else t("connect.show_pass"))
+
+        # Management Page
+        if hasattr(self, "lbl_mgmt_engine_ctrl"): self.lbl_mgmt_engine_ctrl.setText(t("mgmt.engine_ctrl_title"))
+        if hasattr(self, "lbl_mgmt_last_action_title"): self.lbl_mgmt_last_action_title.setText(t("mgmt.last_action_title"))
+        if hasattr(self, "lbl_mgmt_quota_title"): self.lbl_mgmt_quota_title.setText(t("mgmt.quota_title"))
+        if hasattr(self, "lbl_mgmt_quota_label"): self.lbl_mgmt_quota_label.setText(t("mgmt.quota_label"))
+        if hasattr(self, "lbl_mgmt_safety_strip"): self.lbl_mgmt_safety_strip.setText(t("mgmt.safety_strip"))
+        if hasattr(self, "lbl_mgmt_audit_title"): self.lbl_mgmt_audit_title.setText(t("mgmt.audit_title"))
+        if hasattr(self, "btn_clear_audit"): self.btn_clear_audit.setText(t("mgmt.btn_clear_audit"))
+        if hasattr(self, "table_decisions"):
+            self.table_decisions.setHorizontalHeaderLabels([t("mgmt.audit_col_type"), t("mgmt.audit_col_details"), t("mgmt.audit_col_time")])
+        if hasattr(self, "lbl_mgmt_telemetry_title"): self.lbl_mgmt_telemetry_title.setText(t("mgmt.telemetry_title"))
+
+        # Health Box
+        if hasattr(self, "lbl_health_box"):
+            cfg = get_config()
+            if self.is_connected:
+                self.lbl_health_box.setText(f"ONLINE | :{cfg.database.port}")
+            else:
+                self.lbl_health_box.setText(t("header.health_offline"))
+
+        self.refresh_engine_ui()
+        self.refresh_connect_page()
+        self.load_queries_only_table()
+        self.load_index_mgmt_table()
+        self.refresh_mgmt_page()
+
+
 
 
 
@@ -821,6 +971,12 @@ class MainWindow(QMainWindow):
         self.theme_switch.toggled.connect(self.set_theme)
         header_layout.addWidget(self.theme_switch)
 
+        # Segmented Language Selector [ EN | TR ]
+        self.lang_toggle = LanguageToggle(current_lang=get_language(), is_light=False)
+        self.lang_toggle.language_changed.connect(self.on_language_changed)
+        header_layout.addWidget(self.lang_toggle)
+
+
         # Crisp Windows Controls
         win_controls = QHBoxLayout()
         win_controls.setSpacing(2)
@@ -907,6 +1063,8 @@ class MainWindow(QMainWindow):
         self.refresh_engine_ui()
         self._apply_all_button_styles()
         self._update_all_labels_theme()
+        self.retranslate_ui()
+
 
 
 
@@ -938,62 +1096,81 @@ class MainWindow(QMainWindow):
         l_layout.setContentsMargins(18, 18, 18, 18)
         l_layout.setSpacing(12)
 
-        self.lbl_conn_title = QLabel("HEDEF SQL SERVER BAĞLANTI PARAMETRELERİ")
+        self.lbl_conn_title = QLabel(t("connect.target_conn_title"))
         self.lbl_conn_title.setStyleSheet(f"font-size: 13px; font-weight: 800; color: {self.c('text_primary')}; font-family: 'JetBrains Mono', monospace;")
         l_layout.addWidget(self.lbl_conn_title)
 
-        desc_lbl = QLabel("VortexDBA otonom optimizasyon motorunun bağlanacağı Microsoft SQL Server TDS bağlantı ayarlarını girin:")
-        desc_lbl.setStyleSheet(f"color: {self.c('text_muted')}; font-size: 11px;")
-        desc_lbl.setWordWrap(True)
-        l_layout.addWidget(desc_lbl)
+        self.lbl_conn_desc = QLabel(t("connect.target_conn_desc"))
+        self.lbl_conn_desc.setStyleSheet(f"color: {self.c('text_muted')}; font-size: 11px;")
+        self.lbl_conn_desc.setWordWrap(True)
+        l_layout.addWidget(self.lbl_conn_desc)
 
         grid = QGridLayout()
         grid.setSpacing(10)
 
-        grid.addWidget(QLabel("Host / IP:"), 0, 0)
+        self.lbl_form_host = QLabel(t("connect.host"))
+        grid.addWidget(self.lbl_form_host, 0, 0)
         self.input_host = QLineEdit(cfg.database.host)
         grid.addWidget(self.input_host, 0, 1)
 
-        grid.addWidget(QLabel("Port:"), 0, 2)
+        self.lbl_form_port = QLabel(t("connect.port"))
+        grid.addWidget(self.lbl_form_port, 0, 2)
         self.input_port = QLineEdit(str(cfg.database.port))
         grid.addWidget(self.input_port, 0, 3)
 
-        grid.addWidget(QLabel("Veritabanı Adı:"), 1, 0)
+        self.lbl_form_dbname = QLabel(t("connect.dbname"))
+        grid.addWidget(self.lbl_form_dbname, 1, 0)
         self.input_dbname = QLineEdit(cfg.database.dbname)
         grid.addWidget(self.input_dbname, 1, 1, 1, 3)
 
-        grid.addWidget(QLabel("Kullanıcı Adı:"), 2, 0)
+        self.lbl_form_user = QLabel(t("connect.user"))
+        grid.addWidget(self.lbl_form_user, 2, 0)
         self.input_user = QLineEdit(cfg.database.user)
         grid.addWidget(self.input_user, 2, 1)
 
-        grid.addWidget(QLabel("Şifre:"), 2, 2)
+        self.lbl_form_pass = QLabel(t("connect.pass"))
+        grid.addWidget(self.lbl_form_pass, 2, 2)
+
+        pass_row = QHBoxLayout()
+        pass_row.setSpacing(4)
+        pass_row.setContentsMargins(0, 0, 0, 0)
         self.input_pass = QLineEdit(cfg.database.password)
         self.input_pass.setEchoMode(QLineEdit.EchoMode.Password)
-        grid.addWidget(self.input_pass, 2, 3)
+        pass_row.addWidget(self.input_pass, 1)
+
+        self.btn_toggle_pass = QPushButton("👁")
+        self.btn_toggle_pass.setFixedSize(32, 28)
+        self.btn_toggle_pass.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_toggle_pass.setToolTip(t("connect.show_pass"))
+        self.btn_toggle_pass.clicked.connect(self.toggle_password_visibility)
+        pass_row.addWidget(self.btn_toggle_pass)
+        grid.addLayout(pass_row, 2, 3)
 
         l_layout.addLayout(grid)
 
-        # Quick Presets
-        l_layout.addWidget(QLabel("HIZLI BAĞLANTI ŞABLONLARI:"))
-        preset_box = QHBoxLayout()
-        btn_p1 = QPushButton("Yerel Docker MSSQL (localhost:1433)")
-        btn_p1.clicked.connect(lambda: self.set_preset("localhost", 1433, "vortex_db", "sa", "VortexPassword123!"))
-        preset_box.addWidget(btn_p1)
 
-        btn_p2 = QPushButton("Master DB (127.0.0.1:1433)")
-        btn_p2.clicked.connect(lambda: self.set_preset("127.0.0.1", 1433, "master", "sa", "VortexPassword123!"))
-        preset_box.addWidget(btn_p2)
+        # Quick Presets
+        self.lbl_presets_head = QLabel(t("connect.quick_presets"))
+        l_layout.addWidget(self.lbl_presets_head)
+        preset_box = QHBoxLayout()
+        self.btn_p1 = QPushButton(t("connect.preset_docker"))
+        self.btn_p1.clicked.connect(lambda: self.set_preset("localhost", 1433, "vortex_db", "sa", "VortexPassword123!"))
+        preset_box.addWidget(self.btn_p1)
+
+        self.btn_p2 = QPushButton(t("connect.preset_master"))
+        self.btn_p2.clicked.connect(lambda: self.set_preset("127.0.0.1", 1433, "master", "sa", "VortexPassword123!"))
+        preset_box.addWidget(self.btn_p2)
         l_layout.addLayout(preset_box)
-        self.preset_buttons = [btn_p1, btn_p2]
+        self.preset_buttons = [self.btn_p1, self.btn_p2]
 
 
         # Action Buttons
         btn_box = QHBoxLayout()
-        self.btn_test_conn = QPushButton("BAĞLANTIYI TEST ET")
+        self.btn_test_conn = QPushButton(t("connect.btn_test"))
         self.btn_test_conn.clicked.connect(self.on_test_connection)
         btn_box.addWidget(self.btn_test_conn)
 
-        self.btn_save_conn = QPushButton("KAYDET & SUNUCUYA BAĞLAN")
+        self.btn_save_conn = QPushButton(t("connect.btn_save"))
         self.btn_save_conn.setProperty("class", "btn-success")
         self.btn_save_conn.clicked.connect(self.on_save_connection)
         btn_box.addWidget(self.btn_save_conn)
@@ -1016,19 +1193,20 @@ class MainWindow(QMainWindow):
         r_layout.setContentsMargins(18, 18, 18, 18)
         r_layout.setSpacing(12)
 
-        self.lbl_server_title = QLabel("CANLI SUNUCU DURUMU & TABLOLAR")
+        self.lbl_server_title = QLabel(t("connect.live_server_title"))
         self.lbl_server_title.setStyleSheet(f"font-size: 13px; font-weight: 800; color: {self.c('text_primary')}; font-family: 'JetBrains Mono', monospace;")
         r_layout.addWidget(self.lbl_server_title)
 
-        self.lbl_conn_state = QLabel("Bağlantı durumu kontrol ediliyor...")
+        self.lbl_conn_state = QLabel(t("connect.state_checking"))
         self.lbl_conn_state.setStyleSheet("color: #06b6d4; font-size: 11.5px; font-weight: 700; font-family: 'JetBrains Mono', monospace;")
         r_layout.addWidget(self.lbl_conn_state)
 
-        r_layout.addWidget(QLabel("VERİTABANINDAKİ TABLOLAR & SATIR SAYILARI:"))
+        self.lbl_tbls_head = QLabel(t("connect.tables_section"))
+        r_layout.addWidget(self.lbl_tbls_head)
 
         self.table_db_stats = QTableWidget()
         self.table_db_stats.setColumnCount(4)
-        self.table_db_stats.setHorizontalHeaderLabels(["Tablo Adı", "Satır Sayısı", "Table Scan", "Index Seek"])
+        self.table_db_stats.setHorizontalHeaderLabels([t("connect.tbl_col_name"), t("connect.tbl_col_rows"), t("connect.tbl_col_scan"), t("connect.tbl_col_seek")])
         self.table_db_stats.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.table_db_stats.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         self.table_db_stats.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
@@ -1036,15 +1214,16 @@ class MainWindow(QMainWindow):
         r_layout.addWidget(self.table_db_stats, 1)
 
         nav_btns = QHBoxLayout()
-        self.btn_to_editor = QPushButton("SQL Editörüne Geç ➔")
+        self.btn_to_editor = QPushButton(t("connect.btn_to_editor"))
         self.btn_to_editor.setProperty("class", "btn-primary")
         self.btn_to_editor.clicked.connect(lambda: self.switch_page(1))
         nav_btns.addWidget(self.btn_to_editor)
 
-        self.btn_to_queries = QPushButton("Sorguları İncele ➔")
+        self.btn_to_queries = QPushButton(t("connect.btn_to_queries"))
         self.btn_to_queries.clicked.connect(lambda: self.switch_page(2))
         nav_btns.addWidget(self.btn_to_queries)
         r_layout.addLayout(nav_btns)
+
 
 
         layout.addWidget(right_card, 1)
@@ -1155,17 +1334,17 @@ class MainWindow(QMainWindow):
 
         # Top Toolbar
         top_bar = QHBoxLayout()
-        self.lbl_editor_title = QLabel("İNTERAKTİF T-SQL EDİTÖRÜ & CANLI İNDEKS ANALİZİ")
+        self.lbl_editor_title = QLabel(t("editor.title"))
         self.lbl_editor_title.setStyleSheet(f"font-size: 13px; font-weight: 800; color: {self.c('text_primary')}; font-family: 'JetBrains Mono', monospace;")
         top_bar.addWidget(self.lbl_editor_title)
         top_bar.addStretch()
 
 
-        self.btn_clear_sql = QPushButton("Temizle")
+        self.btn_clear_sql = QPushButton(t("editor.btn_clear"))
         self.btn_clear_sql.clicked.connect(self.clear_sql_editor)
         top_bar.addWidget(self.btn_clear_sql)
 
-        self.btn_run_sql = QPushButton("SORGUYU ÇALIŞTIR (Ctrl+Enter)")
+        self.btn_run_sql = QPushButton(t("editor.btn_run"))
         self.btn_run_sql.setProperty("class", "btn-primary")
         self.btn_run_sql.clicked.connect(self.execute_user_sql)
         top_bar.addWidget(self.btn_run_sql)
@@ -1174,29 +1353,29 @@ class MainWindow(QMainWindow):
         # Quick Sample Queries
         samples_box = QHBoxLayout()
         samples_box.setSpacing(6)
-        s_lbl = QLabel("HIZLI TEST SORGULARI:")
-        s_lbl.setStyleSheet("font-size: 10.5px; color: #9494a8; font-weight: 700;")
-        samples_box.addWidget(s_lbl)
+        self.lbl_sample_queries = QLabel(t("editor.sample_queries"))
+        self.lbl_sample_queries.setStyleSheet("font-size: 10.5px; color: #9494a8; font-weight: 700;")
+        samples_box.addWidget(self.lbl_sample_queries)
 
-        btn_s1 = QPushButton("Sipariş Ciro Raporu (Ağır Full Scan)")
-        btn_s1.clicked.connect(lambda: self.set_editor_query("SELECT status, COUNT(*) AS siparis_sayisi, SUM(total_amount) AS toplam_ciro FROM orders WHERE status = 'completed' GROUP BY status;"))
-        samples_box.addWidget(btn_s1)
+        self.btn_s1 = QPushButton(t("editor.sample_p1"))
+        self.btn_s1.clicked.connect(lambda: self.set_editor_query("SELECT status, COUNT(*) AS siparis_sayisi, SUM(total_amount) AS toplam_ciro FROM orders WHERE status = 'completed' GROUP BY status;"))
+        samples_box.addWidget(self.btn_s1)
 
-        btn_s2 = QPushButton("Tarih Sıralı Siparişler (Sort + Scan)")
-        btn_s2.clicked.connect(lambda: self.set_editor_query("SELECT TOP 50 id, customer_id, order_date, total_amount, status FROM orders WHERE status = 'completed' ORDER BY order_date DESC;"))
-        samples_box.addWidget(btn_s2)
+        self.btn_s2 = QPushButton(t("editor.sample_p2"))
+        self.btn_s2.clicked.connect(lambda: self.set_editor_query("SELECT TOP 50 id, customer_id, order_date, total_amount, status FROM orders WHERE status = 'completed' ORDER BY order_date DESC;"))
+        samples_box.addWidget(self.btn_s2)
 
-        btn_s3 = QPushButton("Şehir Bazlı Harcama (JOIN Scan)")
-        btn_s3.clicked.connect(lambda: self.set_editor_query("SELECT c.city, COUNT(o.id) AS order_count, SUM(o.total_amount) AS total_spent FROM customers c JOIN orders o ON c.id = o.customer_id WHERE o.status = 'completed' GROUP BY c.city;"))
-        samples_box.addWidget(btn_s3)
+        self.btn_s3 = QPushButton(t("editor.sample_p3"))
+        self.btn_s3.clicked.connect(lambda: self.set_editor_query("SELECT c.city, COUNT(o.id) AS order_count, SUM(o.total_amount) AS total_spent FROM customers c JOIN orders o ON c.id = o.customer_id WHERE o.status = 'completed' GROUP BY c.city;"))
+        samples_box.addWidget(self.btn_s3)
 
-        btn_s4 = QPushButton("E-Posta LIKE Arama")
-        btn_s4.clicked.connect(lambda: self.set_editor_query("SELECT id, first_name, last_name, email, city FROM customers WHERE email LIKE '%@gmail.com' AND city = 'Istanbul';"))
-        samples_box.addWidget(btn_s4)
+        self.btn_s4 = QPushButton(t("editor.sample_p4"))
+        self.btn_s4.clicked.connect(lambda: self.set_editor_query("SELECT id, first_name, last_name, email, city FROM customers WHERE email LIKE '%@gmail.com' AND city = 'Istanbul';"))
+        samples_box.addWidget(self.btn_s4)
 
         samples_box.addStretch()
         c_layout.addLayout(samples_box)
-        self.template_buttons = [btn_s1, btn_s2, btn_s3, btn_s4]
+        self.template_buttons = [self.btn_s1, self.btn_s2, self.btn_s3, self.btn_s4]
 
 
         # Code Input Editor
@@ -1207,7 +1386,7 @@ class MainWindow(QMainWindow):
 
 
         # Execution Stats Strip
-        self.lbl_exec_stats = QLabel("YÜRÜTME SÜRESİ: - ms   |   DÖNEN SATIR: -   |   SÜTUN SAYISI: -")
+        self.lbl_exec_stats = QLabel("EXECUTION TIME: - ms   |   RETURNED ROWS: -   |   COLUMNS: -" if get_language() == "en" else "YÜRÜTME SÜRESİ: - ms   |   DÖNEN SATIR: -   |   SÜTUN SAYISI: -")
         self.lbl_exec_stats.setStyleSheet("background: #040407; border: 1px solid #1a1a24; padding: 6px 12px; font-size: 11px; font-weight: 700; color: #cbd5e1; font-family: 'JetBrains Mono', monospace;")
         c_layout.addWidget(self.lbl_exec_stats)
 
@@ -1223,14 +1402,16 @@ class MainWindow(QMainWindow):
         self.lbl_rec_text.setWordWrap(True)
         rec_layout.addWidget(self.lbl_rec_text, 1)
 
-        self.btn_apply_editor_rec = QPushButton("İndeksi Oluştur & Test Et")
+        self.btn_apply_editor_rec = QPushButton(t("editor.rec_btn"))
         self.btn_apply_editor_rec.setProperty("class", "btn-success")
         self.btn_apply_editor_rec.clicked.connect(self.apply_editor_rec)
         rec_layout.addWidget(self.btn_apply_editor_rec)
         c_layout.addWidget(self.rec_frame)
 
         # Result Data Table
-        c_layout.addWidget(QLabel("SORGU SONUÇLARI (DATA GRID):"))
+        self.lbl_results_head = QLabel("QUERY RESULTS (DATA GRID):" if get_language() == "en" else "SORGU SONUÇLARI (DATA GRID):")
+        c_layout.addWidget(self.lbl_results_head)
+
         self.table_sql_results = QTableWidget()
         c_layout.addWidget(self.table_sql_results, 1)
 
@@ -1405,27 +1586,27 @@ class MainWindow(QMainWindow):
 
         # Header Toolbar with Refresh, Select & Delete Actions
         top_bar = QHBoxLayout()
-        self.lbl_queries_title = QLabel("YAKALANAN VE ÇALIŞTIRILAN TÜM SORGULAR")
+        self.lbl_queries_title = QLabel(t("queries.title"))
         self.lbl_queries_title.setStyleSheet(f"font-size: 13px; font-weight: 800; color: {self.c('text_primary')}; font-family: 'JetBrains Mono', monospace;")
         top_bar.addWidget(self.lbl_queries_title)
         top_bar.addStretch()
 
 
-        self.btn_refresh_queries = QPushButton("🔄 YENİLE")
+        self.btn_refresh_queries = QPushButton(t("queries.btn_refresh"))
         self.btn_refresh_queries.setProperty("class", "btn-primary")
         self.btn_refresh_queries.clicked.connect(self.manual_refresh_queries)
         top_bar.addWidget(self.btn_refresh_queries)
 
-        self.btn_select_all_queries = QPushButton("TÜMÜNÜ SEÇ / BIRAK")
+        self.btn_select_all_queries = QPushButton(t("queries.btn_select_all"))
         self.btn_select_all_queries.clicked.connect(self.toggle_select_all_queries)
         top_bar.addWidget(self.btn_select_all_queries)
 
-        self.btn_delete_selected = QPushButton("SEÇİLENLERİ SİL")
+        self.btn_delete_selected = QPushButton(t("queries.btn_delete_selected"))
         self.btn_delete_selected.setProperty("class", "btn-danger")
         self.btn_delete_selected.clicked.connect(self.delete_selected_queries)
         top_bar.addWidget(self.btn_delete_selected)
 
-        self.btn_clear_all_queries = QPushButton("TÜM SORGULARI TEMİZLE")
+        self.btn_clear_all_queries = QPushButton(t("queries.btn_clear_all"))
         self.btn_clear_all_queries.setProperty("class", "btn-danger")
         self.btn_clear_all_queries.clicked.connect(self.clear_all_queries_prompt)
         top_bar.addWidget(self.btn_clear_all_queries)
@@ -1436,12 +1617,12 @@ class MainWindow(QMainWindow):
         self.table_queries_only = QTableWidget()
         self.table_queries_only.setColumnCount(6)
         self.table_queries_only.setHorizontalHeaderLabels([
-            "SEÇ",
-            "SORGU ADI & TABLO",
-            "SQL SORGUSU",
-            "İNDEKS DURUMU",
-            "YAZILMA / YAKALANMA ZAMANI",
-            "SÜRE (ms)"
+            t("queries.col_select"),
+            t("queries.col_title"),
+            t("queries.col_sql"),
+            t("queries.col_status"),
+            t("queries.col_time"),
+            t("queries.col_dur")
         ])
         self.table_queries_only.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         self.table_queries_only.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
@@ -1459,7 +1640,7 @@ class MainWindow(QMainWindow):
             try:
                 new_qs = poll_and_capture_live_dmv_queries()
                 if new_qs:
-                    self.term_log.appendPlainText(f"⚡ [MANUEL YENİLE]: {len(new_qs)} yeni DMV sorgusu yakalandı.")
+                    self.term_log.appendPlainText(f"⚡ [MANUEL YENİLE]: {len(new_qs)} yeni DMV sorgusu yakalandı." if get_language() == "tr" else f"⚡ [MANUAL REFRESH]: {len(new_qs)} new DMV queries captured.")
             except Exception:
                 pass
         self.load_queries_only_table()
@@ -1476,50 +1657,46 @@ class MainWindow(QMainWindow):
                 STRING_AGG(c.name, ', ') WITHIN GROUP (ORDER BY ic.key_ordinal) AS columns
             FROM sys.indexes i
             JOIN sys.tables t ON t.object_id = i.object_id
-            JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
+            JOIN sys.index_columns ic ON ic.object_id = ic.object_id AND ic.index_id = i.index_id
             JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
             WHERE t.is_ms_shipped = 0 AND i.name IS NOT NULL 
               AND i.is_primary_key = 0 AND i.is_unique_constraint = 0 AND ic.is_included_column = 0
             GROUP BY t.name, i.name
         """
-        all_active_rows = execute_query(q_idx) or [] if self.is_connected else []
-        active_custom_rows = [r for r in all_active_rows if r["index_name"] not in DEFAULT_SCHEMA_INDEXES]
+        active_custom_indexes = []
+        if self.is_connected:
+            try:
+                rows = execute_query(q_idx) or []
+                for r in rows:
+                    if r["index_name"] not in DEFAULT_SCHEMA_INDEXES:
+                        active_custom_indexes.append(r)
+            except Exception:
+                pass
 
-        active_by_table = {}
-        for r in active_custom_rows:
-            tbl = r["table_name"]
-            cols = [c.strip() for c in r["columns"].split(",")] if r["columns"] else []
-            if tbl not in active_by_table:
-                active_by_table[tbl] = []
-            active_by_table[tbl].append({"name": r["index_name"], "columns": set(cols), "cols_str": r["columns"]})
+        applied_db_records = {idx.index_name: idx for idx in get_active_indexes()}
 
-        applied_db_records = {}
-        try:
-            applied_db_records = {idx.index_name: idx for idx in get_active_indexes()}
-        except Exception:
-            pass
+        # Load persisted queries
+        persisted = get_captured_queries()
+        self.table_queries_only.setRowCount(len(persisted))
 
-        queries = get_captured_queries()
-        self.table_queries_only.setRowCount(len(queries))
-
-        for row_idx, q in enumerate(queries):
-            qid = q["id"]
-            query_sql = q.get("query_sql", "")
+        for row_idx, q in enumerate(persisted):
+            q_id = q["id"]
+            query_sql = q["query_sql"].strip()
             target_tbl = q.get("target_table", "orders")
 
             # 0. Checkbox
-            chk_widget = QWidget()
-            chk_layout = QHBoxLayout(chk_widget)
-            chk_layout.setContentsMargins(6, 2, 6, 2)
-            chk_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            cb = QCheckBox()
-            cb.setChecked(qid in self.selected_query_ids)
-            cb.stateChanged.connect(lambda state, q_id=qid: self.on_query_check_changed(q_id, state))
-            chk_layout.addWidget(cb)
-            self.table_queries_only.setCellWidget(row_idx, 0, chk_widget)
+            chk = QCheckBox()
+            chk.setChecked(q_id in self.selected_query_ids)
+            chk.stateChanged.connect(lambda state, qid=q_id: self.on_query_check_changed(qid, state))
+            cell_widget = QWidget()
+            cell_layout = QHBoxLayout(cell_widget)
+            cell_layout.addWidget(chk)
+            cell_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            cell_layout.setContentsMargins(0, 0, 0, 0)
+            self.table_queries_only.setCellWidget(row_idx, 0, cell_widget)
 
             # 1. Title & Table
-            t_str = f"{q.get('title', 'Sorgu')}\nTablo: [{target_tbl}]"
+            t_str = f"{q.get('title', 'Sorgu')}\nTablo: [{target_tbl}]" if get_language() == "tr" else f"{q.get('title', 'Query')}\nTable: [{target_tbl}]"
             it_1 = QTableWidgetItem(t_str)
             it_1.setForeground(QColor(self.c("text_primary")))
             self.table_queries_only.setItem(row_idx, 1, it_1)
@@ -1536,6 +1713,14 @@ class MainWindow(QMainWindow):
                 ddl = live.create_sql if live else f"CREATE NONCLUSTERED INDEX [{applied_idx}] ON [{target_tbl}] ...;"
                 cols_str = ", ".join(live.columns) if live else "Kolon Bilgisi"
                 tooltip_text = (
+                    f"APPLIED INDEX DETAILS:\n"
+                    f"----------------------------------------\n"
+                    f"• Index Name : [{applied_idx}]\n"
+                    f"• Target Table: {target_tbl}\n"
+                    f"• Columns    : ({cols_str})\n"
+                    f"• Status     : Active on SQL Server (Online)\n"
+                    f"• DDL Query  :\n{ddl}"
+                ) if get_language() == "en" else (
                     f"UYGULANAN İNDEKS DETAYI:\n"
                     f"----------------------------------------\n"
                     f"• İndeks Adı : [{applied_idx}]\n"
@@ -1545,17 +1730,17 @@ class MainWindow(QMainWindow):
                     f"• DDL Tanımı :\n{ddl}"
                 )
 
-                it_idx = QTableWidgetItem("[İNDEKS UYGULANDI]")
+                it_idx = QTableWidgetItem(t("queries.status_applied"))
                 it_idx.setForeground(QColor(self.c("accent_success")))
                 it_idx.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                 it_idx.setToolTip(tooltip_text)
             else:
                 rec = recommend_index_for_query(query_sql)
-                rec_hint = f"\n\nÖnerilen İndeks: {rec.index_name} ON ({', '.join(rec.columns)})" if rec else ""
-                it_idx = QTableWidgetItem("[İndekssiz]")
+                rec_hint = (f"\n\nRecommended Index: {rec.index_name} ON ({', '.join(rec.columns)})" if get_language() == "en" else f"\n\nÖnerilen İndeks: {rec.index_name} ON ({', '.join(rec.columns)})") if rec else ""
+                it_idx = QTableWidgetItem(t("queries.status_no_index"))
                 it_idx.setForeground(QColor(self.c("text_muted")))
                 it_idx.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                it_idx.setToolTip(f"Bu sorgu çalıştırıldığı sırada indekssiz olarak yürütülmüştür.{rec_hint}")
+                it_idx.setToolTip(f"This query was executed without an index.{rec_hint}" if get_language() == "en" else f"Bu sorgu çalıştırıldığı sırada indekssiz olarak yürütülmüştür.{rec_hint}")
             
             self.table_queries_only.setItem(row_idx, 3, it_idx)
 
@@ -1573,11 +1758,7 @@ class MainWindow(QMainWindow):
             it_5.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table_queries_only.setItem(row_idx, 5, it_5)
 
-
         self.table_queries_only.resizeRowsToContents()
-
-
-
 
     def on_query_check_changed(self, q_id: int, state: int):
         if state == Qt.CheckState.Checked.value:
@@ -1586,17 +1767,21 @@ class MainWindow(QMainWindow):
             self.selected_query_ids.discard(q_id)
 
     def toggle_select_all_queries(self):
-        queries = get_captured_queries()
-        all_ids = {q["id"] for q in queries}
-        if len(self.selected_query_ids) == len(all_ids):
+        persisted = get_captured_queries()
+        if not persisted:
+            return
+
+        all_ids = {q["id"] for q in persisted}
+        if self.selected_query_ids == all_ids:
             self.selected_query_ids.clear()
         else:
-            self.selected_query_ids = set(all_ids)
+            self.selected_query_ids = all_ids.copy()
+
         self.load_queries_only_table()
 
     def delete_selected_queries(self):
         if not self.selected_query_ids:
-            self.show_toast("SEÇİM YAPILMADI", "Lütfen silmek istediğiniz sorguları yanlarındaki kutucuklardan seçin.", "warning")
+            self.show_toast(t("toast.no_select_title"), t("toast.no_select_msg"), "warning")
             return
 
         cnt = len(self.selected_query_ids)
@@ -1605,22 +1790,17 @@ class MainWindow(QMainWindow):
         self.load_queries_only_table()
         self.load_index_mgmt_table()
         self.refresh_mgmt_page()
-        self.show_toast("SORGULAR SİLİNDİ", f"{cnt} adet sorgu başarıyla tablodan kaldırıldı.", "danger")
+        self.show_toast(t("toast.queries_deleted_title"), t("toast.queries_deleted_msg", cnt=cnt), "danger")
 
     def clear_all_queries_prompt(self):
-        ret = QMessageBox.warning(
-            self,
-            "Tüm Sorguları Temizle",
-            "Tüm yakalanan sorgu listesi tamamen silinecektir. Onaylıyor musunuz?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
+        ret = QMessageBox.question(self, t("queries.btn_clear_all"), "Tüm yakalanan ve çalıştırılan sorgu kayıtları silinecektir. Onaylıyor musunuz?" if get_language() == "tr" else "All captured and executed query records will be deleted. Are you sure?")
         if ret == QMessageBox.StandardButton.Yes:
             clear_all_captured_queries()
             self.selected_query_ids.clear()
             self.load_queries_only_table()
             self.load_index_mgmt_table()
             self.refresh_mgmt_page()
-            self.show_toast("TÜMÜ TEMİZLENDİ", "Tüm sorgu kayıtları başarıyla sıfırlandı.", "info")
+            self.show_toast(t("toast.all_cleared_title"), t("toast.all_cleared_msg"), "info")
 
 
     # -------------------------------------------------------------------------
@@ -1639,29 +1819,25 @@ class MainWindow(QMainWindow):
         tb_layout.setContentsMargins(14, 10, 14, 10)
         tb_layout.setSpacing(10)
 
-        self.lbl_batch_ops = QLabel("TOPLU İNDEKS OPERASYONLARI:")
+        self.lbl_batch_ops = QLabel(t("index.batch_ops"))
         self.lbl_batch_ops.setStyleSheet(f"font-size: 11.5px; font-weight: 800; color: {self.c('text_primary')}; font-family: 'JetBrains Mono', monospace;")
         tb_layout.addWidget(self.lbl_batch_ops)
         tb_layout.addStretch()
 
-
-
-
-        self.btn_rem = QPushButton("TÜM HEPSİNİ OTOMATİK UYGULA")
+        self.btn_rem = QPushButton(t("index.btn_apply_all"))
         self.btn_rem.setProperty("class", "btn-success")
         self.btn_rem.clicked.connect(self.run_remediate_worker)
         tb_layout.addWidget(self.btn_rem)
 
-        self.btn_bench = QPushButton("TÜM HEPSİNİ BENCHMARK ET")
+        self.btn_bench = QPushButton(t("index.btn_benchmark_all"))
         self.btn_bench.setProperty("class", "btn-warning")
         self.btn_bench.clicked.connect(self.run_benchmark_worker)
         tb_layout.addWidget(self.btn_bench)
 
-        self.btn_reset = QPushButton("İNDEKSLERİ SIFIRLA")
+        self.btn_reset = QPushButton(t("index.btn_reset"))
         self.btn_reset.setProperty("class", "btn-danger")
         self.btn_reset.clicked.connect(self.run_reset_worker)
         tb_layout.addWidget(self.btn_reset)
-
 
         layout.addWidget(tb_card)
 
@@ -1673,20 +1849,20 @@ class MainWindow(QMainWindow):
         c1_layout.setContentsMargins(14, 14, 14, 14)
         c1_layout.setSpacing(8)
 
-        t1_lbl = QLabel("SORGULAR VE EŞLEŞEN İNDEKS NUMARALARI")
-        t1_lbl.setStyleSheet(f"font-size: 12px; font-weight: 800; color: {self.c('text_primary')}; font-family: 'JetBrains Mono', monospace;")
-        c1_layout.addWidget(t1_lbl)
+        self.lbl_idx_table1_title = QLabel(t("index.table1_title"))
+        self.lbl_idx_table1_title.setStyleSheet(f"font-size: 12px; font-weight: 800; color: {self.c('text_primary')}; font-family: 'JetBrains Mono', monospace;")
+        c1_layout.addWidget(self.lbl_idx_table1_title)
 
         self.table_idx_mgmt = QTableWidget()
         self.table_idx_mgmt.setColumnCount(7)
         self.table_idx_mgmt.setHorizontalHeaderLabels([
-            "SİSTEM SORGUSU & TABLO",
-            "SQL SORGUSU (ÖZET)",
-            "EŞLEŞEN İNDEKS",
-            "İNDEKS ÖNCESİ (ms)",
-            "İNDEKS SONRASI (ms)",
-            "HIZLANMA ORANI",
-            "İŞLEMLER & TEST"
+            t("index.t1_col_query"),
+            t("index.t1_col_sql"),
+            t("index.t1_col_match"),
+            t("index.t1_col_before"),
+            t("index.t1_col_after"),
+            t("index.t1_col_speedup"),
+            t("index.t1_col_actions")
         ])
         self.table_idx_mgmt.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.table_idx_mgmt.horizontalHeader().setStretchLastSection(False)
@@ -1700,7 +1876,6 @@ class MainWindow(QMainWindow):
         c1_layout.addWidget(self.table_idx_mgmt)
         layout.addWidget(card1, 3)
 
-
         # 2. Numbered Index Catalog & Details Table
         card2 = QFrame()
         card2.setProperty("class", "card-panel")
@@ -1708,19 +1883,19 @@ class MainWindow(QMainWindow):
         c2_layout.setContentsMargins(14, 14, 14, 14)
         c2_layout.setSpacing(8)
 
-        t2_lbl = QLabel("OLUŞTURULAN & ÖNERİLEN İNDEKS KATALOĞU (NUMARALI DETAY LİSTESİ)")
-        t2_lbl.setStyleSheet(f"font-size: 12px; font-weight: 800; color: {self.c('text_primary')}; font-family: 'JetBrains Mono', monospace;")
-        c2_layout.addWidget(t2_lbl)
+        self.lbl_idx_table2_title = QLabel(t("index.table2_title"))
+        self.lbl_idx_table2_title.setStyleSheet(f"font-size: 12px; font-weight: 800; color: {self.c('text_primary')}; font-family: 'JetBrains Mono', monospace;")
+        c2_layout.addWidget(self.lbl_idx_table2_title)
 
         self.table_idx_catalog = QTableWidget()
         self.table_idx_catalog.setColumnCount(6)
         self.table_idx_catalog.setHorizontalHeaderLabels([
-            "İNDEKS NO",
-            "İNDEKS ADI & TABLO",
-            "DURUM",
-            "KAPSADIĞI KOLONLAR & DDL TANIMI",
-            "BU İNDEKSİ KULLANAN SORGULAR",
-            "İŞLEM"
+            t("index.t2_col_no"),
+            t("index.t2_col_name"),
+            t("index.t2_col_status"),
+            t("index.t2_col_ddl"),
+            t("index.t2_col_queries"),
+            t("index.t2_col_actions")
         ])
         self.table_idx_catalog.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.table_idx_catalog.horizontalHeader().setStretchLastSection(False)
@@ -1966,7 +2141,7 @@ class MainWindow(QMainWindow):
             }
 
             if not has_index:
-                b_apply = QPushButton("İndeksle")
+                b_apply = QPushButton(t("index.btn_apply"))
                 b_apply.setProperty("class", "btn-success")
                 b_apply.setCursor(Qt.CursorShape.PointingHandCursor)
                 b_apply_style = """
@@ -1984,7 +2159,7 @@ class MainWindow(QMainWindow):
                 b_apply.clicked.connect(lambda checked, it=item_pass: self.apply_index_only(it))
                 btn_layout.addWidget(b_apply)
             else:
-                b_test = QPushButton("Test")
+                b_test = QPushButton(t("index.btn_test"))
                 b_test.setProperty("class", "btn-warning")
                 b_test.setCursor(Qt.CursorShape.PointingHandCursor)
                 b_test_style = """
@@ -2002,7 +2177,7 @@ class MainWindow(QMainWindow):
                 b_test.clicked.connect(lambda checked, it=item_pass: self.benchmark_single_index_query(it))
                 btn_layout.addWidget(b_test)
 
-                b_drop = QPushButton("Sil")
+                b_drop = QPushButton(t("index.btn_delete"))
                 b_drop.setProperty("class", "btn-danger")
                 b_drop.setCursor(Qt.CursorShape.PointingHandCursor)
                 b_drop_style = """
@@ -2039,25 +2214,25 @@ class MainWindow(QMainWindow):
             self.table_idx_catalog.setItem(c_idx, 0, it_c0)
 
             # 1. Index Name & Table
-            it_c1 = QTableWidgetItem(f"[{meta['name']}]\nTablo: {meta['table']}")
+            it_c1 = QTableWidgetItem(f"[{meta['name']}]\nTablo: {meta['table']}" if get_language() == "tr" else f"[{meta['name']}]\nTable: {meta['table']}")
             it_c1.setForeground(QColor(self.c("text_primary")))
             self.table_idx_catalog.setItem(c_idx, 1, it_c1)
 
             # 2. Status
-            it_c2 = QTableWidgetItem("● Aktif (SQL Server)" if meta["is_active"] else "○ Önerilen")
+            it_c2 = QTableWidgetItem(t("index.status_active") if meta["is_active"] else t("index.status_rec"))
             it_c2.setForeground(QColor(self.c("accent_success")) if meta["is_active"] else QColor(self.c("accent_warning")))
             it_c2.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table_idx_catalog.setItem(c_idx, 2, it_c2)
 
             # 3. Columns & DDL
-            ddl_preview = f"Kolonlar: ({meta['columns']})\n{meta['ddl']}"
+            ddl_preview = f"Kolonlar: ({meta['columns']})\n{meta['ddl']}" if get_language() == "tr" else f"Columns: ({meta['columns']})\n{meta['ddl']}"
             it_c3 = QTableWidgetItem(ddl_preview)
             it_c3.setForeground(QColor(self.c("accent_success")) if meta["is_active"] else QColor(self.c("text_secondary")))
             self.table_idx_catalog.setItem(c_idx, 3, it_c3)
 
             # 4. Queries Using This Index
             q_count = len(meta["queries"])
-            q_summary = f"{', '.join(meta['queries'])}\n({q_count} Sorgu Paylaşıyor)"
+            q_summary = f"{', '.join(meta['queries'])}\n({q_count} Sorgu Paylaşıyor)" if get_language() == "tr" else f"{', '.join(meta['queries'])}\n({q_count} Queries Sharing)"
             it_c4 = QTableWidgetItem(q_summary)
             it_c4.setForeground(QColor(self.c("text_secondary")))
             self.table_idx_catalog.setItem(c_idx, 4, it_c4)
@@ -2081,7 +2256,7 @@ class MainWindow(QMainWindow):
             }
 
             if not meta["is_active"]:
-                b_c_apply = QPushButton("İndeksi Oluştur")
+                b_c_apply = QPushButton(t("index.btn_create_idx"))
                 b_c_apply.setProperty("class", "btn-success")
                 b_c_apply.setCursor(Qt.CursorShape.PointingHandCursor)
                 b_c_apply_style = """
@@ -2099,7 +2274,7 @@ class MainWindow(QMainWindow):
                 b_c_apply.clicked.connect(lambda checked, it=cat_item: self.apply_index_only(it))
                 act_layout.addWidget(b_c_apply)
             else:
-                b_c_drop = QPushButton("İndeksi Kaldır")
+                b_c_drop = QPushButton(t("index.btn_drop_idx"))
                 b_c_drop.setProperty("class", "btn-danger")
                 b_c_drop.setCursor(Qt.CursorShape.PointingHandCursor)
                 b_c_drop_style = """
@@ -2116,6 +2291,7 @@ class MainWindow(QMainWindow):
                 b_c_drop.setMinimumHeight(24)
                 b_c_drop.clicked.connect(lambda checked, it=cat_item: self.drop_single_index_row(it["active_indexes"][0], it["table"]))
                 act_layout.addWidget(b_c_drop)
+
 
 
 
@@ -2218,16 +2394,16 @@ class MainWindow(QMainWindow):
         cards_grid = QHBoxLayout()
         cards_grid.setSpacing(12)
 
-        self.sc_custom = StatCard("UYGULANAN ÖZEL İNDEKSLER", "0 Aktif", "SQL Server Nonclustered DDL", icon_name="fa5s.layer-group", accent_color="#10b981")
+        self.sc_custom = StatCard(t("mgmt.stat_custom_title"), "0 Active" if get_language() == "en" else "0 Aktif", "SQL Server Nonclustered DDL", icon_name="fa5s.layer-group", accent_color="#10b981")
         cards_grid.addWidget(self.sc_custom)
 
-        self.sc_queries = StatCard("YAKALANAN SORGULAR", "0 Sorgu", "DMV + Canlı Analiz", icon_name="fa5s.search", accent_color="#06b6d4")
+        self.sc_queries = StatCard(t("mgmt.stat_queries_title"), "0 Queries" if get_language() == "en" else "0 Sorgu", t("mgmt.stat_queries_sub"), icon_name="fa5s.search", accent_color="#06b6d4")
         cards_grid.addWidget(self.sc_queries)
 
-        self.sc_speedup = StatCard("GENEL ORTALAMA HIZ KAZANCI", "0.0x (+%0)", "Gerçek Ölçülen Kazanç", icon_name="fa5s.tachometer-alt", accent_color="#10b981")
+        self.sc_speedup = StatCard(t("mgmt.stat_speedup_title"), "0.0x (+0%)" if get_language() == "en" else "0.0x (+%0)", t("mgmt.stat_speedup_none_sub"), icon_name="fa5s.tachometer-alt", accent_color="#10b981")
         cards_grid.addWidget(self.sc_speedup)
 
-        self.sc_engine = StatCard("OTONOM MOTOR DURUMU", "7/24 AKTİF", "Canlı DMV Dinleme & Otomasyon", icon_name="fa5s.shield-alt", accent_color="#06b6d4")
+        self.sc_engine = StatCard(t("mgmt.stat_engine_title"), t("mgmt.stat_engine_active_val"), t("mgmt.stat_engine_active_sub"), icon_name="fa5s.shield-alt", accent_color="#06b6d4")
         cards_grid.addWidget(self.sc_engine)
 
         layout.addLayout(cards_grid)
@@ -2241,8 +2417,9 @@ class MainWindow(QMainWindow):
 
         # Left Engine Toggle Switch
         l_motor = QVBoxLayout()
-        l_motor.addWidget(QLabel("OTONOM MOTOR KONTROLÜ:"))
-        self.btn_toggle_engine = QPushButton("● OTONOM MOTOR: AKTİF (7/24)")
+        self.lbl_mgmt_engine_ctrl = QLabel(t("mgmt.engine_ctrl_title"))
+        l_motor.addWidget(self.lbl_mgmt_engine_ctrl)
+        self.btn_toggle_engine = QPushButton(t("mgmt.btn_engine_active") if self.engine_active else t("mgmt.btn_engine_inactive"))
         self.btn_toggle_engine.setStyleSheet("background: #041a12; border: 1px solid #10b981; color: #6ee7b7; font-weight: 800; padding: 7px 14px; font-family: 'JetBrains Mono', monospace;")
         self.btn_toggle_engine.clicked.connect(self.toggle_engine_state)
         l_motor.addWidget(self.btn_toggle_engine)
@@ -2250,8 +2427,9 @@ class MainWindow(QMainWindow):
 
         # Middle Info: Last action
         m_info = QVBoxLayout()
-        m_info.addWidget(QLabel("EN SON YAPILAN İNDEKS UYGULAMASI:"))
-        self.lbl_last_action = QLabel("Henüz özel indeks uygulanmadı.")
+        self.lbl_mgmt_last_action_title = QLabel(t("mgmt.last_action_title"))
+        m_info.addWidget(self.lbl_mgmt_last_action_title)
+        self.lbl_last_action = QLabel(t("mgmt.last_action_none"))
         self.lbl_last_action.setStyleSheet(f"color: {self.c('text_primary')}; font-weight: 700; font-size: 11px; font-family: 'JetBrains Mono', monospace;")
         m_info.addWidget(self.lbl_last_action)
         ic_layout.addLayout(m_info, 1)
@@ -2259,20 +2437,21 @@ class MainWindow(QMainWindow):
 
         # Right Safety & Quota Control
         r_info = QVBoxLayout()
-        r_info.addWidget(QLabel("OTONOM KOTA & GÜVENLİK AYARI:"))
+        self.lbl_mgmt_quota_title = QLabel(t("mgmt.quota_title"))
+        r_info.addWidget(self.lbl_mgmt_quota_title)
         q_row = QHBoxLayout()
-        q_lbl = QLabel("Max İndeks Kotası:")
-        q_lbl.setStyleSheet("color: #38bdf8; font-weight: 700; font-size: 11px;")
-        q_row.addWidget(q_lbl)
+        self.lbl_mgmt_quota_label = QLabel(t("mgmt.quota_label"))
+        self.lbl_mgmt_quota_label.setStyleSheet("color: #38bdf8; font-weight: 700; font-size: 11px;")
+        q_row.addWidget(self.lbl_mgmt_quota_label)
 
         self.spin_quota_mgmt = QuotaStepperWidget(value=self.max_indexes_limit, min_val=1, max_val=20)
         self.spin_quota_mgmt.valueChanged.connect(self.set_max_indexes_quota)
         q_row.addWidget(self.spin_quota_mgmt)
         r_info.addLayout(q_row)
 
-        lbl_safety = QLabel("✔ ONLINE=ON | ✔ %15 Devre Kesici | ✔ Dinamik Dengeleme")
-        lbl_safety.setStyleSheet("color: #94a3b8; font-size: 10px; font-family: 'JetBrains Mono', monospace;")
-        r_info.addWidget(lbl_safety)
+        self.lbl_mgmt_safety_strip = QLabel(t("mgmt.safety_strip"))
+        self.lbl_mgmt_safety_strip.setStyleSheet("color: #94a3b8; font-size: 10px; font-family: 'JetBrains Mono', monospace;")
+        r_info.addWidget(self.lbl_mgmt_safety_strip)
         ic_layout.addLayout(r_info, 1)
 
         layout.addWidget(info_card)
@@ -2287,17 +2466,18 @@ class MainWindow(QMainWindow):
         a_layout.setContentsMargins(12, 12, 12, 12)
         
         a_head = QHBoxLayout()
-        a_head.addWidget(QLabel("OTONOM KARAR GEÇMİŞİ (AUDIT TRAIL):"))
+        self.lbl_mgmt_audit_title = QLabel(t("mgmt.audit_title"))
+        a_head.addWidget(self.lbl_mgmt_audit_title)
         a_head.addStretch()
 
-        self.btn_clear_audit = QPushButton("🧹 Karar Geçmişini Temizle")
+        self.btn_clear_audit = QPushButton(t("mgmt.btn_clear_audit"))
         self.btn_clear_audit.clicked.connect(self.clear_audit_trail_prompt)
         a_head.addWidget(self.btn_clear_audit)
         a_layout.addLayout(a_head)
 
         self.table_decisions = QTableWidget()
         self.table_decisions.setColumnCount(3)
-        self.table_decisions.setHorizontalHeaderLabels(["İşlem Türü", "Ayrıntı", "Zaman"])
+        self.table_decisions.setHorizontalHeaderLabels([t("mgmt.audit_col_type"), t("mgmt.audit_col_details"), t("mgmt.audit_col_time")])
         self.table_decisions.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         self.table_decisions.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.table_decisions.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
@@ -2309,11 +2489,12 @@ class MainWindow(QMainWindow):
         term_card.setProperty("class", "card-panel")
         t_layout = QVBoxLayout(term_card)
         t_layout.setContentsMargins(12, 12, 12, 12)
-        t_layout.addWidget(QLabel("STREAM TELEMETRY LOGS:"))
+        self.lbl_mgmt_telemetry_title = QLabel(t("mgmt.telemetry_title"))
+        t_layout.addWidget(self.lbl_mgmt_telemetry_title)
 
         self.term_log = QPlainTextEdit()
         self.term_log.setReadOnly(True)
-        self.term_log.setPlainText("[Hazır] Motor telemetri ve canlı DMV akışı burada gösterilir...\n")
+        self.term_log.setPlainText("[Ready] Engine telemetry and live DMV stream will be shown here...\n" if get_language() == "en" else "[Hazır] Motor telemetri ve canlı DMV akışı burada gösterilir...\n")
         t_layout.addWidget(self.term_log)
         splitter.addWidget(term_card)
 
@@ -2321,12 +2502,11 @@ class MainWindow(QMainWindow):
         return page
 
     def clear_audit_trail_prompt(self):
-
-        ret = QMessageBox.question(self, "Karar Geçmişini Temizle", "Tüm otonom karar kayıtları silinecektir. Onaylıyor musunuz?")
+        ret = QMessageBox.question(self, t("mgmt.btn_clear_audit"), "All autonomous decision records will be deleted. Are you sure?" if get_language() == "en" else "Tüm otonom karar kayıtları silinecektir. Onaylıyor musunuz?")
         if ret == QMessageBox.StandardButton.Yes:
             clear_agent_decisions()
             self.refresh_mgmt_page()
-            QMessageBox.information(self, "Temizlendi", "Otonom karar geçmişi başarıyla temizlendi.")
+            self.show_toast(t("toast.all_cleared_title"), "Autonomous decision history cleared." if get_language() == "en" else "Otonom karar geçmişi başarıyla temizlendi.", "info")
 
     def refresh_mgmt_page(self):
         DEFAULT_SCHEMA_INDEXES = {"idx_orders_customer_id", "idx_customers_email"}
@@ -2343,19 +2523,24 @@ class MainWindow(QMainWindow):
         captured = get_captured_queries()
         captured_count = len(captured)
 
-        self.sc_custom.set_value(f"{len(custom_rows)} Aktif", f"{len(custom_rows)} adet DDL devrede")
-        self.sc_queries.set_value(f"{captured_count} Sorgu", "DMV + Canlı Analiz")
+        # Update StatCards with i18n
+        self.sc_custom.set_title(t("mgmt.stat_custom_title"))
+        self.sc_custom.set_value(t("mgmt.stat_custom_val", count=len(custom_rows)), t("mgmt.stat_custom_sub", count=len(custom_rows)))
 
-        # Real Speedup
+        self.sc_queries.set_title(t("mgmt.stat_queries_title"))
+        self.sc_queries.set_value(t("mgmt.stat_queries_val", count=captured_count), t("mgmt.stat_queries_sub"))
+
+        self.sc_speedup.set_title(t("mgmt.stat_speedup_title"))
         if not custom_rows or not captured:
-            self.sc_speedup.set_value("0.0x (+%0)", "Henüz indeks/ölçüm yok")
+            self.sc_speedup.set_value(t("mgmt.stat_speedup_none_val"), t("mgmt.stat_speedup_none_sub"))
         else:
-            self.sc_speedup.set_value("16.4x (+%94.2)", f"{len(custom_rows)} aktif indeks ile hızlandı")
+            self.sc_speedup.set_value(t("mgmt.stat_speedup_active_val"), t("mgmt.stat_speedup_active_sub", count=len(custom_rows)))
 
+        self.sc_engine.set_title(t("mgmt.stat_engine_title"))
         if self.engine_active:
-            self.sc_engine.set_value("7/24 AKTİF", "Canlı DMV Dinleme Açık")
+            self.sc_engine.set_value(t("mgmt.stat_engine_active_val"), t("mgmt.stat_engine_active_sub"))
         else:
-            self.sc_engine.set_value("DURDURULDU", "Manuel Mod (Dinleme Kapalı)")
+            self.sc_engine.set_value(t("mgmt.stat_engine_stopped_val"), t("mgmt.stat_engine_stopped_sub"))
 
         # Decisions
         decisions = get_recent_decisions(15)
@@ -2363,7 +2548,7 @@ class MainWindow(QMainWindow):
         if applied:
             self.lbl_last_action.setText(f"{applied[0].details} ({applied[0].created_at})")
         else:
-            self.lbl_last_action.setText("Henüz özel indeks uygulanmadı.")
+            self.lbl_last_action.setText(t("mgmt.last_action_none"))
 
         self.table_decisions.setRowCount(len(decisions))
         for r_idx, dec in enumerate(decisions):
@@ -2380,6 +2565,7 @@ class MainWindow(QMainWindow):
             self.table_decisions.setItem(r_idx, 2, it_time)
 
         self.table_decisions.resizeRowsToContents()
+
 
 
     # -------------------------------------------------------------------------

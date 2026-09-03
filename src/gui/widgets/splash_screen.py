@@ -7,6 +7,12 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, pyqtSignal
 from PyQt6.QtGui import QIcon
 
+try:
+    from src.i18n import t
+except ImportError:
+    from i18n import t
+
+
 
 class SplashScreen(QWidget):
     """Completely borderless, frameless minimal splash screen with smooth fade transitions."""
@@ -114,13 +120,14 @@ class SplashScreen(QWidget):
         self.prog_bar.setValue(pct)
 
         if self._elapsed_ms < 1000:
-            self.lbl_status.setText("● SQL Server bağlantı hatları taranıyor...")
+            self.lbl_status.setText(t("splash.step1"))
         elif self._elapsed_ms < 2000:
-            self.lbl_status.setText("● Otonom AI optimizasyon motoru yükleniyor...")
+            self.lbl_status.setText(t("splash.step2"))
         elif self._elapsed_ms < 2700:
-            self.lbl_status.setText("● Canlı telemetri ve DBA kontrol paneli hazır...")
+            self.lbl_status.setText(t("splash.step3"))
         else:
-            self.lbl_status.setText("✔ VortexDBA hazır.")
+            self.lbl_status.setText(t("splash.ready"))
+
 
         if self._elapsed_ms >= self.TOTAL_DURATION_MS:
             self.timer.stop()

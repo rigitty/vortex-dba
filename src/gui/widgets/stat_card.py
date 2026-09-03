@@ -54,3 +54,7 @@ class StatCard(QFrame):
         self.value_lbl.setText(val)
         if subtitle is not None:
             self.sub_lbl.setText(subtitle)
+
+    def set_title(self, title: str):
+        self.title_lbl.setText(title.upper())
+

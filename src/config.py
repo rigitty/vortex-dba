@@ -77,6 +77,7 @@ class LoggingConfig:
 class AppConfig:
     operating_mode: str = "advisor"  # 'advisor' (Mod A) or 'autonomous' (Mod B)
     traffic_source: str = "simulation"  # 'simulation' or 'live_dmv'
+    language: str = "en"  # 'en' (default) or 'tr'
     database: DatabaseConfig = field(default_factory=DatabaseConfig)
     detection: DetectionConfig = field(default_factory=DetectionConfig)
     remediation: RemediationConfig = field(default_factory=RemediationConfig)
@@ -96,7 +97,9 @@ def _apply_env_overrides(config: dict) -> dict:
         "VORTEX_DB_PASSWORD": ("database", "password"),
         "VORTEX_OPERATING_MODE": (None, "operating_mode"),
         "VORTEX_TRAFFIC_SOURCE": (None, "traffic_source"),
+        "VORTEX_LANGUAGE": (None, "language"),
     }
+
 
     for env_var, (section, key) in env_mapping.items():
         value = os.environ.get(env_var)
@@ -137,6 +140,7 @@ def load_config(config_path: str | Path | None = None) -> AppConfig:
     return AppConfig(
         operating_mode=config_dict.get("operating_mode", "advisor"),
         traffic_source=config_dict.get("traffic_source", "simulation"),
+        language=config_dict.get("language", "en"),
         database=_dict_to_dataclass(config_dict.get("database", {}), DatabaseConfig),
         detection=_dict_to_dataclass(config_dict.get("detection", {}), DetectionConfig),
         remediation=_dict_to_dataclass(config_dict.get("remediation", {}), RemediationConfig),
@@ -145,6 +149,7 @@ def load_config(config_path: str | Path | None = None) -> AppConfig:
         notification=_dict_to_dataclass(config_dict.get("notification", {}), NotificationConfig),
         logging=_dict_to_dataclass(config_dict.get("logging", {}), LoggingConfig),
     )
+
 
 
 # Global config singleton
@@ -172,6 +177,7 @@ def save_config_yaml(cfg: AppConfig, config_path: str | Path | None = None) -> N
     data = {
         "operating_mode": cfg.operating_mode,
         "traffic_source": cfg.traffic_source,
+        "language": getattr(cfg, "language", "en"),
         "database": {
             "host": cfg.database.host,
             "port": cfg.database.port,
@@ -251,4 +257,14 @@ def update_traffic_source(source: str) -> AppConfig:
     cfg.traffic_source = "live_dmv" if source == "live_dmv" else "simulation"
     save_config_yaml(cfg)
     return cfg
+
+
+def update_language(lang: str) -> AppConfig:
+    """Update active user language ('en' or 'tr') and save to config."""
+    global _config
+    cfg = get_config()
+    cfg.language = "tr" if str(lang).lower().startswith("tr") else "en"
+    save_config_yaml(cfg)
+    return cfg
+
 
