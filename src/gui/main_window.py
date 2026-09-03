@@ -29,6 +29,7 @@ try:
         RemediateWorker,
         BenchmarkWorker,
         ResetWorker,
+        DbQuickCheckWorker,
     )
 except ImportError:
     from config import get_config, update_operating_mode, update_traffic_source
@@ -43,6 +44,7 @@ except ImportError:
         RemediateWorker,
         BenchmarkWorker,
         ResetWorker,
+        DbQuickCheckWorker,
     )
 
 
@@ -55,17 +57,22 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(1080, 720)
 
         self.current_worker = None
+        self.check_worker = None
+        self.is_connected = False
+        self.conn_latency = None
 
         # Apply QSS Dark Theme
         self.setStyleSheet(DARK_THEME_QSS)
 
         self.init_ui()
         self.refresh_all()
+        self.trigger_connection_check()
 
         # Periodic auto-refresh every 30 seconds
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.auto_refresh)
         self.timer.start(30000)
+
 
     def init_ui(self):
         central_widget = QWidget()
@@ -104,29 +111,28 @@ class MainWindow(QMainWindow):
 
         # Center Database Pill Button
         self.btn_db_capsule = QPushButton()
-        self.btn_db_capsule.setStyleSheet("""
-            QPushButton {
-                background: #0b111e;
-                border: 1px solid rgba(56, 189, 248, 0.25);
-                border-radius: 16px;
-                padding: 6px 16px;
-                color: #e2e8f0;
-                font-family: 'JetBrains Mono', monospace;
-                font-size: 12px;
-                font-weight: 600;
-            }
-            QPushButton:hover {
-                border-color: #38bdf8;
-                background: #111a2d;
-                color: #ffffff;
-            }
-        """)
-        try:
-            self.btn_db_capsule.setIcon(qta.icon("fa5s.database", color="#38bdf8"))
-        except Exception:
-            pass
+        self.btn_db_capsule.setToolTip("SQL Server bağlantı durumunu görmek ve ayarları düzenlemek için tıklayın")
         self.btn_db_capsule.clicked.connect(self.open_db_dialog)
         header_layout.addWidget(self.btn_db_capsule)
+
+        # Quick Connect Header Button
+        self.btn_connect_header = QPushButton("🔌 Sunucuya Bağlan")
+        self.btn_connect_header.setStyleSheet("""
+            QPushButton {
+                background: #0284c7;
+                border: 1px solid #38bdf8;
+                color: #ffffff;
+                font-weight: 700;
+                font-size: 11px;
+                padding: 5px 12px;
+                border-radius: 6px;
+            }
+            QPushButton:hover {
+                background: #0369a1;
+            }
+        """)
+        self.btn_connect_header.clicked.connect(self.open_db_dialog)
+        header_layout.addWidget(self.btn_connect_header)
 
         header_layout.addStretch()
 
@@ -200,6 +206,36 @@ class MainWindow(QMainWindow):
         self.content_layout.setContentsMargins(24, 18, 24, 24)
         self.content_layout.setSpacing(16)
 
+        # Offline Warning Banner (Visible when DB is disconnected)
+        self.offline_banner = QFrame()
+        self.offline_banner.setStyleSheet("""
+            QFrame {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 rgba(239, 68, 68, 0.18), stop:1 rgba(245, 158, 11, 0.08));
+                border: 1px solid rgba(239, 68, 68, 0.45);
+                border-radius: 10px;
+                padding: 10px;
+            }
+        """)
+        off_layout = QHBoxLayout(self.offline_banner)
+        off_layout.setContentsMargins(14, 10, 14, 10)
+        off_layout.setSpacing(12)
+
+        self.off_lbl = QLabel("⚠️ SQL SERVER BAĞLANTISI YOK (ÇEVRİMDİŞİ MOD): Veritabanı kapalı veya erişilemiyor. Uygulama çevrimdışı modda açıldı. Sunucuya bağlanmak için bağlantı panelini açın.")
+        self.off_lbl.setStyleSheet("color: #fca5a5; font-weight: 700; font-size: 12px;")
+        off_layout.addWidget(self.off_lbl, 1)
+
+        btn_banner_connect = QPushButton("🔌 Sunucuya Bağlan")
+        btn_banner_connect.setStyleSheet("font-size: 11px; padding: 4px 12px; background: #dc2626; color: white; font-weight: 700;")
+        btn_banner_connect.clicked.connect(self.open_db_dialog)
+        off_layout.addWidget(btn_banner_connect)
+
+        btn_banner_retry = QPushButton("🔄 Yeniden Dene")
+        btn_banner_retry.setStyleSheet("font-size: 11px; padding: 4px 10px; background: #1e293b; color: #e2e8f0;")
+        btn_banner_retry.clicked.connect(self.trigger_connection_check)
+        off_layout.addWidget(btn_banner_retry)
+
+        self.content_layout.addWidget(self.offline_banner)
+
         # Autopilot Banner (Visible in Mode B)
         self.autopilot_banner = QFrame()
         self.autopilot_banner.setStyleSheet("""
@@ -221,6 +257,7 @@ class MainWindow(QMainWindow):
         self.btn_switch_to_advisor.clicked.connect(lambda: self.switch_mode("advisor"))
         banner_layout.addWidget(self.btn_switch_to_advisor)
         self.content_layout.addWidget(self.autopilot_banner)
+
 
         # 3. 5-Step Command Deck (Workflow Toolbar)
         command_deck = QFrame()
@@ -322,9 +359,47 @@ class MainWindow(QMainWindow):
 
     def update_header_state(self):
         cfg = get_config()
-        # Update DB Capsule text
         db = cfg.database
-        self.btn_db_capsule.setText(f"  {db.host}:{db.port} [{db.dbname}]  ")
+
+        # Update DB Capsule text based on current connection status
+        if self.is_connected:
+            self.btn_db_capsule.setText(f"  🟢 {db.host}:{db.port} [{db.dbname}] ({self.conn_latency or 0}ms)  ")
+            self.btn_db_capsule.setStyleSheet("""
+                QPushButton {
+                    background: rgba(16, 185, 129, 0.12);
+                    border: 1px solid #10b981;
+                    border-radius: 16px;
+                    padding: 6px 16px;
+                    color: #34d399;
+                    font-family: 'JetBrains Mono', monospace;
+                    font-size: 11.5px;
+                    font-weight: 700;
+                }
+                QPushButton:hover {
+                    background: rgba(16, 185, 129, 0.22);
+                    border-color: #34d399;
+                    color: #ffffff;
+                }
+            """)
+        else:
+            self.btn_db_capsule.setText(f"  🔴 Çevrimdışı ({db.host}:{db.port}) - [Bağlan]  ")
+            self.btn_db_capsule.setStyleSheet("""
+                QPushButton {
+                    background: rgba(239, 68, 68, 0.15);
+                    border: 1px solid #ef4444;
+                    border-radius: 16px;
+                    padding: 6px 16px;
+                    color: #f87171;
+                    font-family: 'JetBrains Mono', monospace;
+                    font-size: 11px;
+                    font-weight: 700;
+                }
+                QPushButton:hover {
+                    background: rgba(239, 68, 68, 0.25);
+                    border-color: #fca5a5;
+                    color: #ffffff;
+                }
+            """)
 
         # Update Mode buttons
         is_auto = (getattr(cfg, "operating_mode", "advisor") == "autonomous")
@@ -337,30 +412,76 @@ class MainWindow(QMainWindow):
         self.btn_src_sim.setChecked(not is_live)
         self.btn_src_live.setChecked(is_live)
 
+    def trigger_connection_check(self):
+        """Asynchronously verify SQL Server connection without blocking GUI."""
+        cfg = get_config()
+        db = cfg.database
+        self.btn_db_capsule.setText(f"  🟡 Bağlanıyor... [{db.host}:{db.port}]  ")
+        self.btn_db_capsule.setStyleSheet("""
+            QPushButton {
+                background: #1e293b;
+                border: 1px solid #fbbf24;
+                border-radius: 16px;
+                padding: 6px 16px;
+                color: #fbbf24;
+                font-family: 'JetBrains Mono', monospace;
+                font-size: 11px;
+                font-weight: 700;
+            }
+        """)
+
+        if self.check_worker and self.check_worker.isRunning():
+            return
+
+        self.check_worker = DbQuickCheckWorker(timeout=2)
+        self.check_worker.result_signal.connect(self.on_connection_check_result)
+        self.check_worker.start()
+
+    def on_connection_check_result(self, res: dict):
+        self.is_connected = res.get("success", False)
+        self.conn_latency = res.get("latency_ms", 0)
+        cfg = get_config()
+        db = cfg.database
+
+        self.offline_banner.setVisible(not self.is_connected)
+        self.update_header_state()
+
+        if self.is_connected:
+            self.statusBar().showMessage(f"✔ SQL Server Bağlı ({db.host}:{db.port} - {self.conn_latency}ms)")
+        else:
+            self.statusBar().showMessage("⚠️ SQL Server Bağlantısı Yok (Çevrimdışı Mod)")
+
+        self.matrix_widget.load_data(is_connected=self.is_connected)
+        self.update_metrics()
+
     def refresh_all(self):
         self.update_header_state()
-        self.matrix_widget.load_data()
+        self.matrix_widget.load_data(is_connected=self.is_connected)
         self.update_metrics()
         self.statusBar().showMessage("Paneller güncellendi.")
 
+
     def auto_refresh(self):
         if not self.current_worker or not self.current_worker.isRunning():
-            self.refresh_all()
+            self.trigger_connection_check()
 
     def update_metrics(self):
-        active_indexes = get_active_indexes()
-        idx_count = len(active_indexes)
+        try:
+            active_indexes = get_active_indexes()
+            idx_count = len(active_indexes)
+        except Exception:
+            idx_count = 0
         self.card_indexes.set_value(str(idx_count), f"/ 15 Kapsandı")
 
-        matrix = self.matrix_widget.raw_data
-        multipliers = [m["multiplier"] for m in matrix if m.get("multiplier") and m["multiplier"] > 1]
+        matrix = self.matrix_widget.raw_data or []
+        multipliers = [m["multiplier"] for m in matrix if isinstance(m, dict) and m.get("multiplier") and m["multiplier"] > 1]
         if multipliers:
             avg_mult = sum(multipliers) / len(multipliers)
             self.card_speedup.set_value(f"{avg_mult:.1f}x", "Daha Hızlı")
         else:
             self.card_speedup.set_value("—", "3. Adım sonrası ölçülür")
 
-        critical = len([m for m in matrix if not m.get("has_index") and (m.get("baseline_ms") or 0) > 400])
+        critical = len([m for m in matrix if isinstance(m, dict) and not m.get("has_index") and (m.get("baseline_ms") or 0) > 400])
         self.card_critical.set_value(str(critical), "Kritik darboğaz" if critical > 0 else "✔ Tüm sorgular kabul edilebilir")
 
     def switch_mode(self, mode: str):
@@ -374,12 +495,14 @@ class MainWindow(QMainWindow):
     def open_db_dialog(self):
         dlg = DbConfigDialog(self)
         if dlg.exec():
+            self.trigger_connection_check()
             self.refresh_all()
 
     def open_index_drawer(self):
         dlg = IndexDrawerDialog("applied", self)
         dlg.exec()
         self.refresh_all()
+
 
     def set_running_state(self, running: bool):
         self.btn_step1.setEnabled(not running)

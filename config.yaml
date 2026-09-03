@@ -1,5 +1,5 @@
-# VortexDBA Configuration
-
+operating_mode: advisor
+traffic_source: simulation
 database:
   host: localhost
   port: 1433
@@ -8,7 +8,6 @@ database:
   password: VortexPassword123!
   pool_min: 2
   pool_max: 10
-
 detection:
   min_mean_exec_time_ms: 50
   min_total_exec_time_ms: 1000
@@ -17,7 +16,6 @@ detection:
   filter_removal_threshold: 10000
   buffer_hit_threshold: 100000
   top_queries_limit: 20
-
 remediation:
   enabled: true
   dry_run_default: true
@@ -25,24 +23,20 @@ remediation:
   max_indexes_total: 20
   cooldown_minutes: 60
   rollback_policy: per_index
-
 benchmark:
   runs: 3
   degradation_threshold_pct: 10.0
   improvement_threshold_pct: 5.0
-
 scheduler:
   analysis_interval_minutes: 30
   unused_index_check_hours: 24
-
 notification:
   enabled: false
-  webhook_url: ""
+  webhook_url: ''
   alert_on:
-    - critical_issue
-    - rollback
-    - new_index_applied
-
+  - critical_issue
+  - rollback
+  - new_index_applied
 logging:
   level: INFO
   file: logs/vortexdba.log

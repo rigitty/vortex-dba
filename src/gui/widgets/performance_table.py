@@ -121,34 +121,53 @@ class PerformanceMatrixWidget(QFrame):
         self.btn_speedup.setChecked(mode == "speedup")
         self.filter_table()
 
-    def load_data(self):
+    def load_data(self, is_connected: bool = False):
         cfg = get_config()
         source = getattr(cfg, "traffic_source", "simulation")
 
         if source == "live_dmv":
-            self.sub_lbl.setText("🔴 Canlı SQL Server DMV (sys.dm_exec_query_stats) Trafiği:")
-            self.raw_data = get_live_workload_matrix()
+            if is_connected:
+                self.sub_lbl.setText("🔴 Canlı SQL Server DMV (sys.dm_exec_query_stats) Trafiği:")
+                try:
+                    self.raw_data = get_live_workload_matrix() or []
+                except Exception as e:
+                    self.sub_lbl.setText(f"⚠️ DMV Trafiği Alınamadı: {e}")
+                    self.raw_data = []
+            else:
+                self.sub_lbl.setText("🔴 Canlı SQL Server DMV Trafiği (Çevrimdışı Mod - Sunucu Bağlantısı Bekleniyor)")
+                self.raw_data = []
         else:
             self.sub_lbl.setText("🧪 15 Sentetik Test Sorgusu (İndeks Öncesi vs İndeks Sonrası):")
-            vortex_applied = get_active_indexes()
+            try:
+                vortex_applied = get_active_indexes()
+            except Exception:
+                vortex_applied = []
             vortex_applied_names = {idx.index_name for idx in vortex_applied}
 
             DEFAULT_SCHEMA_INDEXES = {"idx_orders_customer_id", "idx_customers_email"}
-            q_idx = """
-                SELECT 
-                    t.name AS table_name,
-                    i.name AS index_name,
-                    STRING_AGG(c.name, ', ') WITHIN GROUP (ORDER BY ic.key_ordinal) AS columns
-                FROM sys.indexes i
-                JOIN sys.tables t ON t.object_id = i.object_id
-                JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
-                JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
-                WHERE t.is_ms_shipped = 0 AND i.name IS NOT NULL 
-                  AND i.is_primary_key = 0 AND i.is_unique_constraint = 0 AND ic.is_included_column = 0
-                GROUP BY t.name, i.name
-            """
-            all_active_rows = execute_query(q_idx) or []
-            active_custom_rows = [r for r in all_active_rows if r["index_name"] not in DEFAULT_SCHEMA_INDEXES]
+            all_active_rows = []
+
+            if is_connected:
+                q_idx = """
+                    SELECT 
+                        t.name AS table_name,
+                        i.name AS index_name,
+                        STRING_AGG(c.name, ', ') WITHIN GROUP (ORDER BY ic.key_ordinal) AS columns
+                    FROM sys.indexes i
+                    JOIN sys.tables t ON t.object_id = i.object_id
+                    JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
+                    JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+                    WHERE t.is_ms_shipped = 0 AND i.name IS NOT NULL 
+                      AND i.is_primary_key = 0 AND i.is_unique_constraint = 0 AND ic.is_included_column = 0
+                    GROUP BY t.name, i.name
+                """
+                try:
+                    all_active_rows = execute_query(q_idx) or []
+                except Exception:
+                    all_active_rows = []
+
+            active_custom_rows = [r for r in all_active_rows if r.get("index_name") not in DEFAULT_SCHEMA_INDEXES]
+
 
             matrix = []
             for q in SLOW_QUERIES:

@@ -16,24 +16,25 @@ import qtawesome as qta
 
 try:
     from src.config import get_config, update_database_config
-    from src.gui.workers import DbPingWorker
+    from src.gui.workers import DbPingWorker, SchemaInitWorker
 except ImportError:
     from config import get_config, update_database_config
-    from gui.workers import DbPingWorker
+    from gui.workers import DbPingWorker, SchemaInitWorker
 
 
 class DbConfigDialog(QDialog):
-    """Modern modal dialog for configuring SQL Server connection settings."""
+    """Modern modal dialog for configuring and connecting to SQL Server."""
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("SQL Server Bağlantı Yöneticisi")
-        self.resize(520, 480)
+        self.resize(540, 520)
         self.setModal(True)
 
         self.cfg = get_config()
         self.db_cfg = self.cfg.database
 
         self.ping_worker = None
+        self.schema_worker = None
 
         self.init_ui()
         self.load_current_config()
@@ -41,21 +42,21 @@ class DbConfigDialog(QDialog):
     def init_ui(self):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(24, 20, 24, 20)
-        main_layout.setSpacing(16)
+        main_layout.setSpacing(14)
 
         # Header Title
         header_box = QHBoxLayout()
         icon_lbl = QLabel()
         try:
-            icon_lbl.setPixmap(qta.icon("fa5s.database", color="#38bdf8").pixmap(24, 24))
+            icon_lbl.setPixmap(qta.icon("fa5s.database", color="#38bdf8").pixmap(26, 26))
         except Exception:
             pass
         header_box.addWidget(icon_lbl)
 
         title_vbox = QVBoxLayout()
         title_lbl = QLabel("SQL Server Bağlantı Yöneticisi")
-        title_lbl.setStyleSheet("font-size: 15px; font-weight: 700; color: #ffffff;")
-        sub_lbl = QLabel("İzlenecek ve optimize edilecek hedef veritabanı")
+        title_lbl.setStyleSheet("font-size: 16px; font-weight: 800; color: #ffffff;")
+        sub_lbl = QLabel("İzlenecek ve optimize edilecek hedef SQL Server veritabanı")
         sub_lbl.setStyleSheet("font-size: 11px; color: #94a3b8;")
         title_vbox.addWidget(title_lbl)
         title_vbox.addWidget(sub_lbl)
@@ -64,20 +65,29 @@ class DbConfigDialog(QDialog):
         main_layout.addLayout(header_box)
 
         # Presets Bar
-        preset_lbl = QLabel("HIZLI ŞABLONLAR (PRESETS)")
+        preset_lbl = QLabel("HIZLI BAĞLANTI ŞABLONLARI (PRESETS)")
         preset_lbl.setStyleSheet("font-size: 10.5px; font-weight: 700; color: #64748b; letter-spacing: 0.5px;")
         main_layout.addWidget(preset_lbl)
 
         presets_row = QHBoxLayout()
-        self.btn_preset_local = QPushButton("⚡ Localhost (1433)")
+        presets_row.setSpacing(8)
+        self.btn_preset_local = QPushButton("⚡ Localhost")
+        self.btn_preset_local.setToolTip("localhost:1433")
         self.btn_preset_local.clicked.connect(lambda: self.apply_preset("local"))
         presets_row.addWidget(self.btn_preset_local)
 
-        self.btn_preset_docker = QPushButton("🐳 Docker Container")
+        self.btn_preset_sqlexpress = QPushButton("💻 SQLEXPRESS")
+        self.btn_preset_sqlexpress.setToolTip(".\\SQLEXPRESS yerel kurulumu")
+        self.btn_preset_sqlexpress.clicked.connect(lambda: self.apply_preset("sqlexpress"))
+        presets_row.addWidget(self.btn_preset_sqlexpress)
+
+        self.btn_preset_docker = QPushButton("🐳 Docker")
+        self.btn_preset_docker.setToolTip("127.0.0.1:1433 Docker container")
         self.btn_preset_docker.clicked.connect(lambda: self.apply_preset("docker"))
         presets_row.addWidget(self.btn_preset_docker)
 
-        self.btn_preset_azure = QPushButton("☁️ Azure SQL / Cloud")
+        self.btn_preset_azure = QPushButton("☁️ Cloud / Azure")
+        self.btn_preset_azure.setToolTip("Azure SQL veya Uzak SQL Server")
         self.btn_preset_azure.clicked.connect(lambda: self.apply_preset("azure"))
         presets_row.addWidget(self.btn_preset_azure)
         main_layout.addLayout(presets_row)
@@ -92,10 +102,10 @@ class DbConfigDialog(QDialog):
         # Host & Port row
         host_port_row = QHBoxLayout()
         host_box = QVBoxLayout()
-        host_lbl = QLabel("Host / IP Adresi")
+        host_lbl = QLabel("Host / IP / Instance")
         host_lbl.setStyleSheet("font-size: 11px; font-weight: 600; color: #94a3b8;")
         self.host_input = QLineEdit()
-        self.host_input.setPlaceholderText("localhost")
+        self.host_input.setPlaceholderText("localhost veya .\\SQLEXPRESS")
         host_box.addWidget(host_lbl)
         host_box.addWidget(self.host_input)
         host_port_row.addLayout(host_box, 3)
@@ -163,30 +173,33 @@ class DbConfigDialog(QDialog):
         self.diag_box.setStyleSheet("background-color: #060911; border: 1px solid #1e293b; border-radius: 8px; padding: 8px;")
         diag_layout = QVBoxLayout(self.diag_box)
         diag_layout.setContentsMargins(10, 8, 10, 8)
-        self.diag_lbl = QLabel("Bağlantı durumunu test etmek için aşağıdaki butona basın.")
+        self.diag_lbl = QLabel("Sunucuya bağlanmak veya bağlantıyı test etmek için aşağıdaki butonları kullanın.")
         self.diag_lbl.setStyleSheet("font-size: 11px; color: #64748b; font-family: 'JetBrains Mono', monospace;")
         self.diag_lbl.setWordWrap(True)
         diag_layout.addWidget(self.diag_lbl)
         main_layout.addWidget(self.diag_box)
 
-        # Footer Actions
-        footer_row = QHBoxLayout()
-        self.btn_reset = QPushButton("Varsayılana Sıfırla")
-        self.btn_reset.setStyleSheet("color: #64748b; border: none; font-size: 11px;")
-        self.btn_reset.clicked.connect(lambda: self.apply_preset("local"))
-        footer_row.addWidget(self.btn_reset)
-        footer_row.addStretch()
+        # Actions Toolbar
+        actions_row = QHBoxLayout()
+        
+        self.btn_schema = QPushButton("📋 Şemayı Kur (01_schema.sql)")
+        self.btn_schema.setStyleSheet("font-size: 11px; padding: 6px 12px;")
+        self.btn_schema.setToolTip("Veritabanı tablolarını ve temel indeksleri oluşturur")
+        self.btn_schema.clicked.connect(self.init_schema)
+        actions_row.addWidget(self.btn_schema)
+
+        actions_row.addStretch()
 
         self.btn_test = QPushButton("⚡ Bağlantıyı Test Et")
         self.btn_test.clicked.connect(self.test_connection)
-        footer_row.addWidget(self.btn_test)
+        actions_row.addWidget(self.btn_test)
 
-        self.btn_save = QPushButton("💾 Kaydet & Aktif Et")
-        self.btn_save.setProperty("class", "btn-success")
-        self.btn_save.clicked.connect(self.save_and_close)
-        footer_row.addWidget(self.btn_save)
+        self.btn_save_connect = QPushButton("🟢 Bağlan & Kaydet")
+        self.btn_save_connect.setProperty("class", "btn-success")
+        self.btn_save_connect.clicked.connect(self.save_and_connect)
+        actions_row.addWidget(self.btn_save_connect)
 
-        main_layout.addLayout(footer_row)
+        main_layout.addLayout(actions_row)
 
     def load_current_config(self):
         self.host_input.setText(self.db_cfg.host)
@@ -208,6 +221,12 @@ class DbConfigDialog(QDialog):
             self.db_input.setText("vortex_db")
             self.user_input.setText("sa")
             self.pass_input.setText("VortexPassword123!")
+        elif preset_type == "sqlexpress":
+            self.host_input.setText(".\\SQLEXPRESS")
+            self.port_input.setValue(1433)
+            self.db_input.setText("vortex_db")
+            self.user_input.setText("sa")
+            self.pass_input.setText("")
         elif preset_type == "docker":
             self.host_input.setText("127.0.0.1")
             self.port_input.setValue(1433)
@@ -232,7 +251,8 @@ class DbConfigDialog(QDialog):
             port=self.port_input.value(),
             dbname=self.db_input.text().strip(),
             user=self.user_input.text().strip(),
-            password=self.pass_input.text()
+            password=self.pass_input.text(),
+            timeout=3,
         )
         self.ping_worker.result_signal.connect(self.on_ping_result)
         self.ping_worker.start()
@@ -245,14 +265,37 @@ class DbConfigDialog(QDialog):
             latency = res.get("latency_ms", 0)
             ver = res.get("server_version", "SQL Server")
             db = res.get("database", "vortex_db")
-            self.diag_lbl.setText(f"✔ BAĞLANTI BAŞARILI ({latency} ms ping)\n{ver}\nHedef DB: [{db}]")
+            tbl_count = res.get("table_count", 0)
+            self.diag_lbl.setText(f"✔ BAĞLANTI BAŞARILI ({latency} ms ping)\n{ver}\nHedef DB: [{db}] | Tablo Sayısı: {tbl_count}")
             self.diag_lbl.setStyleSheet("color: #34d399; font-weight: 700;")
         else:
             err = res.get("error", "Bilinmeyen hata")
             self.diag_lbl.setText(f"❌ BAĞLANTI BAŞARISIZ: {err}")
             self.diag_lbl.setStyleSheet("color: #f87171; font-weight: 700;")
 
-    def save_and_close(self):
+    def init_schema(self):
+        # First save current config so connection uses entered credentials
+        self.apply_inputs_to_config()
+        self.btn_schema.setEnabled(False)
+        self.btn_schema.setText("⏳ Şema Kuruluyor...")
+
+        self.schema_worker = SchemaInitWorker()
+        self.schema_worker.finished_signal.connect(self.on_schema_finished)
+        self.schema_worker.start()
+
+    def on_schema_finished(self, success: bool, msg: str):
+        self.btn_schema.setEnabled(True)
+        self.btn_schema.setText("📋 Şemayı Kur (01_schema.sql)")
+        if success:
+            QMessageBox.information(self, "Şema Kuruldu", msg)
+            self.diag_lbl.setText(f"✔ {msg}")
+            self.diag_lbl.setStyleSheet("color: #34d399; font-weight: 700;")
+        else:
+            QMessageBox.warning(self, "Şema Kurulum Hatası", msg)
+            self.diag_lbl.setText(f"❌ {msg}")
+            self.diag_lbl.setStyleSheet("color: #f87171; font-weight: 700;")
+
+    def apply_inputs_to_config(self):
         host = self.host_input.text().strip()
         port = self.port_input.value()
         dbname = self.db_input.text().strip()
@@ -266,5 +309,8 @@ class DbConfigDialog(QDialog):
             user=user,
             password=password
         )
-        QMessageBox.information(self, "Başarılı", f"SQL Server bağlantı ayarları güncellendi:\n{host}:{port} [{dbname}]")
+
+    def save_and_connect(self):
+        self.apply_inputs_to_config()
         self.accept()
+

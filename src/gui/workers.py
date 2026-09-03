@@ -7,7 +7,12 @@ from PyQt6.QtCore import QThread, pyqtSignal
 
 try:
     from src.slow_queries import SLOW_QUERIES
-    from src.db_connection import execute_query, test_connection
+    from src.db_connection import (
+        execute_query,
+        test_connection,
+        check_current_connection,
+        apply_schema_script,
+    )
     from src.auto_remediator import run_remediation
     from src.benchmark import run_benchmark_suite, compare_results
     from src.state_store import (
@@ -19,7 +24,12 @@ try:
     )
 except ImportError:
     from slow_queries import SLOW_QUERIES
-    from db_connection import execute_query, test_connection
+    from db_connection import (
+        execute_query,
+        test_connection,
+        check_current_connection,
+        apply_schema_script,
+    )
     from auto_remediator import run_remediation
     from benchmark import run_benchmark_suite, compare_results
     from state_store import (
@@ -42,6 +52,16 @@ class SimulateWorker(QThread):
                              f"📋 Toplam 15 adet darboğaz T-SQL sorgusu SQL Server üzerinde çalıştırılıyor...\n"
                              f"{'=' * 65}\n")
         
+        # Connection pre-check
+        health = check_current_connection(timeout=2)
+        if not health.get("success"):
+            err_msg = (f"❌ [BAĞLANTI HATASI]: SQL Server'a ulaşılamıyor ({health.get('host')}:{health.get('port')}).\n"
+                       f"   Hata: {health.get('error')}\n"
+                       f"   💡 Lütfen SQL Server'ı başlatın veya üstteki 'Sunucuya Bağlan' panelinden ayarları kontrol edin.\n")
+            self.log_signal.emit(err_msg)
+            self.finished_signal.emit(False, err_msg)
+            return
+
         success_count = 0
         total_time = 0.0
         active_indexes = get_active_indexes()
@@ -92,6 +112,17 @@ class RemediateWorker(QThread):
         self.log_signal.emit(f"⚡ [OTOMATİK İNDEKSLENME BAŞLATILDI] {start_time.strftime('%H:%M:%S')}\n"
                              f"🔍 Dynamic AST IndexAdvisor kuralları çalıştırılıyor...\n"
                              f"{'=' * 65}\n")
+        
+        # Connection pre-check
+        health = check_current_connection(timeout=2)
+        if not health.get("success"):
+            err_msg = (f"❌ [BAĞLANTI HATASI]: SQL Server'a ulaşılamıyor ({health.get('host')}:{health.get('port')}).\n"
+                       f"   Hata: {health.get('error')}\n"
+                       f"   💡 Lütfen SQL Server bağlantısını sağlayıp tekrar deneyin.\n")
+            self.log_signal.emit(err_msg)
+            self.finished_signal.emit(False, err_msg)
+            return
+
         try:
             report = run_remediation(dry_run=False, apply=True, compare=False, rollback=False)
             applied = report.applied_indexes
@@ -128,6 +159,17 @@ class BenchmarkWorker(QThread):
         self.log_signal.emit(f"📊 [CANLI BENCHMARK BAŞLATILDI] {start_time.strftime('%H:%M:%S')}\n"
                              f"🔬 3-İterasyonlu İndeks Öncesi vs İndeks Sonrası Kıyaslama Testi...\n"
                              f"{'=' * 65}\n")
+        
+        # Connection pre-check
+        health = check_current_connection(timeout=2)
+        if not health.get("success"):
+            err_msg = (f"❌ [BAĞLANTI HATASI]: SQL Server'a ulaşılamıyor ({health.get('host')}:{health.get('port')}).\n"
+                       f"   Hata: {health.get('error')}\n"
+                       f"   💡 Lütfen SQL Server bağlantısını sağlayıp tekrar deneyin.\n")
+            self.log_signal.emit(err_msg)
+            self.finished_signal.emit(False, err_msg)
+            return
+
         try:
             queries = [{"name": q["name"], "query": q["query"], "params": q.get("params")} for q in SLOW_QUERIES]
             results = run_benchmark_suite(queries, runs=3)
@@ -232,13 +274,14 @@ class DbPingWorker(QThread):
     """Non-blocking background test ping for database connection."""
     result_signal = pyqtSignal(dict)
 
-    def __init__(self, host, port, dbname, user, password):
+    def __init__(self, host, port, dbname, user, password, timeout=3):
         super().__init__()
         self.host = host
         self.port = port
         self.dbname = dbname
         self.user = user
         self.password = password
+        self.timeout = timeout
 
     def run(self):
         start = time.time()
@@ -247,8 +290,42 @@ class DbPingWorker(QThread):
             port=self.port,
             dbname=self.dbname,
             user=self.user,
-            password=self.password
+            password=self.password,
+            timeout=self.timeout
         )
         latency_ms = int((time.time() - start) * 1000)
         res["latency_ms"] = latency_ms
         self.result_signal.emit(res)
+
+
+class DbQuickCheckWorker(QThread):
+    """Non-blocking background check of currently active database configuration."""
+    result_signal = pyqtSignal(dict)
+
+    def __init__(self, timeout=2):
+        super().__init__()
+        self.timeout = timeout
+
+    def run(self):
+        start = time.time()
+        res = check_current_connection(timeout=self.timeout)
+        latency_ms = int((time.time() - start) * 1000)
+        res["latency_ms"] = latency_ms
+        self.result_signal.emit(res)
+
+
+class SchemaInitWorker(QThread):
+    """Background worker to apply 01_schema.sql to target database."""
+    log_signal = pyqtSignal(str)
+    finished_signal = pyqtSignal(bool, str)
+
+    def run(self):
+        self.log_signal.emit("📋 [ŞEMA KURULUMU BAŞLATILDI] 01_schema.sql hedef veritabanına uygulanıyor...\n")
+        success, msg = apply_schema_script()
+        if success:
+            self.log_signal.emit(f"✔ [BAŞARILI] {msg}\n")
+            self.finished_signal.emit(True, msg)
+        else:
+            self.log_signal.emit(f"❌ [HATA] {msg}\n")
+            self.finished_signal.emit(False, msg)
+
