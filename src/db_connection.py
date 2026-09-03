@@ -1,6 +1,7 @@
 """Database connection helper using pymssql for Microsoft SQL Server."""
 
 import re
+import socket
 import pymssql
 
 try:
@@ -9,12 +10,36 @@ except ImportError:
     from config import get_config
 
 
+def is_server_reachable(host: str, port: int | str, timeout_sec: float = 0.6) -> bool:
+    """Ultra-fast raw TCP socket reachability check before doing heavy TDS handshake."""
+    try:
+        h = str(host).strip()
+        if "\\" in h:
+            instance_parts = h.split("\\")
+            h = instance_parts[0]
+            if not h or h == ".":
+                h = "127.0.0.1"
+        elif h in ("localhost", "."):
+            h = "127.0.0.1"
+
+        p = int(port)
+        with socket.create_connection((h, p), timeout=timeout_sec):
+            return True
+    except Exception:
+        return False
+
+
 def get_connection(dbname: str | None = None, autocommit: bool = False, login_timeout: int = 2, timeout: int = 2):
     """Create and return a new SQL Server database connection."""
     cfg = get_config().database
     database = dbname if dbname is not None else cfg.dbname
+
+    if not is_server_reachable(cfg.host, cfg.port, timeout_sec=0.6):
+        raise pymssql.OperationalError(20009, f"Unable to reach SQL Server at {cfg.host}:{cfg.port}")
+
     try:
         conn = pymssql.connect(
+
             server=cfg.host,
             port=str(cfg.port),
             user=cfg.user,
@@ -114,19 +139,33 @@ def execute_script(script: str) -> None:
         conn.close()
 
 
-def test_connection(host: str, port: int, dbname: str, user: str, password: str, timeout: int = 3) -> dict:
+def test_connection(host: str, port: int, dbname: str, user: str, password: str, timeout: int = 2) -> dict:
     """Test connection to a specific SQL Server database without changing global config."""
+    h = host.strip()
+    p = int(port)
+    db = dbname.strip()
+
+    if not is_server_reachable(h, p, timeout_sec=0.6):
+        return {
+            "success": False,
+            "error": f"TCP portuna ulaşılamadı: {h}:{p} (Sunucu kapalı veya ağ kesik).",
+            "host": h,
+            "port": p,
+            "database": db,
+        }
+
     try:
         conn = pymssql.connect(
-            server=host.strip(),
-            port=str(port).strip(),
+            server=h,
+            port=str(p),
             user=user.strip(),
             password=password,
-            database=dbname.strip(),
+            database=db,
             login_timeout=timeout,
             timeout=timeout,
             autocommit=True,
         )
+
         version_info = "Microsoft SQL Server"
         db_name_actual = dbname
         table_count = 0

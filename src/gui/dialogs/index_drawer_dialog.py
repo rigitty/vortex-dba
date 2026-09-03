@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import (
     QApplication,
 )
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QColor
 import qtawesome as qta
 
 try:
@@ -34,7 +35,7 @@ class IndexDrawerDialog(QDialog):
     def __init__(self, active_tab: str = "applied", parent=None):
         super().__init__(parent)
         self.setWindowTitle("SQL Server İndeks Çekmecesi")
-        self.resize(780, 560)
+        self.resize(720, 500)
         self.setModal(True)
 
         self.init_ui(active_tab)
@@ -42,23 +43,25 @@ class IndexDrawerDialog(QDialog):
 
     def init_ui(self, initial_tab: str):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 16, 20, 16)
-        layout.setSpacing(12)
+        layout.setContentsMargins(16, 14, 16, 14)
+        layout.setSpacing(10)
 
         # Header
         header_row = QHBoxLayout()
+        header_row.setSpacing(8)
         icon_lbl = QLabel()
         try:
-            icon_lbl.setPixmap(qta.icon("fa5s.layer-group", color="#34d399").pixmap(24, 24))
+            icon_lbl.setPixmap(qta.icon("fa5s.layer-group", color="#3b82f6").pixmap(18, 18))
         except Exception:
             pass
         header_row.addWidget(icon_lbl)
 
         title_vbox = QVBoxLayout()
+        title_vbox.setSpacing(1)
         title_lbl = QLabel("SQL Server İndeks Çekmecesi")
-        title_lbl.setStyleSheet("font-size: 15px; font-weight: 700; color: #ffffff;")
-        sub_lbl = QLabel("Özel uygulanan optimizasyon indeksleri ve atıl/şişkinlik analizleri")
-        sub_lbl.setStyleSheet("font-size: 11px; color: #94a3b8;")
+        title_lbl.setStyleSheet("font-size: 13px; font-weight: 700; color: #ffffff;")
+        sub_lbl = QLabel("Özel uygulanan optimizasyon indeksleri ve atıl analizleri:")
+        sub_lbl.setStyleSheet("font-size: 10px; color: #728499;")
         title_vbox.addWidget(title_lbl)
         title_vbox.addWidget(sub_lbl)
         header_row.addLayout(title_vbox)
@@ -71,7 +74,8 @@ class IndexDrawerDialog(QDialog):
         # Tab 1: Applied Indexes
         self.tab_applied = QWidget()
         tab_applied_layout = QVBoxLayout(self.tab_applied)
-        tab_applied_layout.setContentsMargins(8, 12, 8, 8)
+        tab_applied_layout.setContentsMargins(6, 8, 6, 6)
+        tab_applied_layout.setSpacing(6)
         
         self.table_applied = QTableWidget()
         self.table_applied.setColumnCount(4)
@@ -80,13 +84,16 @@ class IndexDrawerDialog(QDialog):
         self.table_applied.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         self.table_applied.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         self.table_applied.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        self.table_applied.verticalHeader().setDefaultSectionSize(32)
+        self.table_applied.verticalHeader().setVisible(False)
         tab_applied_layout.addWidget(self.table_applied)
-        self.tabs.addTab(self.tab_applied, "⚡ Uygulanan Özel İndeksler")
+        self.tabs.addTab(self.tab_applied, "Uygulanan Özel İndeksler")
 
         # Tab 2: Unused Indexes
         self.tab_unused = QWidget()
         tab_unused_layout = QVBoxLayout(self.tab_unused)
-        tab_unused_layout.setContentsMargins(8, 12, 8, 8)
+        tab_unused_layout.setContentsMargins(6, 8, 6, 6)
+        tab_unused_layout.setSpacing(6)
         
         self.table_unused = QTableWidget()
         self.table_unused.setColumnCount(5)
@@ -96,9 +103,11 @@ class IndexDrawerDialog(QDialog):
         self.table_unused.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         self.table_unused.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
         self.table_unused.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
-        self.table_unused.setColumnWidth(4, 100)
+        self.table_unused.setColumnWidth(4, 90)
+        self.table_unused.verticalHeader().setDefaultSectionSize(32)
+        self.table_unused.verticalHeader().setVisible(False)
         tab_unused_layout.addWidget(self.table_unused)
-        self.tabs.addTab(self.tab_unused, "⚠️ Atıl / Gereksiz İndeksler")
+        self.tabs.addTab(self.tab_unused, "Atıl / Gereksiz İndeksler")
 
         layout.addWidget(self.tabs)
 
@@ -109,14 +118,23 @@ class IndexDrawerDialog(QDialog):
         footer_row = QHBoxLayout()
         footer_row.addStretch()
         self.btn_close = QPushButton("Kapat")
+        self.btn_close.setFixedHeight(26)
         self.btn_close.clicked.connect(self.accept)
         footer_row.addWidget(self.btn_close)
         layout.addLayout(footer_row)
 
     def load_data(self):
         # 1. Load Applied Indexes
-        active_idx = get_active_indexes()
-        idx_stats = {s.indexrelname: s for s in get_index_stats()}
+        try:
+            active_idx = get_active_indexes()
+        except Exception:
+            active_idx = []
+
+        idx_stats = {}
+        try:
+            idx_stats = {s.indexrelname: s for s in get_index_stats()}
+        except Exception:
+            pass
         
         self.table_applied.setRowCount(len(active_idx))
         for row, item in enumerate(active_idx):
@@ -127,7 +145,7 @@ class IndexDrawerDialog(QDialog):
             scans = stats.idx_scan if stats else 0
 
             name_item = QTableWidgetItem(name)
-            name_item.setForeground(Qt.GlobalColor.cyan)
+            name_item.setForeground(QColor("#60a5fa"))
             self.table_applied.setItem(row, 0, name_item)
 
             table_item = QTableWidgetItem(table)
@@ -142,7 +160,11 @@ class IndexDrawerDialog(QDialog):
             self.table_applied.setItem(row, 3, ddl_item)
 
         # 2. Load Unused Indexes
-        unused_list = get_unused_indexes()
+        try:
+            unused_list = get_unused_indexes()
+        except Exception:
+            unused_list = []
+
         self.table_unused.setRowCount(len(unused_list))
         for row, item in enumerate(unused_list):
             name = item.index_name
@@ -151,7 +173,7 @@ class IndexDrawerDialog(QDialog):
             reason = f"{item.index_size_pretty} alan kaplıyor ancak hiç aranmadı."
 
             name_item = QTableWidgetItem(name)
-            name_item.setForeground(Qt.GlobalColor.red)
+            name_item.setForeground(QColor("#f87171"))
             self.table_unused.setItem(row, 0, name_item)
 
             table_item = QTableWidgetItem(table)
@@ -164,10 +186,13 @@ class IndexDrawerDialog(QDialog):
             self.table_unused.setItem(row, 3, reason_item)
 
             # Drop button
-            btn_drop = QPushButton("🗑 Sil (Drop)")
+            btn_drop = QPushButton("Kaldır (Drop)")
             btn_drop.setProperty("class", "btn-danger")
+            btn_drop.setFixedHeight(22)
+            btn_drop.setStyleSheet("font-size: 10px; padding: 2px 6px;")
             btn_drop.clicked.connect(lambda checked, n=name, t=table: self.drop_index(n, t))
             self.table_unused.setCellWidget(row, 4, btn_drop)
+
 
     def drop_index(self, index_name: str, table_name: str):
         reply = QMessageBox.question(

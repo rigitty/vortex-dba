@@ -12,7 +12,9 @@ from PyQt6.QtWidgets import (
     QHeaderView,
     QWidget,
     QApplication,
+    QSizePolicy,
 )
+
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
 
@@ -44,17 +46,19 @@ class PerformanceMatrixWidget(QFrame):
 
     def init_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 14, 16, 14)
-        layout.setSpacing(12)
+        layout.setContentsMargins(12, 10, 12, 10)
+        layout.setSpacing(8)
 
         # Header bar: Title, Search, and Filter Buttons
         header_row = QHBoxLayout()
+        header_row.setSpacing(10)
         
         title_vbox = QVBoxLayout()
+        title_vbox.setSpacing(1)
         title_lbl = QLabel("Sorgu Performans & İndeks Optimizasyon Matrisi")
-        title_lbl.setStyleSheet("font-size: 14px; font-weight: 800; color: #ffffff;")
+        title_lbl.setStyleSheet("font-size: 12.5px; font-weight: 700; color: #f1f5f9;")
         self.sub_lbl = QLabel("İndeks öncesi baseline ve indeks sonrası hızlanma kıyaslaması:")
-        self.sub_lbl.setStyleSheet("font-size: 11px; color: #94a3b8;")
+        self.sub_lbl.setStyleSheet("font-size: 10px; color: #728499;")
         title_vbox.addWidget(title_lbl)
         title_vbox.addWidget(self.sub_lbl)
         header_row.addLayout(title_vbox)
@@ -63,30 +67,35 @@ class PerformanceMatrixWidget(QFrame):
         # Search box
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Tablo, kolon veya SQL ara...")
-        self.search_input.setFixedWidth(220)
+        self.search_input.setFixedWidth(180)
+        self.search_input.setFixedHeight(26)
         self.search_input.textChanged.connect(self.filter_table)
         header_row.addWidget(self.search_input)
 
         # Filter buttons
         filter_box = QHBoxLayout()
-        filter_box.setSpacing(4)
+        filter_box.setSpacing(3)
         self.btn_all = QPushButton("Tümü")
+        self.btn_all.setProperty("class", "segment-btn")
         self.btn_all.setCheckable(True)
         self.btn_all.setChecked(True)
         self.btn_all.clicked.connect(lambda: self.set_filter("all"))
         filter_box.addWidget(self.btn_all)
 
-        self.btn_slow = QPushButton("🐢 İndekssiz")
+        self.btn_slow = QPushButton("İndekssiz")
+        self.btn_slow.setProperty("class", "segment-btn")
         self.btn_slow.setCheckable(True)
         self.btn_slow.clicked.connect(lambda: self.set_filter("slow"))
         filter_box.addWidget(self.btn_slow)
 
-        self.btn_indexed = QPushButton("⚡ İndeksli")
+        self.btn_indexed = QPushButton("İndeksli")
+        self.btn_indexed.setProperty("class", "segment-btn")
         self.btn_indexed.setCheckable(True)
         self.btn_indexed.clicked.connect(lambda: self.set_filter("indexed"))
         filter_box.addWidget(self.btn_indexed)
 
-        self.btn_speedup = QPushButton("🚀 Hızlananlar")
+        self.btn_speedup = QPushButton("Hızlanan")
+        self.btn_speedup.setProperty("class", "segment-btn")
         self.btn_speedup.setCheckable(True)
         self.btn_speedup.clicked.connect(lambda: self.set_filter("speedup"))
         filter_box.addWidget(self.btn_speedup)
@@ -98,10 +107,10 @@ class PerformanceMatrixWidget(QFrame):
         self.table = QTableWidget()
         self.table.setColumnCount(5)
         self.table.setHorizontalHeaderLabels([
-            "Sorgu & T-SQL Kodu",
-            "Hedef Tablo & Kolon",
-            "İndekssiz Süre",
-            "İndeks Durumu & Öneri",
+            "Sorgu / T-SQL",
+            "Tablo & Kolon",
+            "İndekssiz",
+            "İndeks Durumu / DDL",
             "İndeksli & Kazanç"
         ])
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
@@ -109,9 +118,13 @@ class PerformanceMatrixWidget(QFrame):
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
-        self.table.verticalHeader().setDefaultSectionSize(85)
+        self.table.verticalHeader().setDefaultSectionSize(52)
         self.table.verticalHeader().setVisible(False)
+        self.table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         layout.addWidget(self.table)
+
 
     def set_filter(self, mode: str):
         self.filter_mode = mode
@@ -120,6 +133,7 @@ class PerformanceMatrixWidget(QFrame):
         self.btn_indexed.setChecked(mode == "indexed")
         self.btn_speedup.setChecked(mode == "speedup")
         self.filter_table()
+
 
     def load_data(self, is_connected: bool = False):
         cfg = get_config()
@@ -210,12 +224,12 @@ class PerformanceMatrixWidget(QFrame):
                     current_ms = None
                     speedup_pct = None
                     multiplier = None
-                    status_label = "🐢 İndeks Bekliyor"
+                    status_label = "Bekliyor"
                 elif not hist:
                     current_ms = None
                     speedup_pct = None
                     multiplier = None
-                    status_label = "⏳ Test Bekliyor"
+                    status_label = "Test Bekliyor"
                 else:
                     current_ms = hist[0].mean_ms
                     if baseline_ms and baseline_ms > 0 and current_ms > 0:
@@ -224,7 +238,7 @@ class PerformanceMatrixWidget(QFrame):
                     else:
                         speedup_pct = None
                         multiplier = None
-                    status_label = "⚡ İndeksli"
+                    status_label = "İndeksli"
 
                 matrix.append({
                     "name": name,
@@ -275,20 +289,29 @@ class PerformanceMatrixWidget(QFrame):
     def populate_table(self, data):
         self.table.setRowCount(len(data))
 
+        # Dynamically set table height so all rows are listed without an internal scrollbar
+        header_height = self.table.horizontalHeader().height()
+        if header_height <= 0:
+            header_height = 28
+        row_height = self.table.verticalHeader().defaultSectionSize() or 52
+        total_table_height = header_height + (len(data) * row_height) + 6
+        self.table.setFixedHeight(max(total_table_height, 100))
+
         for row, item in enumerate(data):
+
             # Col 0: Title & SQL box
             col0_widget = self.create_query_cell(item["title"], item["query_sql"], item["status_label"], item["has_index"])
             self.table.setCellWidget(row, 0, col0_widget)
 
             # Col 1: Table & Columns
-            col1_text = f"{item['table']}\nKolonlar: {item['columns']}"
+            col1_text = f"{item['table']}\n{item['columns']}"
             col1_item = QTableWidgetItem(col1_text)
             col1_item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
             self.table.setItem(row, 1, col1_item)
 
             # Col 2: Baseline ms
             base = item.get("baseline_ms")
-            col2_text = f"{base:.1f} ms" if base is not None else "—\n(1. Adım)"
+            col2_text = f"{base:.1f} ms" if base is not None else "—"
             col2_item = QTableWidgetItem(col2_text)
             col2_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             if base is not None:
@@ -304,47 +327,50 @@ class PerformanceMatrixWidget(QFrame):
             mult = item.get("multiplier")
             if curr is not None:
                 if mult and mult > 1:
-                    col4_text = f"{curr:.1f} ms\n▲ {mult:.1f}x Hızlı"
+                    col4_text = f"{curr:.1f} ms  ({mult:.1f}x)"
                 else:
                     col4_text = f"{curr:.1f} ms"
             else:
-                col4_text = "—\n(3. Adım)"
+                col4_text = "—"
 
             col4_item = QTableWidgetItem(col4_text)
             col4_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
             if mult and mult > 1:
-                col4_item.setForeground(QColor("#34d399"))
+                col4_item.setForeground(QColor("#60a5fa"))
             self.table.setItem(row, 4, col4_item)
 
     def create_query_cell(self, title: str, sql: str, status_label: str, has_index: bool) -> QWidget:
         widget = QWidget()
         layout = QVBoxLayout(widget)
-        layout.setContentsMargins(6, 6, 6, 6)
-        layout.setSpacing(4)
+        layout.setContentsMargins(4, 3, 4, 3)
+        layout.setSpacing(2)
 
         # Title row
         title_row = QHBoxLayout()
         title_lbl = QLabel(title)
-        title_lbl.setStyleSheet("font-weight: 700; color: #f8fafc; font-size: 12px;")
+        title_lbl.setStyleSheet("font-weight: 600; color: #f1f5f9; font-size: 11px;")
         title_row.addWidget(title_lbl)
 
         badge = QLabel(f" {status_label} ")
-        badge_bg = "rgba(52, 211, 153, 0.15)" if has_index else "rgba(248, 113, 113, 0.15)"
-        badge_color = "#34d399" if has_index else "#f87171"
-        badge.setStyleSheet(f"background: {badge_bg}; color: {badge_color}; border-radius: 4px; font-size: 10px; font-weight: 700;")
+        if has_index:
+            badge.setStyleSheet("background: #0f243d; color: #60a5fa; border: 1px solid #1e40af; border-radius: 3px; font-size: 9.5px; font-weight: 600; padding: 1px 4px;")
+        else:
+            badge.setStyleSheet("background: #161b24; color: #7f91a5; border: 1px solid #253345; border-radius: 3px; font-size: 9.5px; font-weight: 600; padding: 1px 4px;")
         title_row.addWidget(badge)
         title_row.addStretch()
         layout.addLayout(title_row)
 
         # SQL box with Copy button
         sql_box = QHBoxLayout()
+        sql_box.setSpacing(4)
         sql_lbl = QLabel(sql)
-        sql_lbl.setStyleSheet("background: #050811; border: 1px solid #1e293b; border-radius: 6px; padding: 4px 6px; color: #7dd3fc; font-family: 'JetBrains Mono', monospace; font-size: 10.5px;")
+        sql_lbl.setStyleSheet("background: #05080e; border: 1px solid #141f30; border-radius: 4px; padding: 2px 6px; color: #93c5fd; font-family: 'JetBrains Mono', monospace; font-size: 9.5px;")
         sql_box.addWidget(sql_lbl, 1)
 
         btn_copy = QPushButton("Kopyala")
-        btn_copy.setFixedWidth(58)
-        btn_copy.setStyleSheet("font-size: 10px; padding: 3px 6px; background: #162032;")
+        btn_copy.setFixedWidth(50)
+        btn_copy.setFixedHeight(20)
+        btn_copy.setStyleSheet("font-size: 9.5px; padding: 1px 4px; background: #0c1421; border: 1px solid #1c2e46; border-radius: 3px; color: #cbd5e1;")
         btn_copy.clicked.connect(lambda: self.copy_to_clipboard(sql, btn_copy))
         sql_box.addWidget(btn_copy)
         layout.addLayout(sql_box)
@@ -354,50 +380,47 @@ class PerformanceMatrixWidget(QFrame):
     def create_index_cell(self, has_index: bool, applied_sqls: list, rec_sql: str) -> QWidget:
         widget = QWidget()
         layout = QVBoxLayout(widget)
-        layout.setContentsMargins(6, 6, 6, 6)
-        layout.setSpacing(4)
+        layout.setContentsMargins(4, 3, 4, 3)
+        layout.setSpacing(2)
 
         if has_index and applied_sqls:
-            lbl = QLabel("✔ Uygulanan İndeks DDL:")
-            lbl.setStyleSheet("color: #34d399; font-weight: 700; font-size: 11px;")
-            layout.addWidget(lbl)
-
             for sql in applied_sqls:
                 h_box = QHBoxLayout()
+                h_box.setSpacing(4)
                 sql_lbl = QLabel(sql)
-                sql_lbl.setStyleSheet("background: rgba(52, 211, 153, 0.08); border: 1px solid rgba(52, 211, 153, 0.25); border-radius: 6px; padding: 4px 6px; color: #6ee7b7; font-family: 'JetBrains Mono', monospace; font-size: 10px;")
+                sql_lbl.setStyleSheet("background: #0c1828; border: 1px solid #1e3a5f; border-radius: 4px; padding: 2px 6px; color: #93c5fd; font-family: 'JetBrains Mono', monospace; font-size: 9.5px;")
                 h_box.addWidget(sql_lbl, 1)
 
                 btn_copy = QPushButton("Kopyala")
-                btn_copy.setFixedWidth(58)
-                btn_copy.setStyleSheet("font-size: 10px; padding: 3px 6px;")
+                btn_copy.setFixedWidth(50)
+                btn_copy.setFixedHeight(20)
+                btn_copy.setStyleSheet("font-size: 9.5px; padding: 1px 4px; background: #0c1421; border: 1px solid #1c2e46; border-radius: 3px; color: #cbd5e1;")
                 btn_copy.clicked.connect(lambda checked, s=sql, b=btn_copy: self.copy_to_clipboard(s, b))
                 h_box.addWidget(btn_copy)
                 layout.addLayout(h_box)
         elif rec_sql:
-            lbl = QLabel("⚡ Önerilen İndeks:")
-            lbl.setStyleSheet("color: #fbbf24; font-weight: 700; font-size: 11px;")
-            layout.addWidget(lbl)
-
             h_box = QHBoxLayout()
+            h_box.setSpacing(4)
             sql_lbl = QLabel(rec_sql)
-            sql_lbl.setStyleSheet("background: rgba(251, 191, 36, 0.08); border: 1px solid rgba(251, 191, 36, 0.25); border-radius: 6px; padding: 4px 6px; color: #fde68a; font-family: 'JetBrains Mono', monospace; font-size: 10px;")
+            sql_lbl.setStyleSheet("background: #090f18; border: 1px solid #1b2d45; border-radius: 4px; padding: 2px 6px; color: #60a5fa; font-family: 'JetBrains Mono', monospace; font-size: 9.5px;")
             h_box.addWidget(sql_lbl, 1)
 
             btn_copy = QPushButton("Kopyala")
-            btn_copy.setFixedWidth(58)
-            btn_copy.setStyleSheet("font-size: 10px; padding: 3px 6px;")
+            btn_copy.setFixedWidth(50)
+            btn_copy.setFixedHeight(20)
+            btn_copy.setStyleSheet("font-size: 9.5px; padding: 1px 4px; background: #0c1421; border: 1px solid #1c2e46; border-radius: 3px; color: #cbd5e1;")
             btn_copy.clicked.connect(lambda checked, s=rec_sql, b=btn_copy: self.copy_to_clipboard(s, b))
             h_box.addWidget(btn_copy)
             layout.addLayout(h_box)
         else:
-            lbl = QLabel("1. Adım çalıştırıldığında dinamik analiz yapılacaktır.")
-            lbl.setStyleSheet("color: #64748b; font-style: italic; font-size: 11px;")
+            lbl = QLabel("Henüz öneri oluşturulmadı")
+            lbl.setStyleSheet("color: #55697f; font-size: 9.5px;")
             layout.addWidget(lbl)
 
         return widget
 
     def copy_to_clipboard(self, text: str, btn: QPushButton):
         QApplication.clipboard().setText(text)
-        btn.setText("✔ Kopyalandı")
-        btn.setStyleSheet("font-size: 10px; padding: 3px 6px; background: #059669; color: #ffffff;")
+        btn.setText("Kopyalandı")
+        btn.setStyleSheet("font-size: 9.5px; padding: 1px 4px; background: #1d4ed8; color: #ffffff; border: 1px solid #3b82f6; border-radius: 3px;")
+

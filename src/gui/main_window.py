@@ -66,12 +66,13 @@ class MainWindow(QMainWindow):
 
         self.init_ui()
         self.refresh_all()
-        self.trigger_connection_check()
 
-        # Periodic auto-refresh every 30 seconds
+        # Heartbeat timer (only monitors liveness when already connected)
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.auto_refresh)
-        self.timer.start(30000)
+        self.timer.start(3000)
+
+
 
 
     def init_ui(self):
@@ -84,26 +85,27 @@ class MainWindow(QMainWindow):
         # 1. Top Header Bar
         header_frame = QFrame()
         header_frame.setProperty("class", "header-panel")
-        header_frame.setFixedHeight(54)
+        header_frame.setFixedHeight(42)
         header_layout = QHBoxLayout(header_frame)
-        header_layout.setContentsMargins(20, 0, 20, 0)
-        header_layout.setSpacing(12)
+        header_layout.setContentsMargins(14, 0, 14, 0)
+        header_layout.setSpacing(10)
 
         # Brand Logo
         brand_box = QHBoxLayout()
+        brand_box.setSpacing(6)
         logo_lbl = QLabel()
         try:
-            logo_lbl.setPixmap(qta.icon("fa5s.bolt", color="#38bdf8").pixmap(20, 20))
+            logo_lbl.setPixmap(qta.icon("fa5s.bolt", color="#3b82f6").pixmap(15, 15))
         except Exception:
             pass
         brand_box.addWidget(logo_lbl)
 
         brand_lbl = QLabel("VORTEX//DBA")
-        brand_lbl.setStyleSheet("font-size: 15px; font-weight: 900; color: #ffffff; letter-spacing: 0.5px;")
+        brand_lbl.setStyleSheet("font-size: 12.5px; font-weight: 800; color: #ffffff; letter-spacing: 0.5px;")
         brand_box.addWidget(brand_lbl)
 
-        tag_lbl = QLabel("Masaüstü v2.4")
-        tag_lbl.setStyleSheet("background: rgba(56, 189, 248, 0.1); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: 700;")
+        tag_lbl = QLabel("v2.4")
+        tag_lbl.setStyleSheet("background: #0d1e38; color: #60a5fa; border: 1px solid #1d3d6e; border-radius: 4px; padding: 1px 5px; font-size: 9.5px; font-weight: 600;")
         brand_box.addWidget(tag_lbl)
         header_layout.addLayout(brand_box)
 
@@ -116,19 +118,19 @@ class MainWindow(QMainWindow):
         header_layout.addWidget(self.btn_db_capsule)
 
         # Quick Connect Header Button
-        self.btn_connect_header = QPushButton("🔌 Sunucuya Bağlan")
+        self.btn_connect_header = QPushButton("Sunucuya Bağlan")
         self.btn_connect_header.setStyleSheet("""
             QPushButton {
-                background: #0284c7;
-                border: 1px solid #38bdf8;
+                background: #2563eb;
+                border: 1px solid #3b82f6;
                 color: #ffffff;
-                font-weight: 700;
-                font-size: 11px;
-                padding: 5px 12px;
-                border-radius: 6px;
+                font-weight: 600;
+                font-size: 10.5px;
+                padding: 4px 10px;
+                border-radius: 5px;
             }
             QPushButton:hover {
-                background: #0369a1;
+                background: #1d4ed8;
             }
         """)
         self.btn_connect_header.clicked.connect(self.open_db_dialog)
@@ -139,18 +141,18 @@ class MainWindow(QMainWindow):
         # Right Controls
         # Mode switch (Mod A vs Mod B)
         mode_box = QFrame()
-        mode_box.setStyleSheet("background: #080c14; border: 1px solid #1e293b; border-radius: 8px; padding: 2px;")
+        mode_box.setStyleSheet("background: #080d16; border: 1px solid #162234; border-radius: 5px; padding: 1px;")
         mode_layout = QHBoxLayout(mode_box)
         mode_layout.setContentsMargins(2, 2, 2, 2)
         mode_layout.setSpacing(2)
 
-        self.btn_mode_a = QPushButton("👤 Mod A (Danışman)")
+        self.btn_mode_a = QPushButton("Mod A (Danışman)")
         self.btn_mode_a.setProperty("class", "segment-btn")
         self.btn_mode_a.setCheckable(True)
         self.btn_mode_a.clicked.connect(lambda: self.switch_mode("advisor"))
         mode_layout.addWidget(self.btn_mode_a)
 
-        self.btn_mode_b = QPushButton("🤖 Mod B (Otopilot)")
+        self.btn_mode_b = QPushButton("Mod B (Otopilot)")
         self.btn_mode_b.setProperty("class", "segment-btn")
         self.btn_mode_b.setCheckable(True)
         self.btn_mode_b.clicked.connect(lambda: self.switch_mode("autonomous"))
@@ -159,18 +161,18 @@ class MainWindow(QMainWindow):
 
         # Source switch (Sim vs Live DMV)
         source_box = QFrame()
-        source_box.setStyleSheet("background: #080c14; border: 1px solid #1e293b; border-radius: 8px; padding: 2px;")
+        source_box.setStyleSheet("background: #080d16; border: 1px solid #162234; border-radius: 5px; padding: 1px;")
         source_layout = QHBoxLayout(source_box)
         source_layout.setContentsMargins(2, 2, 2, 2)
         source_layout.setSpacing(2)
 
-        self.btn_src_sim = QPushButton("🧪 Simülasyon")
+        self.btn_src_sim = QPushButton("Simülasyon")
         self.btn_src_sim.setProperty("class", "segment-btn")
         self.btn_src_sim.setCheckable(True)
         self.btn_src_sim.clicked.connect(lambda: self.switch_source("simulation"))
         source_layout.addWidget(self.btn_src_sim)
 
-        self.btn_src_live = QPushButton("🔴 Canlı DMV")
+        self.btn_src_live = QPushButton("Canlı DMV")
         self.btn_src_live.setProperty("class", "segment-btn")
         self.btn_src_live.setCheckable(True)
         self.btn_src_live.clicked.connect(lambda: self.switch_source("live_dmv"))
@@ -180,7 +182,7 @@ class MainWindow(QMainWindow):
         # Index Drawer button
         self.btn_drawer = QPushButton("İndeksler")
         try:
-            self.btn_drawer.setIcon(qta.icon("fa5s.layer-group", color="#34d399"))
+            self.btn_drawer.setIcon(qta.icon("fa5s.layer-group", color="#60a5fa"))
         except Exception:
             pass
         self.btn_drawer.clicked.connect(self.open_index_drawer)
@@ -188,7 +190,8 @@ class MainWindow(QMainWindow):
 
         # Refresh button
         self.btn_refresh = QPushButton()
-        self.btn_refresh.setFixedWidth(36)
+        self.btn_refresh.setFixedWidth(30)
+        self.btn_refresh.setFixedHeight(26)
         try:
             self.btn_refresh.setIcon(qta.icon("fa5s.sync-alt", color="#94a3b8"))
         except Exception:
@@ -203,36 +206,37 @@ class MainWindow(QMainWindow):
         scroll.setWidgetResizable(True)
         content_widget = QWidget()
         self.content_layout = QVBoxLayout(content_widget)
-        self.content_layout.setContentsMargins(24, 18, 24, 24)
-        self.content_layout.setSpacing(16)
+        self.content_layout.setContentsMargins(14, 12, 14, 14)
+        self.content_layout.setSpacing(10)
 
         # Offline Warning Banner (Visible when DB is disconnected)
         self.offline_banner = QFrame()
         self.offline_banner.setStyleSheet("""
             QFrame {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 rgba(239, 68, 68, 0.18), stop:1 rgba(245, 158, 11, 0.08));
-                border: 1px solid rgba(239, 68, 68, 0.45);
-                border-radius: 10px;
-                padding: 10px;
+                background: #140d12;
+                border: 1px solid #4a161f;
+                border-radius: 5px;
+                padding: 4px;
             }
         """)
         off_layout = QHBoxLayout(self.offline_banner)
-        off_layout.setContentsMargins(14, 10, 14, 10)
-        off_layout.setSpacing(12)
+        off_layout.setContentsMargins(10, 6, 10, 6)
+        off_layout.setSpacing(10)
 
-        self.off_lbl = QLabel("⚠️ SQL SERVER BAĞLANTISI YOK (ÇEVRİMDİŞİ MOD): Veritabanı kapalı veya erişilemiyor. Uygulama çevrimdışı modda açıldı. Sunucuya bağlanmak için bağlantı panelini açın.")
-        self.off_lbl.setStyleSheet("color: #fca5a5; font-weight: 700; font-size: 12px;")
+        self.off_lbl = QLabel("SQL Server bağlantısı kurulamadı. Uygulama çevrimdışı modda çalışıyor.")
+        self.off_lbl.setStyleSheet("color: #fca5a5; font-weight: 600; font-size: 10.5px;")
         off_layout.addWidget(self.off_lbl, 1)
 
-        btn_banner_connect = QPushButton("🔌 Sunucuya Bağlan")
-        btn_banner_connect.setStyleSheet("font-size: 11px; padding: 4px 12px; background: #dc2626; color: white; font-weight: 700;")
+        btn_banner_connect = QPushButton("Bağlan")
+        btn_banner_connect.setStyleSheet("font-size: 10px; padding: 3px 8px; background: #991b1b; border: 1px solid #dc2626; color: white; font-weight: 600; border-radius: 4px;")
         btn_banner_connect.clicked.connect(self.open_db_dialog)
         off_layout.addWidget(btn_banner_connect)
 
-        btn_banner_retry = QPushButton("🔄 Yeniden Dene")
-        btn_banner_retry.setStyleSheet("font-size: 11px; padding: 4px 10px; background: #1e293b; color: #e2e8f0;")
-        btn_banner_retry.clicked.connect(self.trigger_connection_check)
+        btn_banner_retry = QPushButton("Yeniden Dene")
+        btn_banner_retry.setStyleSheet("font-size: 10px; padding: 3px 8px; background: #131a26; border: 1px solid #1e2c40; color: #cbd5e1; border-radius: 4px;")
+        btn_banner_retry.clicked.connect(lambda: self.trigger_connection_check(show_connecting=True))
         off_layout.addWidget(btn_banner_retry)
+
 
         self.content_layout.addWidget(self.offline_banner)
 
@@ -240,61 +244,60 @@ class MainWindow(QMainWindow):
         self.autopilot_banner = QFrame()
         self.autopilot_banner.setStyleSheet("""
             QFrame {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 rgba(52, 211, 153, 0.15), stop:1 rgba(56, 189, 248, 0.05));
-                border: 1px solid rgba(52, 211, 153, 0.3);
-                border-radius: 10px;
-                padding: 10px;
+                background: #091322;
+                border: 1px solid #1e3a5f;
+                border-radius: 5px;
+                padding: 4px;
             }
         """)
         banner_layout = QHBoxLayout(self.autopilot_banner)
-        banner_layout.setContentsMargins(12, 8, 12, 8)
-        self.banner_lbl = QLabel("🤖 OTOPİLOT MODU (Mod B) DEVREDE: SQL Server 7/24 arka planda izlenir, eksik indeksler ONLINE=ON ile otomatik uygulanır ve yavaşlama olursa rollback yapılır.")
-        self.banner_lbl.setStyleSheet("color: #34d399; font-weight: 700; font-size: 12px;")
+        banner_layout.setContentsMargins(10, 6, 10, 6)
+        self.banner_lbl = QLabel("OTOPİLOT MODU AKTİF: SQL Server 7/24 izlenir, indeksler ONLINE=ON ile otomatik uygulanır.")
+        self.banner_lbl.setStyleSheet("color: #93c5fd; font-weight: 600; font-size: 10.5px;")
         banner_layout.addWidget(self.banner_lbl)
         banner_layout.addStretch()
         self.btn_switch_to_advisor = QPushButton("Danışman Moduna Geç")
-        self.btn_switch_to_advisor.setStyleSheet("font-size: 11px; padding: 4px 10px;")
+        self.btn_switch_to_advisor.setStyleSheet("font-size: 10px; padding: 3px 8px; background: #101e33; border: 1px solid #203c66; color: #60a5fa; border-radius: 4px;")
         self.btn_switch_to_advisor.clicked.connect(lambda: self.switch_mode("advisor"))
         banner_layout.addWidget(self.btn_switch_to_advisor)
         self.content_layout.addWidget(self.autopilot_banner)
-
 
         # 3. 5-Step Command Deck (Workflow Toolbar)
         command_deck = QFrame()
         command_deck.setProperty("class", "card-panel")
         deck_layout = QHBoxLayout(command_deck)
-        deck_layout.setContentsMargins(18, 14, 18, 14)
-        deck_layout.setSpacing(10)
+        deck_layout.setContentsMargins(12, 8, 12, 8)
+        deck_layout.setSpacing(8)
 
-        deck_title = QLabel("OTONOM DBA AKIŞI:")
-        deck_title.setStyleSheet("font-size: 11px; font-weight: 800; color: #38bdf8; letter-spacing: 0.5px;")
+        deck_title = QLabel("AKIŞ:")
+        deck_title.setStyleSheet("font-size: 10px; font-weight: 700; color: #60a5fa; letter-spacing: 0.5px;")
         deck_layout.addWidget(deck_title)
 
-        self.btn_step1 = QPushButton("1. 🧪 Yavaş Trafik Simüle Et")
-        self.btn_step1.setToolTip("15 yavaş T-SQL sorgusunu koşturup indeks öncesi baseline sürelerini kaydeder")
+        self.btn_step1 = QPushButton("1. Trafik Simülasyonu")
+        self.btn_step1.setToolTip("15 adet yavaş T-SQL sorgusunu koşturup baseline sürelerini kaydeder")
         self.btn_step1.clicked.connect(self.run_step1)
         deck_layout.addWidget(self.btn_step1)
 
-        self.btn_step2 = QPushButton("2. ⚡ İndeksleri Otomatik Uygula")
-        self.btn_step2.setProperty("class", "btn-success")
-        self.btn_step2.setToolTip("IndexAdvisor DDL önerilerini ONLINE=ON ile SQL Server'a otomatik uygular")
+        self.btn_step2 = QPushButton("2. İndeksleri Uygula")
+        self.btn_step2.setProperty("class", "btn-primary")
+        self.btn_step2.setToolTip("IndexAdvisor DDL önerilerini ONLINE=ON ile uygular")
         self.btn_step2.clicked.connect(self.run_step2)
         deck_layout.addWidget(self.btn_step2)
 
-        self.btn_step3 = QPushButton("3. 📊 Canlı Benchmark Testi")
-        self.btn_step3.setProperty("class", "btn-warning")
-        self.btn_step3.setToolTip("Canlı 3-iterasyonlu kıyaslama testi çalıştırıp hızlanma çarpanını hesaplar")
+        self.btn_step3 = QPushButton("3. Benchmark Testi")
+        self.btn_step3.setProperty("class", "btn-secondary")
+        self.btn_step3.setToolTip("İndeks öncesi vs sonrası kıyaslama testi çalıştırır")
         self.btn_step3.clicked.connect(self.run_step3)
         deck_layout.addWidget(self.btn_step3)
 
-        self.btn_step4 = QPushButton("4. ↺ İndeksleri Sıfırla")
-        self.btn_step4.setToolTip("SQL Server üzerindeki tüm özel optimizasyon indekslerini siler")
+        self.btn_step4 = QPushButton("4. İndeksleri Sıfırla")
+        self.btn_step4.setToolTip("Özel optimizasyon indekslerini kaldırır")
         self.btn_step4.clicked.connect(self.run_step4)
         deck_layout.addWidget(self.btn_step4)
 
-        self.btn_step5 = QPushButton("5. 💥 Fabrika Ayarları")
+        self.btn_step5 = QPushButton("5. Fabrika Sıfırla")
         self.btn_step5.setProperty("class", "btn-danger")
-        self.btn_step5.setToolTip("Özel indeksleri, baseline ölçümlerini ve karar geçmişini sıfırlar")
+        self.btn_step5.setToolTip("Tüm özel indeksleri ve ölçüm geçmişini sıfırlar")
         self.btn_step5.clicked.connect(self.run_step5)
         deck_layout.addWidget(self.btn_step5)
 
@@ -302,17 +305,17 @@ class MainWindow(QMainWindow):
 
         # 4. 4 Stat Metrics Cards
         metrics_grid = QHBoxLayout()
-        metrics_grid.setSpacing(14)
-        self.card_indexes = StatCard("Aktif Özel İndeksler", "0", "/ 15 Kapsandı", "fa5s.layer-group", "#34d399")
+        metrics_grid.setSpacing(8)
+        self.card_indexes = StatCard("Özel İndeksler", "0", "/ 15 Kapsandı", "fa5s.layer-group", "#3b82f6")
         metrics_grid.addWidget(self.card_indexes)
 
-        self.card_speedup = StatCard("Ortalama Hızlanma", "—", "3. Adım sonrası ölçülür", "fa5s.chart-line", "#38bdf8")
+        self.card_speedup = StatCard("Ortalama Hızlanma", "—", "Benchmark sonrası", "fa5s.chart-line", "#60a5fa")
         metrics_grid.addWidget(self.card_speedup)
 
-        self.card_critical = StatCard("Kritik Yavaş Sorgular", "0", ">400ms darboğaz", "fa5s.exclamation-triangle", "#fbbf24")
+        self.card_critical = StatCard("Kritik Darboğaz", "0", ">400ms sorgular", "fa5s.exclamation-circle", "#93c5fd")
         metrics_grid.addWidget(self.card_critical)
 
-        self.card_safety = StatCard("Güvenlik & Rollback", "%100", "ONLINE=ON Zero-Lock", "fa5s.shield-alt", "#818cf8")
+        self.card_safety = StatCard("Güvenlik Durumu", "%100", "ONLINE=ON Korumalı", "fa5s.shield-alt", "#3b82f6")
         metrics_grid.addWidget(self.card_safety)
         self.content_layout.addLayout(metrics_grid)
 
@@ -320,42 +323,44 @@ class MainWindow(QMainWindow):
         terminal_frame = QFrame()
         terminal_frame.setProperty("class", "card-panel")
         term_layout = QVBoxLayout(terminal_frame)
-        term_layout.setContentsMargins(14, 10, 14, 12)
-        term_layout.setSpacing(8)
+        term_layout.setContentsMargins(12, 8, 12, 8)
+        term_layout.setSpacing(6)
 
         term_topbar = QHBoxLayout()
-        term_title = QLabel("CANLI LOG AKIŞI & REALTIME TRACE")
-        term_title.setStyleSheet("font-size: 11px; font-weight: 700; color: #94a3b8; letter-spacing: 0.5px;")
+        term_title = QLabel("CANLI LOG AKIŞI")
+        term_title.setStyleSheet("font-size: 10px; font-weight: 700; color: #728499; letter-spacing: 0.5px;")
         term_topbar.addWidget(term_title)
         term_topbar.addStretch()
 
-        self.term_status_lbl = QLabel("READY")
-        self.term_status_lbl.setStyleSheet("color: #34d399; font-weight: 800; font-size: 10.5px; font-family: 'JetBrains Mono', monospace;")
+        self.term_status_lbl = QLabel("HAZIR")
+        self.term_status_lbl.setStyleSheet("color: #60a5fa; font-weight: 700; font-size: 9.5px; font-family: 'JetBrains Mono', monospace;")
         term_topbar.addWidget(self.term_status_lbl)
 
         btn_clear_term = QPushButton("Temizle")
-        btn_clear_term.setStyleSheet("font-size: 10px; padding: 2px 8px;")
+        btn_clear_term.setStyleSheet("font-size: 9.5px; padding: 1px 6px;")
         btn_clear_term.clicked.connect(lambda: self.terminal_box.clear())
         term_topbar.addWidget(btn_clear_term)
         term_layout.addLayout(term_topbar)
 
         self.terminal_box = QPlainTextEdit()
         self.terminal_box.setReadOnly(True)
-        self.terminal_box.setFixedHeight(160)
+        self.terminal_box.setFixedHeight(180)
         self.terminal_box.setPlaceholderText("[Hazır] SQL Server optimizasyon ve benchmark akışları burada canlı gösterilir...")
         term_layout.addWidget(self.terminal_box)
         self.content_layout.addWidget(terminal_frame)
 
-        # 6. Performance Matrix Table Widget
+        # 6. Performance Matrix Table Widget (Full-length without inner slider)
         self.matrix_widget = PerformanceMatrixWidget()
         self.content_layout.addWidget(self.matrix_widget)
 
         scroll.setWidget(content_widget)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         root_layout.addWidget(scroll)
 
         # Status Bar
         self.setStatusBar(QStatusBar())
-        self.statusBar().showMessage("VortexDBA Masaüstü Motoru Hazır.")
+        self.statusBar().showMessage("VortexDBA Motoru Hazır.")
 
     def update_header_state(self):
         cfg = get_config()
@@ -363,40 +368,40 @@ class MainWindow(QMainWindow):
 
         # Update DB Capsule text based on current connection status
         if self.is_connected:
-            self.btn_db_capsule.setText(f"  🟢 {db.host}:{db.port} [{db.dbname}] ({self.conn_latency or 0}ms)  ")
+            self.btn_db_capsule.setText(f"{db.host}:{db.port} [{db.dbname}]  {self.conn_latency or 0}ms")
             self.btn_db_capsule.setStyleSheet("""
                 QPushButton {
-                    background: rgba(16, 185, 129, 0.12);
-                    border: 1px solid #10b981;
-                    border-radius: 16px;
-                    padding: 6px 16px;
-                    color: #34d399;
+                    background: #0c1729;
+                    border: 1px solid #1d4ed8;
+                    border-radius: 5px;
+                    padding: 4px 10px;
+                    color: #93c5fd;
                     font-family: 'JetBrains Mono', monospace;
-                    font-size: 11.5px;
-                    font-weight: 700;
+                    font-size: 10.5px;
+                    font-weight: 600;
                 }
                 QPushButton:hover {
-                    background: rgba(16, 185, 129, 0.22);
-                    border-color: #34d399;
+                    background: #13243f;
+                    border-color: #3b82f6;
                     color: #ffffff;
                 }
             """)
         else:
-            self.btn_db_capsule.setText(f"  🔴 Çevrimdışı ({db.host}:{db.port}) - [Bağlan]  ")
+            self.btn_db_capsule.setText(f"Çevrimdışı ({db.host}:{db.port}) - Bağlan")
             self.btn_db_capsule.setStyleSheet("""
                 QPushButton {
-                    background: rgba(239, 68, 68, 0.15);
-                    border: 1px solid #ef4444;
-                    border-radius: 16px;
-                    padding: 6px 16px;
-                    color: #f87171;
+                    background: #140d12;
+                    border: 1px solid #4a161f;
+                    border-radius: 5px;
+                    padding: 4px 10px;
+                    color: #fca5a5;
                     font-family: 'JetBrains Mono', monospace;
-                    font-size: 11px;
-                    font-weight: 700;
+                    font-size: 10.5px;
+                    font-weight: 600;
                 }
                 QPushButton:hover {
-                    background: rgba(239, 68, 68, 0.25);
-                    border-color: #fca5a5;
+                    background: #201118;
+                    border-color: #ef4444;
                     color: #ffffff;
                 }
             """)
@@ -412,23 +417,24 @@ class MainWindow(QMainWindow):
         self.btn_src_sim.setChecked(not is_live)
         self.btn_src_live.setChecked(is_live)
 
-    def trigger_connection_check(self):
+    def trigger_connection_check(self, show_connecting: bool = False):
         """Asynchronously verify SQL Server connection without blocking GUI."""
         cfg = get_config()
         db = cfg.database
-        self.btn_db_capsule.setText(f"  🟡 Bağlanıyor... [{db.host}:{db.port}]  ")
-        self.btn_db_capsule.setStyleSheet("""
-            QPushButton {
-                background: #1e293b;
-                border: 1px solid #fbbf24;
-                border-radius: 16px;
-                padding: 6px 16px;
-                color: #fbbf24;
-                font-family: 'JetBrains Mono', monospace;
-                font-size: 11px;
-                font-weight: 700;
-            }
-        """)
+        if not self.is_connected or show_connecting:
+            self.btn_db_capsule.setText(f"Bağlanıyor... [{db.host}:{db.port}]")
+            self.btn_db_capsule.setStyleSheet("""
+                QPushButton {
+                    background: #0d1624;
+                    border: 1px solid #2563eb;
+                    border-radius: 5px;
+                    padding: 4px 10px;
+                    color: #60a5fa;
+                    font-family: 'JetBrains Mono', monospace;
+                    font-size: 10.5px;
+                    font-weight: 600;
+                }
+            """)
 
         if self.check_worker and self.check_worker.isRunning():
             return
@@ -438,6 +444,7 @@ class MainWindow(QMainWindow):
         self.check_worker.start()
 
     def on_connection_check_result(self, res: dict):
+        was_connected = self.is_connected
         self.is_connected = res.get("success", False)
         self.conn_latency = res.get("latency_ms", 0)
         cfg = get_config()
@@ -447,12 +454,17 @@ class MainWindow(QMainWindow):
         self.update_header_state()
 
         if self.is_connected:
-            self.statusBar().showMessage(f"✔ SQL Server Bağlı ({db.host}:{db.port} - {self.conn_latency}ms)")
+            if not was_connected:
+                self.statusBar().showMessage(f"SQL Server Bağlandı: {db.host}:{db.port} ({self.conn_latency}ms)")
+                self.matrix_widget.load_data(is_connected=True)
+                self.update_metrics()
         else:
-            self.statusBar().showMessage("⚠️ SQL Server Bağlantısı Yok (Çevrimdışı Mod)")
-
-        self.matrix_widget.load_data(is_connected=self.is_connected)
-        self.update_metrics()
+            if was_connected:
+                self.statusBar().showMessage("⚠️ SQL Server Bağlantısı Kesildi (Çevrimdışı Mod)")
+                self.matrix_widget.load_data(is_connected=False)
+                self.update_metrics()
+            else:
+                self.statusBar().showMessage("SQL Server Bağlantısı Yok (Çevrimdışı Mod)")
 
     def refresh_all(self):
         self.update_header_state()
@@ -460,10 +472,13 @@ class MainWindow(QMainWindow):
         self.update_metrics()
         self.statusBar().showMessage("Paneller güncellendi.")
 
-
     def auto_refresh(self):
-        if not self.current_worker or not self.current_worker.isRunning():
-            self.trigger_connection_check()
+        # Only monitor connection liveness if currently connected.
+        # When offline, do NOT automatically retry connecting in a loop.
+        if self.is_connected:
+            if not self.current_worker or not self.current_worker.isRunning():
+                self.trigger_connection_check(show_connecting=False)
+
 
     def update_metrics(self):
         try:
@@ -482,7 +497,7 @@ class MainWindow(QMainWindow):
             self.card_speedup.set_value("—", "3. Adım sonrası ölçülür")
 
         critical = len([m for m in matrix if isinstance(m, dict) and not m.get("has_index") and (m.get("baseline_ms") or 0) > 400])
-        self.card_critical.set_value(str(critical), "Kritik darboğaz" if critical > 0 else "✔ Tüm sorgular kabul edilebilir")
+        self.card_critical.set_value(str(critical), "Kritik darboğaz" if critical > 0 else "Tüm sorgular kabul edilebilir")
 
     def switch_mode(self, mode: str):
         update_operating_mode(mode)
@@ -495,14 +510,13 @@ class MainWindow(QMainWindow):
     def open_db_dialog(self):
         dlg = DbConfigDialog(self)
         if dlg.exec():
-            self.trigger_connection_check()
+            self.trigger_connection_check(show_connecting=True)
             self.refresh_all()
 
     def open_index_drawer(self):
         dlg = IndexDrawerDialog("applied", self)
         dlg.exec()
         self.refresh_all()
-
 
     def set_running_state(self, running: bool):
         self.btn_step1.setEnabled(not running)
@@ -519,7 +533,9 @@ class MainWindow(QMainWindow):
 
     def on_worker_finished(self, success: bool, msg: str):
         self.set_running_state(False)
+        self.trigger_connection_check()
         self.refresh_all()
+
 
     def run_step1(self):
         self.set_running_state(True)
