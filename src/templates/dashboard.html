@@ -6,44 +6,52 @@
     <title>VortexDBA | Autonomous SQL Server Engine</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-base: #070709;
-            --bg-surface: #0e0e12;
-            --bg-surface-hover: #141419;
-            --bg-elevated: #18181f;
-            --bg-input: #0b0b0e;
-            --border: #22222a;
-            --border-hover: #33333f;
-            --border-active: #4a4a5a;
+            --bg-base: #000000;
+            --bg-surface: #07070a;
+            --bg-surface-hover: #0f0f14;
+            --bg-elevated: #111117;
+            --bg-input: #040406;
             
-            --text-primary: #f4f4f6;
-            --text-secondary: #8e8e9f;
-            --text-muted: #555566;
+            --border: #1a1a24;
+            --border-hover: #2a2a38;
+            --border-active: #3e3e52;
+            
+            --text-primary: #ffffff;
+            --text-secondary: #9494a8;
+            --text-muted: #525266;
             
             --emerald: #10b981;
-            --emerald-bg: rgba(16, 185, 129, 0.08);
-            --emerald-border: rgba(16, 185, 129, 0.25);
+            --emerald-bg: #041a12;
+            --emerald-border: #10b981;
             
             --amber: #f59e0b;
-            --amber-bg: rgba(245, 158, 11, 0.08);
-            --amber-border: rgba(245, 158, 11, 0.25);
+            --amber-bg: #1c1304;
+            --amber-border: #f59e0b;
             
             --rose: #f43f5e;
-            --rose-bg: rgba(244, 63, 94, 0.08);
-            --rose-border: rgba(244, 63, 94, 0.25);
+            --rose-bg: #1f060c;
+            --rose-border: #f43f5e;
             
             --cyan: #06b6d4;
-            --cyan-bg: rgba(6, 182, 212, 0.08);
-            --cyan-border: rgba(6, 182, 212, 0.25);
+            --cyan-bg: #041920;
+            --cyan-border: #06b6d4;
 
             --blue: #3b82f6;
-            --blue-bg: rgba(59, 130, 246, 0.08);
-            --blue-border: rgba(59, 130, 246, 0.25);
+            --blue-bg: #061326;
+            --blue-border: #3b82f6;
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        /* Strictly Boxy Geometric Edges - Zero Rounding */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            border-radius: 0 !important;
+        }
+
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: var(--bg-base);
@@ -51,18 +59,18 @@
             min-height: 100vh;
             line-height: 1.45;
             letter-spacing: -0.01em;
-            font-size: 13px;
+            font-size: 12.5px;
         }
 
         code, pre, .font-mono {
-            font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-family: 'JetBrains Mono', ui-monospace, monospace;
         }
 
         /* Top Navigation Bar */
         .navbar {
             background: var(--bg-surface);
             border-bottom: 1px solid var(--border);
-            padding: 10px 24px;
+            padding: 12px 24px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -70,60 +78,103 @@
             top: 0;
             z-index: 50;
         }
+
         .nav-brand {
             display: flex;
             align-items: center;
             gap: 12px;
         }
+
+        /* Prominent Brand Title without Version Tag */
         .brand-logo {
-            font-weight: 700;
-            font-size: 14px;
-            letter-spacing: 0.04em;
+            font-weight: 800;
+            font-size: 19px;
+            letter-spacing: 0.06em;
             color: #ffffff;
             display: flex;
             align-items: center;
-            gap: 8px;
-        }
-        .brand-badge {
-            font-size: 10px;
+            gap: 10px;
             text-transform: uppercase;
-            font-weight: 700;
-            letter-spacing: 0.06em;
-            padding: 2px 6px;
-            border-radius: 4px;
-            background: var(--bg-elevated);
-            color: var(--text-secondary);
-            border: 1px solid var(--border);
         }
+        .brand-logo .brand-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #0d1117;
+            border: 1px solid var(--cyan);
+            padding: 5px;
+            color: var(--cyan);
+        }
+        .brand-accent {
+            color: var(--cyan);
+        }
+
         .nav-tools {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
         }
-        
-        .status-pill {
+
+        /* Connection Status Box (Green when Healthy, Red when Unhealthy) */
+        .status-box {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            padding: 4px 10px;
-            border-radius: 9999px;
+            gap: 8px;
+            padding: 6px 12px;
             font-size: 11px;
-            font-weight: 500;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            border: 1px solid var(--border);
+            background: var(--bg-elevated);
+            color: var(--text-secondary);
+        }
+        .status-box.connected {
             background: var(--emerald-bg);
             color: var(--emerald);
             border: 1px solid var(--emerald-border);
         }
+        .status-box.disconnected {
+            background: var(--rose-bg);
+            color: var(--rose);
+            border: 1px solid var(--rose-border);
+        }
         .status-dot {
+            width: 7px;
+            height: 7px;
+            background: currentColor;
+            display: inline-block;
+        }
+
+        /* Auto-Sync Live Pulse Tag */
+        .live-sync-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 9px;
+            background: #060910;
+            border: 1px solid #1a2538;
+            color: #60a5fa;
+            font-size: 10.5px;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+        }
+        .pulse-indicator {
             width: 6px;
             height: 6px;
-            border-radius: 50%;
-            background: var(--emerald);
-            box-shadow: 0 0 8px var(--emerald);
+            background: #3b82f6;
+            animation: pulse-live 1.5s infinite;
+        }
+        @keyframes pulse-live {
+            0% { opacity: 0.3; }
+            50% { opacity: 1; }
+            100% { opacity: 0.3; }
         }
 
         /* Container */
         .container {
-            max-width: 1480px;
+            max-width: 1540px;
             margin: 0 auto;
             padding: 20px 24px 60px;
         }
@@ -132,7 +183,6 @@
         .control-panel {
             background: var(--bg-surface);
             border: 1px solid var(--border);
-            border-radius: 8px;
             padding: 12px 16px;
             margin-bottom: 16px;
             display: flex;
@@ -143,13 +193,14 @@
         }
         .control-label {
             font-size: 11px;
-            font-weight: 600;
+            font-weight: 700;
             color: var(--text-secondary);
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.08em;
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
+            font-family: 'JetBrains Mono', monospace;
         }
         .button-group {
             display: flex;
@@ -158,86 +209,165 @@
             flex-wrap: wrap;
         }
 
-        /* Buttons */
+        /* Sharp Technical Buttons */
         .btn {
             display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 6px;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: 500;
+            padding: 7px 14px;
+            font-size: 11.5px;
+            font-weight: 600;
             cursor: pointer;
-            border: 1px solid transparent;
-            transition: all 0.15s ease;
+            border: 1px solid var(--border);
+            background: var(--bg-elevated);
+            color: var(--text-primary);
+            transition: all 0.12s ease;
             text-decoration: none;
-            color: #ffffff;
             line-height: 1.2;
             white-space: nowrap;
-        }
-        .btn:hover { filter: brightness(1.15); transform: translateY(-0.5px); }
-        .btn:active { transform: translateY(0.5px); filter: brightness(0.95); }
-        .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; filter: none; }
-
-        .btn-default { background: var(--bg-elevated); border-color: var(--border); color: var(--text-primary); }
-        .btn-default:hover { background: var(--bg-surface-hover); border-color: var(--border-hover); }
-        
-        .btn-primary { background: #2563eb; border-color: #3b82f6; }
-        .btn-success { background: #059669; border-color: #10b981; }
-        .btn-warning { background: #b45309; border-color: #f59e0b; }
-        .btn-danger { background: #be123c; border-color: #f43f5e; }
-        
-        .btn-sm { padding: 3px 8px; font-size: 11px; border-radius: 4px; }
-        .btn-xs { padding: 2px 6px; font-size: 10px; border-radius: 4px; }
-
-        /* KPI Metric Cards */
-        .metric-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 12px;
-            margin-bottom: 16px;
-        }
-        .metric-card {
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 14px 16px;
-            position: relative;
-        }
-        .metric-label {
-            font-size: 11px;
-            color: var(--text-secondary);
-            font-weight: 500;
             text-transform: uppercase;
             letter-spacing: 0.04em;
-            margin-bottom: 4px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .btn:hover { background: var(--bg-surface-hover); border-color: var(--border-hover); filter: brightness(1.1); }
+        .btn:active { background: #000000; border-color: var(--border-active); }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; filter: none; }
+
+        .btn-default { background: #0c0c12; border-color: #242434; color: var(--text-primary); }
+        .btn-default:hover { background: #151520; border-color: #3b3b52; }
+        
+        .btn-primary { background: #1e3a8a; border-color: #3b82f6; color: #ffffff; }
+        .btn-primary:hover { background: #2563eb; }
+        
+        .btn-success { background: #064e3b; border-color: #10b981; color: #6ee7b7; }
+        .btn-success:hover { background: #047857; color: #ffffff; }
+        
+        .btn-warning { background: #78350f; border-color: #f59e0b; color: #fde68a; }
+        .btn-warning:hover { background: #b45309; color: #ffffff; }
+        
+        .btn-danger { background: #881337; border-color: #f43f5e; color: #fecdd3; }
+        .btn-danger:hover { background: #be123c; color: #ffffff; }
+        
+        .btn-sm { padding: 4px 10px; font-size: 10.5px; }
+        .btn-xs { padding: 3px 7px; font-size: 10px; }
+
+        /* Segmented Mode Controls */
+        .segmented-control {
+            display: inline-flex;
+            background: #040406;
+            border: 1px solid var(--border);
+            padding: 2px;
+            gap: 2px;
+        }
+        .segment-btn {
+            background: transparent;
+            border: 1px solid transparent;
+            color: var(--text-secondary);
+            font-size: 11px;
+            font-weight: 600;
+            padding: 5px 12px;
+            cursor: pointer;
+            transition: all 0.12s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+            font-family: 'JetBrains Mono', monospace;
+            text-transform: uppercase;
+        }
+        .segment-btn:hover {
+            color: var(--text-primary);
+            background: #0f0f16;
+        }
+        .segment-btn.active {
+            background: #161622;
+            color: #ffffff;
+            border-color: var(--border-hover);
+        }
+        .segment-btn.active.mode-auto {
+            background: var(--emerald-bg);
+            color: var(--emerald);
+            border-color: var(--emerald-border);
+        }
+        .segment-btn.active.mode-adv {
+            background: var(--cyan-bg);
+            color: var(--cyan);
+            border-color: var(--cyan-border);
+        }
+
+        /* ÖZET (SUMMARY METRICS) SECTION */
+        .summary-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
+            margin-bottom: 10px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid var(--border);
         }
-        .metric-value {
-            font-size: 22px;
+        .summary-title {
+            font-size: 12px;
             font-weight: 700;
-            letter-spacing: -0.02em;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
             font-family: 'JetBrains Mono', monospace;
         }
-        .metric-sub {
-            font-size: 11px;
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+        .summary-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            padding: 14px 16px;
+            position: relative;
+            transition: border-color 0.15s ease;
+        }
+        .summary-card:hover {
+            border-color: var(--border-hover);
+        }
+        .summary-card-label {
+            font-size: 10.5px;
+            color: var(--text-secondary);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .summary-card-value {
+            font-size: 21px;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            font-family: 'JetBrains Mono', monospace;
+            line-height: 1.2;
+            margin-bottom: 4px;
+        }
+        .summary-card-sub {
+            font-size: 10.5px;
             color: var(--text-muted);
-            margin-top: 2px;
+            line-height: 1.3;
         }
 
         /* Terminal Console */
         .terminal-box {
-            background: #040406;
+            background: #020203;
             border: 1px solid var(--border);
-            border-radius: 8px;
             margin-bottom: 16px;
             overflow: hidden;
         }
         .terminal-topbar {
-            background: var(--bg-surface);
+            background: #09090d;
             border-bottom: 1px solid var(--border);
             padding: 8px 14px;
             display: flex;
@@ -246,25 +376,29 @@
         }
         .terminal-title {
             font-size: 11px;
-            font-weight: 600;
+            font-weight: 700;
             color: var(--text-secondary);
             display: flex;
             align-items: center;
             gap: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
         .terminal-status-tag {
-            font-size: 10px;
-            font-weight: 600;
+            font-size: 10.5px;
+            font-weight: 700;
             color: var(--emerald);
             font-family: 'JetBrains Mono', monospace;
         }
         .terminal-content {
-            height: 190px;
+            height: 150px;
             padding: 12px 16px;
             overflow-y: auto;
             font-size: 11.5px;
-            line-height: 1.6;
+            line-height: 1.55;
             color: #d1d5db;
+            font-family: 'JetBrains Mono', monospace;
             white-space: pre-wrap;
             word-break: break-all;
         }
@@ -273,7 +407,6 @@
         .card {
             background: var(--bg-surface);
             border: 1px solid var(--border);
-            border-radius: 8px;
             margin-bottom: 16px;
             overflow: hidden;
         }
@@ -283,18 +416,22 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: #0b0b0e;
+            background: #07070b;
         }
         .card-title {
-            font-size: 12.5px;
-            font-weight: 600;
+            font-size: 12px;
+            font-weight: 700;
             color: var(--text-primary);
             display: flex;
             align-items: center;
             gap: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            font-family: 'JetBrains Mono', monospace;
         }
         .card-body {
             padding: 0;
+            background: var(--bg-surface);
         }
 
         .grid-2 {
@@ -307,16 +444,8 @@
             grid-template-columns: 1fr;
             gap: 16px;
         }
-        .index-hub-card {
-            background: #09090d;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
 
-        /* Data Tables */
+        /* Clean Data Tables */
         table {
             width: 100%;
             border-collapse: collapse;
@@ -324,56 +453,56 @@
             font-size: 12px;
         }
         th {
-            background: #09090c;
-            padding: 8px 14px;
+            background: #030305;
+            padding: 10px 14px;
             color: var(--text-secondary);
             font-size: 10.5px;
-            font-weight: 600;
+            font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.06em;
             border-bottom: 1px solid var(--border);
             white-space: nowrap;
+            font-family: 'JetBrains Mono', monospace;
         }
         td {
-            padding: 10px 14px;
+            padding: 12px 14px;
             border-bottom: 1px solid var(--border);
-            vertical-align: top;
+            vertical-align: middle;
         }
         tr:last-child td {
             border-bottom: none;
         }
         tr:hover td {
-            background: rgba(255, 255, 255, 0.015);
+            background: #0b0b10;
         }
 
-        /* Badges */
+        /* Sharp Badges */
         .badge {
             display: inline-flex;
             align-items: center;
             gap: 4px;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 10.5px;
-            font-weight: 600;
+            padding: 3px 7px;
+            font-size: 10px;
+            font-weight: 700;
             white-space: nowrap;
             font-family: 'JetBrains Mono', monospace;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            border: 1px solid var(--border);
         }
-        .badge-success { background: var(--emerald-bg); color: var(--emerald); border: 1px solid var(--emerald-border); }
-        .badge-warning { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-border); }
-        .badge-danger { background: var(--rose-bg); color: var(--rose); border: 1px solid var(--rose-border); }
-        .badge-info { background: var(--cyan-bg); color: var(--cyan); border: 1px solid var(--cyan-border); }
-        .badge-neutral { background: var(--bg-elevated); color: var(--text-secondary); border: 1px solid var(--border); }
-
-
+        .badge-success { background: var(--emerald-bg); color: var(--emerald); border-color: var(--emerald-border); }
+        .badge-warning { background: var(--amber-bg); color: var(--amber); border-color: var(--amber-border); }
+        .badge-danger { background: var(--rose-bg); color: var(--rose); border-color: var(--rose-border); }
+        .badge-info { background: var(--cyan-bg); color: var(--cyan); border-color: var(--cyan-border); }
+        .badge-neutral { background: var(--bg-elevated); color: var(--text-secondary); border-color: var(--border); }
 
         /* SQL Command Block */
         .sql-snippet {
             position: relative;
-            background: #050507;
-            border: 1px solid #1f1f27;
-            border-radius: 4px;
-            padding: 5px 8px;
-            margin-top: 5px;
+            background: #020204;
+            border: 1px solid #1c1c26;
+            padding: 6px 10px;
+            margin-top: 6px;
             font-family: 'JetBrains Mono', monospace;
             font-size: 11px;
             color: #93c5fd;
@@ -384,114 +513,116 @@
         }
         .sql-text {
             word-break: break-all;
-            line-height: 1.35;
+            line-height: 1.4;
         }
         .copy-btn {
-            background: transparent;
+            background: #0e0e16;
             border: 1px solid var(--border);
             color: var(--text-secondary);
-            border-radius: 3px;
-            padding: 1px 5px;
+            padding: 2px 7px;
             font-size: 9.5px;
             cursor: pointer;
             flex-shrink: 0;
             transition: all 0.1s ease;
+            font-family: 'JetBrains Mono', monospace;
+            text-transform: uppercase;
+            font-weight: 600;
         }
         .copy-btn:hover {
             color: #ffffff;
-            border-color: var(--text-secondary);
+            border-color: var(--border-hover);
+            background: #1a1a28;
         }
 
-        /* Speed Badge */
-        .speed-pill {
+        /* Speed Badges */
+        .speed-box {
             display: inline-flex;
             align-items: center;
             gap: 4px;
-            padding: 2px 7px;
-            border-radius: 4px;
+            padding: 3px 8px;
             font-family: 'JetBrains Mono', monospace;
-            font-size: 11px;
-            font-weight: 600;
+            font-size: 11.5px;
+            font-weight: 700;
+            border: 1px solid var(--border);
         }
-        .speed-fast { background: var(--emerald-bg); color: var(--emerald); border: 1px solid var(--emerald-border); }
-        .speed-slow { background: var(--rose-bg); color: var(--rose); border: 1px solid var(--rose-border); }
-        .speed-mid { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-border); }
+        .speed-fast { background: var(--emerald-bg); color: var(--emerald); border-color: var(--emerald-border); }
+        .speed-slow { background: var(--rose-bg); color: var(--rose); border-color: var(--rose-border); }
+        .speed-mid { background: var(--amber-bg); color: var(--amber); border-color: var(--amber-border); }
 
         .multiplier-tag {
-            font-size: 10px;
-            font-weight: 700;
+            font-size: 10.5px;
+            font-weight: 800;
             color: var(--emerald);
             font-family: 'JetBrains Mono', monospace;
             background: var(--emerald-bg);
             border: 1px solid var(--emerald-border);
-            padding: 1px 5px;
-            border-radius: 3px;
+            padding: 2px 6px;
         }
 
         /* Filter Tabs */
         .tab-btn {
             background: transparent;
-            border: none;
+            border: 1px solid transparent;
             color: var(--text-secondary);
-            padding: 3px 8px;
-            border-radius: 4px;
+            padding: 4px 10px;
             font-size: 11px;
-            font-weight: 500;
+            font-weight: 600;
             cursor: pointer;
+            font-family: 'JetBrains Mono', monospace;
+            text-transform: uppercase;
+            transition: all 0.12s ease;
         }
-        .tab-btn:hover { color: var(--text-primary); }
-        .tab-btn.active { background: var(--bg-elevated); color: #ffffff; border: 1px solid var(--border); }
+        .tab-btn:hover { color: var(--text-primary); background: #12121c; }
+        .tab-btn.active { background: var(--bg-elevated); color: #ffffff; border-color: var(--border-hover); }
 
         /* Toast */
         #toast {
             position: fixed;
             bottom: 20px;
             right: 20px;
-            background: var(--bg-surface);
+            background: #0c0c12;
             border: 1px solid var(--border-active);
             color: var(--text-primary);
-            padding: 10px 16px;
-            border-radius: 6px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            padding: 10px 18px;
             font-size: 12px;
+            font-family: 'JetBrains Mono', monospace;
             display: none;
             z-index: 9999;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.95);
         }
 
         .spinner {
             display: inline-block;
-            width: 12px;
-            height: 12px;
+            width: 11px;
+            height: 11px;
             border: 2px solid var(--border);
             border-top-color: var(--cyan);
-            border-radius: 50%;
             animation: spin 0.7s linear infinite;
             vertical-align: middle;
-            margin-right: 4px;
+            margin-right: 5px;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
         .empty-text {
-            padding: 24px;
+            padding: 28px;
             text-align: center;
             color: var(--text-muted);
             font-size: 12px;
+            font-family: 'JetBrains Mono', monospace;
         }
 
-        /* App Slide-Over Drawer Styles */
+        /* App Slide-Over Drawer */
         .drawer-backdrop {
             position: fixed;
             top: 0;
             left: 0;
             width: 100vw;
             height: 100vh;
-            background: rgba(0, 0, 0, 0.78);
-            backdrop-filter: blur(6px);
-            -webkit-backdrop-filter: blur(6px);
+            background: rgba(0, 0, 0, 0.85);
             z-index: 9998;
             opacity: 0;
             visibility: hidden;
-            transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.25s;
+            transition: opacity 0.2s ease, visibility 0.2s;
         }
         .drawer-backdrop.active {
             opacity: 1;
@@ -500,23 +631,23 @@
         .drawer-panel {
             position: fixed;
             top: 0;
-            right: -700px;
-            width: 640px;
-            max-width: 92vw;
+            right: -750px;
+            width: 680px;
+            max-width: 95vw;
             height: 100vh;
-            background: #08080c;
-            border-left: 1px solid #232330;
-            box-shadow: -20px 0 50px rgba(0, 0, 0, 0.95);
+            background: #050508;
+            border-left: 1px solid var(--border-hover);
+            box-shadow: -20px 0 60px rgba(0, 0, 0, 0.98);
             z-index: 9999;
             display: flex;
             flex-direction: column;
-            transition: right 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: right 0.25s ease;
         }
         .drawer-panel.active {
             right: 0;
         }
         .drawer-header {
-            background: #0d0d14;
+            background: #09090f;
             border-bottom: 1px solid var(--border);
             padding: 14px 18px 10px;
             display: flex;
@@ -524,28 +655,26 @@
             gap: 12px;
         }
         .drawer-close-btn {
-            background: #13131c;
+            background: #11111a;
             border: 1px solid var(--border);
             color: var(--text-secondary);
-            border-radius: 6px;
             width: 28px;
             height: 28px;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            transition: all 0.15s ease;
+            font-family: 'JetBrains Mono', monospace;
         }
         .drawer-close-btn:hover {
             color: #ffffff;
             border-color: var(--border-hover);
-            background: #1f1f2c;
+            background: #1b1b28;
         }
         .drawer-navbar {
             display: flex;
-            background: #040406;
+            background: #020204;
             border: 1px solid var(--border);
-            border-radius: 6px;
             padding: 2px;
             gap: 2px;
         }
@@ -553,92 +682,24 @@
             flex: 1;
             padding: 7px 12px;
             background: transparent;
-            border: none;
-            border-radius: 4px;
-            font-size: 11.5px;
-            font-weight: 500;
+            border: 1px solid transparent;
+            font-size: 11px;
+            font-weight: 600;
             color: var(--text-secondary);
             cursor: pointer;
-            transition: all 0.15s ease;
             text-align: center;
+            font-family: 'JetBrains Mono', monospace;
+            text-transform: uppercase;
         }
         .drawer-tab-btn.active {
-            background: #1a1a24;
+            background: #161622;
             color: #ffffff;
-            font-weight: 600;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+            border-color: var(--border-hover);
         }
         .drawer-body {
             flex: 1;
             overflow-y: auto;
-            background: #08080c;
-        }
-        .floating-drawer-pill {
-            position: fixed;
-            bottom: 24px;
-            right: 24px;
-            background: #12121c;
-            border: 1px solid var(--border-hover);
-            color: #ffffff;
-            padding: 9px 16px;
-            border-radius: 9999px;
-            font-size: 11.5px;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            cursor: pointer;
-            box-shadow: 0 4px 25px rgba(0,0,0,0.85);
-            z-index: 100;
-            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        .floating-drawer-pill:hover {
-            transform: translateY(-2px);
-            border-color: var(--emerald);
-            box-shadow: 0 6px 30px rgba(16, 185, 129, 0.25);
-            background: #161624;
-        .segmented-control {
-            display: inline-flex;
-            background: #06060a;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 2px;
-            gap: 2px;
-        }
-        .segment-btn {
-            background: transparent;
-            border: none;
-            color: var(--text-secondary);
-            font-size: 11px;
-            font-weight: 500;
-            padding: 4px 10px;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: all 0.15s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            white-space: nowrap;
-        }
-        .segment-btn:hover {
-            color: var(--text-primary);
-            background: rgba(255,255,255,0.04);
-        }
-        .segment-btn.active {
-            background: #1a1a26;
-            color: #ffffff;
-            font-weight: 600;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.5);
-        }
-        .segment-btn.active.mode-auto {
-            background: rgba(16, 185, 129, 0.15);
-            color: var(--emerald);
-            border: 1px solid var(--emerald-border);
-        }
-        .segment-btn.active.mode-adv {
-            background: rgba(6, 182, 212, 0.15);
-            color: var(--cyan);
-            border: 1px solid var(--cyan-border);
+            background: #050508;
         }
 
         /* Modal Styles */
@@ -648,8 +709,7 @@
             left: 0;
             width: 100vw;
             height: 100vh;
-            background: rgba(0, 0, 0, 0.82);
-            backdrop-filter: blur(8px);
+            background: rgba(0, 0, 0, 0.88);
             z-index: 10000;
             display: none;
             align-items: center;
@@ -660,24 +720,18 @@
             display: flex;
         }
         .modal-panel {
-            background: #09090e;
+            background: #07070b;
             border: 1px solid var(--border-hover);
-            border-radius: 12px;
             width: 520px;
             max-width: 95vw;
-            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.95);
+            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.98);
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            animation: modalPop 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        @keyframes modalPop {
-            0% { transform: scale(0.95); opacity: 0; }
-            100% { transform: scale(1); opacity: 1; }
         }
         .modal-header {
-            padding: 16px 20px;
-            background: #0e0e16;
+            padding: 14px 18px;
+            background: #0a0a10;
             border-bottom: 1px solid var(--border);
             display: flex;
             align-items: center;
@@ -690,14 +744,15 @@
             gap: 14px;
         }
         .modal-footer {
-            padding: 14px 20px;
-            background: #0e0e16;
+            padding: 12px 18px;
+            background: #0a0a10;
             border-top: 1px solid var(--border);
             display: flex;
             align-items: center;
             justify-content: flex-end;
             gap: 10px;
         }
+
         .form-row {
             display: grid;
             grid-template-columns: 2fr 1fr;
@@ -709,32 +764,30 @@
             gap: 6px;
         }
         .form-label {
-            font-size: 11px;
-            font-weight: 600;
+            font-size: 10.5px;
+            font-weight: 700;
             color: var(--text-secondary);
             text-transform: uppercase;
-            letter-spacing: 0.04em;
+            letter-spacing: 0.05em;
+            font-family: 'JetBrains Mono', monospace;
         }
         .form-input {
-            background: #040406;
+            background: #020204;
             border: 1px solid var(--border);
             color: #ffffff;
             font-family: 'JetBrains Mono', monospace;
             font-size: 12px;
             padding: 8px 12px;
-            border-radius: 6px;
-            transition: all 0.15s ease;
+            transition: all 0.12s ease;
         }
         .form-input:focus {
             outline: none;
             border-color: var(--cyan);
-            box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.2);
         }
 
         .autopilot-ribbon {
-            background: linear-gradient(90deg, rgba(16, 185, 129, 0.12), rgba(6, 182, 212, 0.08));
+            background: #04120e;
             border: 1px solid var(--emerald-border);
-            border-radius: 8px;
             padding: 10px 16px;
             margin-bottom: 16px;
             display: flex;
@@ -742,26 +795,40 @@
             justify-content: space-between;
         }
 
-        @media (max-width: 960px) {
-            .metric-grid { grid-template-columns: repeat(2, 1fr); }
+        .index-hub-card {
+            background: #07070a;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        @media (max-width: 1024px) {
+            .summary-grid { grid-template-columns: repeat(2, 1fr); }
             .grid-2 { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 640px) {
+            .summary-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
 
-    <!-- Header -->
+    <!-- Header Navigation -->
     <nav class="navbar">
         <div class="nav-brand">
+            <!-- Enlarged Brand Title without Version Badge -->
             <span class="brand-logo">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--cyan)"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-                VORTEX<span style="color:var(--text-muted)">//</span>DBA
+                <span class="brand-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                </span>
+                <span>VORTEX <span class="brand-accent">DBA</span></span>
             </span>
-            <span class="brand-badge" id="navbar-db-label">SQL Server 2022</span>
         </div>
+
         <div class="nav-tools">
             <!-- Database Connection Button -->
-            <button class="btn btn-default btn-sm" onclick="openDbConfigModal()" id="btn-db-target" style="background:#13131c; border-color:var(--border-hover); font-weight:600;" title="Veritabanı bağlantı ayarlarını yapılandır">
+            <button class="btn btn-default btn-sm" onclick="openDbConfigModal()" id="btn-db-target" title="Veritabanı bağlantı ayarlarını yapılandır">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--cyan)"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
                 <span id="nav-db-text">⚙️ DB: localhost/vortex_db</span>
             </button>
@@ -769,37 +836,45 @@
             <!-- Mode Selector (Mod A vs Mod B) -->
             <div class="segmented-control" id="mode-control" title="Çalışma Modu Seçimi">
                 <button class="segment-btn active mode-adv" id="mode-btn-advisor" onclick="switchMode('advisor')">
-                    <span>👤 Mod A (Danışman)</span>
+                    <span>👤 DANIŞMAN</span>
                 </button>
                 <button class="segment-btn" id="mode-btn-autonomous" onclick="switchMode('autonomous')">
-                    <span>🤖 Mod B (Otopilot)</span>
+                    <span>🤖 OTOPİLOT</span>
                 </button>
             </div>
 
             <!-- Traffic Source Selector -->
             <div class="segmented-control" id="source-control" title="Trafik Kaynağı">
                 <button class="segment-btn active" id="src-btn-sim" onclick="switchSource('simulation')">
-                    <span>🧪 Simülasyon</span>
+                    <span>🧪 SİMÜLASYON</span>
                 </button>
                 <button class="segment-btn" id="src-btn-live" onclick="switchSource('live_dmv')">
-                    <span>🔴 Canlı DMV</span>
+                    <span>🔴 CANLI DMV</span>
                 </button>
             </div>
 
-            <div id="health-badge" class="status-pill">
-                <span class="status-dot"></span>
-                <span>Port 1433 [Connected]</span>
+            <!-- Real-Time Auto Sync Tag -->
+            <div class="live-sync-tag" title="Veritabanı otomatik olarak arka planda izlenir">
+                <span class="pulse-indicator"></span>
+                <span>CANLI İZLEME (3s)</span>
             </div>
-            
+
+            <!-- Green / Red Database Health Status Box -->
+            <div id="health-badge" class="status-box disconnected">
+                <span class="status-dot"></span>
+                <span id="health-status-text">KONTROL EDİLİYOR...</span>
+            </div>
+
             <!-- Drawer Trigger in Navbar -->
-            <button class="btn btn-default btn-sm" onclick="openIndexDrawer('applied')" style="background:#13131c; border-color:var(--border-hover); font-weight:600;">
+            <button class="btn btn-default btn-sm" onclick="openIndexDrawer('applied')">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--emerald)"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline></svg>
-                <span>⚡ İndeks Çekmecesi</span>
+                <span>İNDEKS ÇEKMECESİ</span>
             </button>
 
-            <button class="btn btn-default btn-sm" onclick="loadAll(true)" id="btn-refresh">
+            <!-- Manual Refresh Button -->
+            <button class="btn btn-default btn-sm" onclick="loadAll(true)" id="btn-refresh" title="Manuel Anlık Yenileme">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
-                Yenile
+                <span>YENİLE</span>
             </button>
         </div>
     </nav>
@@ -808,21 +883,21 @@
     <div id="db-config-modal" class="modal-backdrop" onclick="closeDbConfigModal(event)">
         <div class="modal-panel" onclick="event.stopPropagation()">
             <div class="modal-header">
-                <div style="display:flex; align-items:center; gap:8px; font-weight:600; font-size:13px; color:#ffffff;">
+                <div style="display:flex; align-items:center; gap:8px; font-weight:700; font-size:12px; color:#ffffff; font-family:'JetBrains Mono',monospace; text-transform:uppercase;">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--cyan)"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
-                    <span>Hedef SQL Server Bağlantı Ayarları</span>
+                    <span>HEDEF SQL SERVER BAĞLANTI AYARLARI</span>
                 </div>
                 <button class="drawer-close-btn" onclick="closeDbConfigModal(null)">✕</button>
             </div>
             <div class="modal-body">
-                <div style="font-size:11.5px; color:var(--text-secondary); line-height:1.4;">
-                    VortexDBA'nın bağlanıp izleyeceği hedef Microsoft SQL Server veritabanı parametrelerini girin:
+                <div style="font-size:11px; color:var(--text-secondary); line-height:1.4;">
+                    VortexDBA motorunun bağlanacağı Microsoft SQL Server erişim parametrelerini yapılandırın:
                 </div>
                 
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label">Host / IP Adresi</label>
-                        <input type="text" id="cfg-host" class="form-input" placeholder="localhost veya 192.168.1.50" value="localhost">
+                        <input type="text" id="cfg-host" class="form-input" placeholder="localhost veya 127.0.0.1" value="localhost">
                     </div>
                     <div class="form-group">
                         <label class="form-label">Port</label>
@@ -846,15 +921,14 @@
                     </div>
                 </div>
 
-                <!-- Test Connection Feedback Box -->
-                <div id="db-test-result" style="display:none; padding:10px 12px; border-radius:6px; font-size:11.5px; font-family:'JetBrains Mono',monospace;"></div>
+                <div id="db-test-result" style="display:none; padding:10px 12px; font-size:11.5px; font-family:'JetBrains Mono',monospace;"></div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-default btn-sm" onclick="testDbConnection()" id="btn-test-db">
-                    <span>⚡ Bağlantıyı Test Et</span>
+                    <span>⚡ BAĞLANTIYI TEST ET</span>
                 </button>
                 <button class="btn btn-success btn-sm" onclick="saveDbConnection()" id="btn-save-db">
-                    <span>💾 Kaydet & Bağlan</span>
+                    <span>💾 KAYDET & BAĞLAN</span>
                 </button>
             </div>
         </div>
@@ -865,35 +939,88 @@
         <!-- Autopilot Banner (Visible in Mode B) -->
         <div id="autopilot-banner" class="autopilot-ribbon" style="display:none;">
             <div style="display:flex; align-items:center; gap:10px;">
-                <span class="status-dot" style="background:var(--emerald); box-shadow:0 0 10px var(--emerald);"></span>
-                <span style="font-size:12px; font-weight:600; color:var(--emerald);">🤖 OTOPİLOT MODU (Mod B) AKTİF:</span>
-                <span style="font-size:11.5px; color:var(--text-secondary);">SQL Server arka planda 7/24 izlenir, eksik indeksler ONLINE=ON ile otomatik uygulanır ve yavaşlama olursa rollback yapılır.</span>
+                <span class="status-dot" style="background:var(--emerald);"></span>
+                <span style="font-size:11.5px; font-weight:700; color:var(--emerald); font-family:'JetBrains Mono',monospace;">🤖 OTOPİLOT MODU (MOD B) AKTİF:</span>
+                <span style="font-size:11.5px; color:var(--text-secondary);">SQL Server 7/24 arka planda taranır. Eksik indeksler ONLINE=ON ile otomatik uygulanır ve gerileme halinde anında rollback yapılır.</span>
             </div>
-            <button class="btn btn-default btn-xs" onclick="switchMode('advisor')" style="font-size:10.5px;">Danışman Moduna Geç</button>
+            <button class="btn btn-default btn-xs" onclick="switchMode('advisor')">Danışman Moduna Geç</button>
         </div>
 
-        <!-- Control Action Bar -->
+        <!-- Engine Operations Control Bar -->
         <div class="control-panel">
             <div class="control-label">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg>
-                Engine Operations
+                MOTOR OPERASYONLARI
             </div>
             <div class="button-group">
                 <button class="btn btn-default" onclick="actionSimulateLoad()" id="btn-load">
-                    <span>1. Yavaş Trafik Simüle Et</span>
+                    <span>1. YAVAŞ TRAFİK SİMÜLE ET</span>
                 </button>
                 <button class="btn btn-success" onclick="actionRemediate(false)" id="btn-remediate">
-                    <span>2. İndeksleri Otomatik Uygula</span>
+                    <span>2. İNDEKSLERİ OTOMATİK UYGULA</span>
                 </button>
                 <button class="btn btn-warning" onclick="actionRunBenchmark()" id="btn-bench">
-                    <span>3. Canlı Benchmark Testi</span>
+                    <span>3. CANLI BENCHMARK TESTİ</span>
                 </button>
-                <button class="btn btn-default btn-sm" onclick="actionResetIndexesOnly()" id="btn-reset-idx" style="background:#13131c; border-color:var(--border-hover);" title="Yalnızca SQL Server'daki özel indeksleri kaldırır">
-                    <span>4. İndeksleri Sıfırla</span>
+                <button class="btn btn-default btn-sm" onclick="actionResetIndexesOnly()" id="btn-reset-idx" title="Yalnızca SQL Server'daki özel indeksleri kaldırır">
+                    <span>4. İNDEKSLERİ SIFIRLA</span>
                 </button>
-                <button class="btn btn-danger btn-sm" onclick="actionFullFactoryReset()" id="btn-reset-all" title="Tüm özel indeksleri, canlı ölçümleri, benchmark geçmişini ve dinamik süreleri fabrika ayarlarına sıfırlar">
-                    <span>5. 💥 Tüm Her Şeyi Sıfırla</span>
+                <button class="btn btn-danger btn-sm" onclick="actionFullFactoryReset()" id="btn-reset-all" title="Tüm özel indeksleri, benchmark ölçümlerini ve dinamik süreleri tamamen sıfırlar">
+                    <span>5. 💥 FABRİKA AYARLARINA DÖN</span>
                 </button>
+            </div>
+        </div>
+
+        <!-- ÖZET (SUMMARY METRICS) SECTION -->
+        <div class="summary-header">
+            <div class="summary-title">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--cyan)"><rect x="3" y="3" width="18" height="18" rx="0"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                <span>SİSTEM ÖZETİ & METRİKLER</span>
+            </div>
+            <div style="font-size:10.5px; color:var(--text-muted); font-family:'JetBrains Mono',monospace;">
+                GERÇEK ZAMANLI TELEMETRİ
+            </div>
+        </div>
+
+        <div class="summary-grid">
+            <!-- 1. Özel İndeksler -->
+            <div class="summary-card" onclick="openIndexDrawer('applied')" style="cursor:pointer;" title="Özel İndeksler Çekmecesini Görüntüle">
+                <div class="summary-card-label">
+                    <span>ÖZEL İNDEKSLER</span>
+                    <span style="font-size:9.5px; color:var(--emerald);">[ÇEKMECE ↗]</span>
+                </div>
+                <div class="summary-card-value" id="summary-custom-indexes" style="color:var(--emerald);">-</div>
+                <div class="summary-card-sub" id="summary-custom-sub">Aktif Nonclustered DDL</div>
+            </div>
+
+            <!-- 2. Ortalama Hızlanma -->
+            <div class="summary-card">
+                <div class="summary-card-label">
+                    <span>ORTALAMA HIZLANMA</span>
+                    <span style="font-size:9.5px; color:var(--cyan);">[KAZANÇ]</span>
+                </div>
+                <div class="summary-card-value" id="summary-avg-speedup" style="color:var(--cyan);">-</div>
+                <div class="summary-card-sub" id="summary-speedup-sub">Sorgu Süresi İyileşme Oranı</div>
+            </div>
+
+            <!-- 3. Kritik Darboğaz -->
+            <div class="summary-card">
+                <div class="summary-card-label">
+                    <span>KRİTİK DARBOĞAZ</span>
+                    <span style="font-size:9.5px; color:var(--amber);">[TABLE SCAN]</span>
+                </div>
+                <div class="summary-card-value" id="summary-bottlenecks" style="color:var(--amber);">-</div>
+                <div class="summary-card-sub" id="summary-bottleneck-sub">> 50ms süren / indekssiz sorgu</div>
+            </div>
+
+            <!-- 4. Güvenlik Durumu -->
+            <div class="summary-card">
+                <div class="summary-card-label">
+                    <span>GÜVENLİK DURUMU</span>
+                    <span style="font-size:9.5px; color:var(--emerald);">[DEVRE KESİCİ]</span>
+                </div>
+                <div class="summary-card-value" id="summary-safety" style="color:var(--emerald);">GÜVENLİ</div>
+                <div class="summary-card-sub" id="summary-safety-sub">Online DDL / Max 10 İndeks Sınırı</div>
             </div>
         </div>
 
@@ -901,92 +1028,61 @@
         <div class="terminal-box">
             <div class="terminal-topbar">
                 <div class="terminal-title">
-                    <span style="color:#ef4444">●</span>
-                    <span style="color:#f59e0b">●</span>
-                    <span style="color:#10b981">●</span>
-                    <span style="margin-left:6px; font-family:'JetBrains Mono',monospace;">STREAM LOGS</span>
+                    <span style="color:#ef4444">■</span>
+                    <span style="color:#f59e0b">■</span>
+                    <span style="color:#10b981">■</span>
+                    <span style="margin-left:6px;">STREAM TELEMETRY LOGS</span>
                 </div>
                 <div style="display:flex; align-items:center; gap:10px;">
-                    <span id="terminal-status" class="terminal-status-tag">● READY</span>
+                    <span id="terminal-status" class="terminal-status-tag">■ HAZIR</span>
                     <button class="btn btn-default btn-xs" onclick="clearTerminal()">Temizle</button>
                 </div>
             </div>
-            <div id="terminal-body" class="terminal-content"><span style="color:#555566;">[Hazır] SQL Server ve optimizasyon akışları burada gerçek zamanlı gösterilir...</span></div>
+            <div id="terminal-body" class="terminal-content"><span style="color:#525266;">[Hazır] SQL Server optimizasyon ve DDL akışları burada anlık gösterilir...</span></div>
         </div>
 
-        <!-- KPI Metrics -->
-        <div class="metric-grid">
-            <div class="metric-card">
-                <div class="metric-label">Toplam Satır (customers, orders)</div>
-                <div class="metric-value" id="total-rows" style="color:#ffffff;">-</div>
-                <div class="metric-sub" id="total-tables">2 Tablo</div>
-            </div>
-            <div class="metric-card" onclick="openIndexDrawer('applied')" style="cursor:pointer;" title="Özel İndeksler Çekmecesini Aç">
-                <div class="metric-label">
-                    <span>İndeksli Okuma Verimi</span>
-                    <span style="font-size:10px; color:var(--emerald);">[Çekmece ↗]</span>
-                </div>
-                <div class="metric-value" id="health-score" style="color:var(--emerald);">-%</div>
-                <div class="metric-sub">Index Scan / Total Scans</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-label">Yavaş Sorgu Sayısı</div>
-                <div class="metric-value" id="slow-count" style="color:var(--amber);">-</div>
-                <div class="metric-sub">> 50ms süren sorgular</div>
-            </div>
-            <div class="metric-card" onclick="openIndexDrawer('unused')" style="cursor:pointer;" title="Atıl / Ezilen İndeksler Çekmecesini Aç">
-                <div class="metric-label">
-                    <span>Atıl / Ezilen İndeks</span>
-                    <span style="font-size:10px; color:var(--rose);">[Çekmece ↗]</span>
-                </div>
-                <div class="metric-value" id="unused-count" style="color:var(--rose);">-</div>
-                <div class="metric-sub" id="unused-size">Gereksiz indeks sayısı</div>
-            </div>
-        </div>
-
-        <!-- 1. Performance Matrix (Before vs After & Index Mechanics) -->
+        <!-- TEMEL SÜTUNLAR HALİNDE DÜZENLENMİŞ SORGU MATRİSİ TABLOSU -->
         <div class="card">
             <div class="card-header">
                 <div class="card-title">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--cyan)"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
-                    Sorgu Performans & İndeks Karşılaştırma Matrisi (Öncesi vs Sonrası)
+                    <span>SORGU PERFORMANS & İNDEKS KARŞILAŞTIRMA MATRİSİ</span>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
-                    <div style="display:flex; background:var(--bg-input); border:1px solid var(--border); border-radius:5px; padding:2px;">
-                        <button class="tab-btn active" onclick="setMatrixFilter('all')" id="mf-all">Tümü (15)</button>
-                        <button class="tab-btn" onclick="setMatrixFilter('optimized')" id="mf-opt">İndeksli</button>
-                        <button class="tab-btn" onclick="setMatrixFilter('pending')" id="mf-pend">İndekssiz</button>
+                    <div style="display:flex; background:var(--bg-input); border:1px solid var(--border); padding:2px;">
+                        <button class="tab-btn active" onclick="setMatrixFilter('all')" id="mf-all">TÜMÜ (15)</button>
+                        <button class="tab-btn" onclick="setMatrixFilter('optimized')" id="mf-opt">İNDEKSLİ</button>
+                        <button class="tab-btn" onclick="setMatrixFilter('pending')" id="mf-pend">İNDEKS BEKLEYEN</button>
                     </div>
-                    <select id="matrix-sort" onchange="renderMatrixTable()" style="background:var(--bg-input); color:var(--text-secondary); border:1px solid var(--border); padding:3px 8px; border-radius:4px; font-size:11px;">
-                        <option value="slowest">En Yavaştan</option>
-                        <option value="speedup">En Çok Hızlananlar</option>
-                        <option value="fastest">En Hızlıdan</option>
+                    <select id="matrix-sort" onchange="renderMatrixTable()" style="background:var(--bg-input); color:var(--text-secondary); border:1px solid var(--border); padding:4px 8px; font-size:11px; font-family:'JetBrains Mono',monospace;">
+                        <option value="slowest">EN YAVAŞTAN</option>
+                        <option value="speedup">EN ÇOK HIZLANANLAR</option>
+                        <option value="fastest">EN HIZLIDAN</option>
                     </select>
                 </div>
             </div>
             <div class="card-body">
-                <div id="performance-matrix" class="empty-text"><span class="spinner"></span> Yükleniyor...</div>
+                <div id="performance-matrix" class="empty-text"><span class="spinner"></span> Veriler yükleniyor...</div>
             </div>
         </div>
 
-        <!-- 2. Index Management Hub (Side-by-Side: Applied Custom Indexes vs Unused Indexes with Navbar Switcher) -->
+        <!-- İNDEKS YÖNETİM MERKEZİ (ÖZEL & ATIL İNDEKSLER) -->
         <div class="card">
-            <div class="card-header" style="border-bottom: 1px solid var(--border); padding: 10px 16px;">
+            <div class="card-header">
                 <div class="card-title">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--emerald)"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-                    İndeks Yönetim Merkezi (Aktif Özel İndeksler & Atıl İndeksler)
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--emerald)"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline></svg>
+                    <span>İNDEKS YÖNETİM MERKEZİ</span>
                 </div>
                 
-                <!-- Sub-Navbar Tab Switcher -->
-                <div style="display:flex; background:var(--bg-input); border:1px solid var(--border); border-radius:5px; padding:2px; gap:2px;">
+                <div style="display:flex; background:var(--bg-input); border:1px solid var(--border); padding:2px; gap:2px;">
                     <button class="tab-btn active" onclick="setIndexHubView('split')" id="ih-split">
-                        ◫ Yan Yana (50 / 50)
+                        ◫ YAN YANA
                     </button>
                     <button class="tab-btn" onclick="setIndexHubView('applied')" id="ih-applied">
-                        ✅ Özel İndeksler (Aktif)
+                        ✅ ÖZEL İNDEKSLER (AKTİF)
                     </button>
                     <button class="tab-btn" onclick="setIndexHubView('unused')" id="ih-unused">
-                        ⚠️ Atıl / Ezilen İndeksler
+                        ⚠️ ATIL İNDEKSLER
                     </button>
                 </div>
             </div>
@@ -995,28 +1091,28 @@
                 <div id="index-hub-container" class="grid-2" style="gap: 12px; margin-bottom: 0;">
                     <!-- Sol Sütun: SQL Server'daki Aktif Özel İndeksler -->
                     <div id="col-applied" class="index-hub-card">
-                        <div class="card-header" style="background:#0c0c12; padding:8px 12px; border-bottom:1px solid var(--border);">
-                            <div class="card-title" style="font-size:12px;">
+                        <div class="card-header" style="background:#07070c; padding:8px 12px; border-bottom:1px solid var(--border);">
+                            <div class="card-title" style="font-size:11px;">
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--emerald)"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                SQL Server'daki Özel İndeksler & DDL Kodları
+                                <span>SQL SERVER AKTİF ÖZEL İNDEKSLER</span>
                             </div>
                             <span class="badge badge-success">Live Nonclustered</span>
                         </div>
-                        <div class="card-body" id="applied-indexes" style="padding:0;">
+                        <div class="card-body" id="applied-indexes">
                             <div class="empty-text"><span class="spinner"></span> Yükleniyor...</div>
                         </div>
                     </div>
 
                     <!-- Sağ Sütun: Kullanılmayan / Ezilen İndeksler -->
                     <div id="col-unused" class="index-hub-card">
-                        <div class="card-header" style="background:#0c0c12; padding:8px 12px; border-bottom:1px solid var(--border);">
-                            <div class="card-title" style="font-size:12px;">
+                        <div class="card-header" style="background:#07070c; padding:8px 12px; border-bottom:1px solid var(--border);">
+                            <div class="card-title" style="font-size:11px;">
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--rose)"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                Kullanılmayan / Ezilen İndeksler (0 Tarama)
+                                <span>ATIL / EZİLEN İNDEKSLER (0 TARAMA)</span>
                             </div>
-                            <span class="badge badge-danger">Redundant Cleanup</span>
+                            <span class="badge badge-danger">Temizlik Gerekli</span>
                         </div>
-                        <div class="card-body" id="unused-indexes" style="padding:0;">
+                        <div class="card-body" id="unused-indexes">
                             <div class="empty-text"><span class="spinner"></span> Yükleniyor...</div>
                         </div>
                     </div>
@@ -1024,28 +1120,28 @@
             </div>
         </div>
 
-        <!-- 3. Tables Stats & Autonomous Decisions Log Grid -->
+        <!-- 3. Tablo İstatistikleri & Karar Geçmişi -->
         <div class="grid-2">
             <!-- Table Stats -->
             <div class="card">
                 <div class="card-header">
                     <div class="card-title">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--blue)"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
-                        Tablo İstatistikleri & Okuma Türü
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--blue)"><rect x="3" y="3" width="18" height="18" rx="0"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                        <span>TABLO İSTATİSTİKLERİ & OKUMA DAĞILIMI</span>
                     </div>
-                    <span class="badge badge-neutral">sys.dm_db_index_operational_stats</span>
+                    <span class="badge badge-neutral">dm_db_index_operational_stats</span>
                 </div>
                 <div class="card-body" id="table-stats">
                     <div class="empty-text"><span class="spinner"></span> Yükleniyor...</div>
                 </div>
             </div>
 
-            <!-- Agent Audit Log -->
+            <!-- Agent Decisions Log -->
             <div class="card">
                 <div class="card-header">
                     <div class="card-title">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--amber)"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                        Otonom Karar Geçmişi (Audit Trail)
+                        <span>OTONOM KARAR GEÇMİŞİ (AUDIT TRAIL)</span>
                     </div>
                     <span class="badge badge-neutral">State Store</span>
                 </div>
@@ -1055,45 +1151,29 @@
             </div>
         </div>
 
-        <!-- 4. DMV Index Scans Counter -->
-        <div class="card">
-            <div class="card-header">
-                <div class="card-title">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--cyan)"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                    DMV İndeks Kullanım Sayaçları (sys.dm_db_index_usage_stats)
-                </div>
-                <span class="badge badge-neutral">Seeks + Scans + Lookups</span>
-            </div>
-            <div class="card-body" id="index-stats">
-                <div class="empty-text"><span class="spinner"></span> Yükleniyor...</div>
-            </div>
-        </div>
-
     </div>
 
-    <!-- App Drawer Backdrop (Dark Blur Overlay) -->
+    <!-- App Drawer Backdrop -->
     <div id="drawer-backdrop" class="drawer-backdrop" onclick="closeIndexDrawer()"></div>
 
-    <!-- App Drawer Panel (Slide-Over from Right) -->
+    <!-- App Drawer Panel -->
     <div id="drawer-panel" class="drawer-panel">
         <div class="drawer-header">
             <div style="display:flex; align-items:center; justify-content:space-between; width:100%;">
                 <div style="display:flex; align-items:center; gap:8px;">
                     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--emerald)"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline></svg>
-                    <span style="font-size:13.5px; font-weight:700; color:#ffffff;">İndeks Yönetim Çekmecesi</span>
+                    <span style="font-size:13px; font-weight:800; color:#ffffff; font-family:'JetBrains Mono',monospace; text-transform:uppercase;">İNDEKS YÖNETİM ÇEKMECESİ</span>
                 </div>
-                <button onclick="closeIndexDrawer()" class="drawer-close-btn" title="Kapat (Esc)">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                </button>
+                <button onclick="closeIndexDrawer()" class="drawer-close-btn" title="Kapat (Esc)">✕</button>
             </div>
 
             <!-- Drawer Sub-Navbar -->
             <div class="drawer-navbar">
                 <button class="drawer-tab-btn active" onclick="switchDrawerTab('applied')" id="dtab-applied">
-                    ✅ Özel İndeksler (Aktif)
+                    ✅ ÖZEL İNDEKSLER (AKTİF)
                 </button>
                 <button class="drawer-tab-btn" onclick="switchDrawerTab('unused')" id="dtab-unused">
-                    ⚠️ Atıl / Ezilen İndeksler
+                    ⚠️ ATIL / EZİLEN İNDEKSLER
                 </button>
             </div>
         </div>
@@ -1101,8 +1181,8 @@
         <div class="drawer-body">
             <!-- Tab 1: Özel İndeksler -->
             <div id="dview-applied" class="drawer-view">
-                <div style="padding:10px 16px; background:#06060a; border-bottom:1px solid var(--border); font-size:11px; color:var(--text-secondary);">
-                    SQL Server üzerinde çalışan özel DDL indeksleri ve DMV tarama istatistikleri.
+                <div style="padding:10px 16px; background:#020204; border-bottom:1px solid var(--border); font-size:11px; color:var(--text-secondary); font-family:'JetBrains Mono',monospace;">
+                    SQL Server üzerindeki özel DDL indeksleri ve DMV tarama kullanım sayaçları:
                 </div>
                 <div id="drawer-applied-indexes" style="padding:0;">
                     <div class="empty-text"><span class="spinner"></span> Yükleniyor...</div>
@@ -1111,20 +1191,14 @@
 
             <!-- Tab 2: Atıl / Ezilen İndeksler -->
             <div id="dview-unused" class="drawer-view" style="display:none;">
-                <div style="padding:10px 16px; background:#06060a; border-bottom:1px solid var(--border); font-size:11px; color:var(--text-secondary);">
-                    Kompozit indeksler tarafından ezilen veya hiç kullanılmayan atıl indeksler.
+                <div style="padding:10px 16px; background:#020204; border-bottom:1px solid var(--border); font-size:11px; color:var(--text-secondary); font-family:'JetBrains Mono',monospace;">
+                    Kompozit indeksler tarafından ezilen veya hiç kullanılmayan atıl indeksler:
                 </div>
                 <div id="drawer-unused-indexes" style="padding:0;">
                     <div class="empty-text"><span class="spinner"></span> Yükleniyor...</div>
                 </div>
             </div>
         </div>
-    </div>
-
-    <!-- Floating Trigger Pill Button -->
-    <div class="floating-drawer-pill" onclick="openIndexDrawer('applied')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--emerald)"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline></svg>
-        <span>İndeks Çekmecesi</span>
     </div>
 
     <!-- Toast Notification -->
@@ -1137,13 +1211,14 @@
             const t = document.getElementById('toast');
             t.textContent = msg;
             t.style.borderColor = isError ? 'var(--rose)' : 'var(--border-active)';
+            t.style.color = isError ? 'var(--rose)' : 'var(--text-primary)';
             t.style.display = 'block';
-            setTimeout(() => { t.style.display = 'none'; }, 3500);
+            setTimeout(() => { t.style.display = 'none'; }, 3000);
         }
 
         function copySql(text) {
             navigator.clipboard.writeText(text).then(() => {
-                showToast('SQL kopyalandı');
+                showToast('SQL panoya kopyalandı');
             }).catch(() => {
                 showToast('Kopyalama başarısız', true);
             });
@@ -1155,6 +1230,20 @@
                 return await r.json();
             } catch (e) {
                 console.error(`API Hatası [${endpoint}]:`, e);
+                return null;
+            }
+        }
+
+        async function postJSON(endpoint, payload) {
+            try {
+                const r = await fetch(API + endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                return await r.json();
+            } catch (e) {
+                console.error(`POST Hatası [${endpoint}]:`, e);
                 return null;
             }
         }
@@ -1257,39 +1346,61 @@
             }
         });
 
+        /* --- Performance Matrix & Summary Metrics --- */
         async function loadPerformanceMatrix() {
             const d = await fetchJSON('/api/performance-matrix');
             if (!d || !d.matrix) return;
             matrixData = d.matrix;
 
             const totalCount = matrixData.length;
-            const slowOrUnindexed = matrixData.filter(m => !m.has_index || (m.current_ms && m.current_ms > 50)).length;
+            const optItems = matrixData.filter(m => m.has_index && m.current_ms !== null);
             const optCount = matrixData.filter(m => m.has_index).length;
             const pendCount = matrixData.filter(m => !m.has_index).length;
 
-            const slowEl = document.getElementById('slow-count');
-            if (slowEl) slowEl.textContent = `${slowOrUnindexed} / ${totalCount}`;
+            // Compute Average Speedup for Özet Section
+            const speedupSum = optItems.reduce((acc, curr) => acc + (curr.multiplier || 1), 0);
+            const avgSpeedup = optItems.length > 0 ? (speedupSum / optItems.length).toFixed(1) : null;
+            const speedupPctSum = optItems.reduce((acc, curr) => acc + (curr.speedup_pct || 0), 0);
+            const avgPct = optItems.length > 0 ? (speedupPctSum / optItems.length).toFixed(0) : null;
 
+            const avgSpeedupEl = document.getElementById('summary-avg-speedup');
+            const avgSubEl = document.getElementById('summary-speedup-sub');
+            if (avgSpeedupEl) {
+                if (avgSpeedup && Number(avgSpeedup) > 1) {
+                    avgSpeedupEl.textContent = `${avgSpeedup}x (+%${avgPct})`;
+                    avgSpeedupEl.style.color = 'var(--cyan)';
+                    if (avgSubEl) avgSubEl.textContent = `${optItems.length} İndeksli Sorguda Ortalama Kazanç`;
+                } else {
+                    avgSpeedupEl.textContent = '— (1.0x)';
+                    avgSpeedupEl.style.color = 'var(--text-muted)';
+                    if (avgSubEl) avgSubEl.textContent = 'Ölçüm Bekleniyor';
+                }
+            }
+
+            // Compute Critical Bottlenecks (> 50ms or unindexed)
+            const slowOrUnindexed = matrixData.filter(m => !m.has_index || (m.current_ms && m.current_ms > 50)).length;
+            const bottleneckEl = document.getElementById('summary-bottlenecks');
+            const bottleneckSub = document.getElementById('summary-bottleneck-sub');
+            if (bottleneckEl) {
+                bottleneckEl.textContent = `${slowOrUnindexed} / ${totalCount}`;
+                bottleneckEl.style.color = slowOrUnindexed > 0 ? 'var(--amber)' : 'var(--emerald)';
+                if (bottleneckSub) bottleneckSub.textContent = slowOrUnindexed > 0 ? 'Table Scan / İndeks Eksik' : 'Tüm Sorgular Optimize';
+            }
+
+            // Update tab badge counters
             const mfAll = document.getElementById('mf-all');
-            if (mfAll) mfAll.textContent = `Tümü (${totalCount})`;
+            if (mfAll) mfAll.textContent = `TÜMÜ (${totalCount})`;
 
             const mfOpt = document.getElementById('mf-opt');
-            if (mfOpt) mfOpt.textContent = `İndekslenmiş (${optCount})`;
+            if (mfOpt) mfOpt.textContent = `İNDEKSLİ (${optCount})`;
 
             const mfPend = document.getElementById('mf-pend');
-            if (mfPend) mfPend.textContent = `İndeks Bekleyen (${pendCount})`;
-
-            // Auto-fallback to 'all' filter if currently on 'optimized' with 0 indexes
-            if (matrixFilter === 'optimized' && optCount === 0) {
-                matrixFilter = 'all';
-                if (mfAll) mfAll.className = 'tab-btn active';
-                if (mfOpt) mfOpt.className = 'tab-btn';
-                if (mfPend) mfPend.className = 'tab-btn';
-            }
+            if (mfPend) mfPend.textContent = `İNDEKS BEKLEYEN (${pendCount})`;
 
             renderMatrixTable();
         }
 
+        /* --- Clean Tabular Columns for Performance Matrix --- */
         function renderMatrixTable() {
             if (!matrixData || !matrixData.length) {
                 document.getElementById('performance-matrix').innerHTML = '<div class="empty-text">Performans verisi bulunamadı.</div>';
@@ -1316,22 +1427,23 @@
             let html = `<table>
                 <thead>
                     <tr>
-                        <th style="width:52%;">Sorgu & Uygulanan İndeks DDL</th>
-                        <th style="width:16%;">İndekssiz (0 İndeks)</th>
-                        <th style="width:16%;">İndeksli (Canlı)</th>
-                        <th style="width:16%;">Hızlanma / Değişim Oranı</th>
+                        <th style="width:24%;">SİSTEM SORGUSU & TABLO</th>
+                        <th style="width:36%;">SQL SORGUSU & UYGULANAN/ÖNERİLEN İNDEKS DDL</th>
+                        <th style="width:13%;">İNDEKS ÖNCESİ</th>
+                        <th style="width:13%;">İNDEKS SONRASI</th>
+                        <th style="width:14%;">HIZLANMA ORANI</th>
                     </tr>
                 </thead>
                 <tbody>`;
 
-            list.forEach((item, idx) => {
-                const recSql = item.recommended_sql || `CREATE NONCLUSTERED INDEX idx_${item.table}_${item.name} ON ${item.table} (${item.columns});`;
-
-                let activeBadge = '';
-                if (item.active_indexes && item.active_indexes.length) {
-                    activeBadge = `<span class="badge badge-success" style="font-size:10px;">${item.active_indexes.join(', ')}</span>`;
+            list.forEach((item) => {
+                let statusBadge = '';
+                if (item.has_index && item.active_indexes && item.active_indexes.length) {
+                    statusBadge = `<span class="badge badge-success" style="font-size:9.5px;">${item.active_indexes[0]}</span>`;
+                } else if (item.has_index) {
+                    statusBadge = `<span class="badge badge-success" style="font-size:9.5px;">İndeksli</span>`;
                 } else {
-                    activeBadge = `<span class="badge badge-danger" style="font-size:10px;">İndeks Eksik (Table Scan)</span>`;
+                    statusBadge = `<span class="badge badge-danger" style="font-size:9.5px;">İndekssiz (Scan)</span>`;
                 }
 
                 let speedCell = '';
@@ -1339,26 +1451,25 @@
 
                 if (!item.has_index) {
                     speedCell = `<span class="badge badge-neutral font-mono">— (0 İndeks)</span>`;
-                    speedupCell = `<span style="color:var(--text-muted); font-size:11px;">İndeks Bekliyor</span>`;
+                    speedupCell = `<span style="color:var(--text-muted); font-size:11px; font-family:'JetBrains Mono',monospace;">İndeks Bekliyor</span>`;
                 } else if (item.current_ms === null || item.current_ms === undefined) {
                     speedCell = `<span class="badge badge-warning font-mono">Ölçüm Bekliyor</span>`;
-                    speedupCell = `<span style="color:var(--text-muted); font-size:11px;">Benchmark Gerekli</span>`;
+                    speedupCell = `<span style="color:var(--text-muted); font-size:11px; font-family:'JetBrains Mono',monospace;">Benchmark Gerekli</span>`;
                 } else if (item.speedup_pct !== null && item.speedup_pct < 0) {
-                    // Slower / Degraded (Red with minus)
-                    speedCell = `<div class="speed-pill speed-slow" style="border-color:var(--rose-border); color:var(--rose); background:rgba(244,63,94,0.1);">${item.current_ms} ms</div>`;
+                    speedCell = `<div class="speed-box speed-slow">${item.current_ms} ms</div>`;
                     speedupCell = `
                         <div style="display:flex; align-items:center; gap:6px;">
-                            <span class="multiplier-tag" style="background:rgba(244,63,94,0.15); color:var(--rose); border-color:rgba(244,63,94,0.3); font-weight:700;">${item.multiplier}x</span>
-                            <span style="color:var(--rose); font-size:11px; font-weight:700;">-%${Math.abs(item.speedup_pct)}</span>
+                            <span class="multiplier-tag" style="background:var(--rose-bg); color:var(--rose); border-color:var(--rose-border);">${item.multiplier}x</span>
+                            <span style="color:var(--rose); font-size:11px; font-weight:700; font-family:'JetBrains Mono',monospace;">-%${Math.abs(item.speedup_pct)}</span>
                         </div>
                     `;
                 } else {
                     const speedClass = item.current_ms < 15 ? 'speed-fast' : (item.current_ms < 60 ? 'speed-mid' : 'speed-slow');
-                    speedCell = `<div class="speed-pill ${speedClass}">${item.current_ms} ms</div>`;
+                    speedCell = `<div class="speed-box ${speedClass}">${item.current_ms} ms</div>`;
                     speedupCell = `
                         <div style="display:flex; align-items:center; gap:6px;">
                             <span class="multiplier-tag">${item.multiplier}x</span>
-                            <span style="color:var(--emerald); font-size:11px; font-weight:600;">+${item.speedup_pct ? '%' + item.speedup_pct : '%0'}</span>
+                            <span style="color:var(--emerald); font-size:11px; font-weight:700; font-family:'JetBrains Mono',monospace;">+${item.speedup_pct ? '%' + item.speedup_pct : '%0'}</span>
                         </div>
                     `;
                 }
@@ -1366,67 +1477,65 @@
                 let indexSqlBlock = '';
                 if (item.has_index && item.applied_index_sqls && item.applied_index_sqls.length) {
                     indexSqlBlock = `
-                        <div style="font-size:10px; font-weight:600; color:var(--emerald); margin-top:6px; letter-spacing:0.02em;">
-                            UYGULANAN ÖZEL İNDEKS (SQL SERVER):
+                        <div style="font-size:10px; font-weight:700; color:var(--emerald); margin-top:6px; letter-spacing:0.04em; font-family:'JetBrains Mono',monospace;">
+                            ⚡ AKTİF ÖZEL İNDEKS (SQL SERVER):
                         </div>
                         ${item.applied_index_sqls.map(asql => `
                             <div class="sql-snippet" style="border-color:var(--emerald-border);">
                                 <span class="sql-text" style="color:#6ee7b7;">${asql}</span>
-                                <button class="copy-btn" onclick="copySql('${asql.replace(/'/g, "\\'")}')">Kopyala</button>
+                                <button class="copy-btn" onclick="copySql('${asql.replace(/'/g, "\'")}')">Kopyala</button>
                             </div>
                         `).join('')}
                     `;
                 } else if (item.recommended_sql) {
                     indexSqlBlock = `
-                        <div style="font-size:10px; font-weight:600; color:var(--amber); margin-top:6px; letter-spacing:0.02em;">
-                            ⚡ DİNAMİK İNDEKS ÖNERİSİ (IndexAdvisor):
+                        <div style="font-size:10px; font-weight:700; color:var(--amber); margin-top:6px; letter-spacing:0.04em; font-family:'JetBrains Mono',monospace;">
+                            ⚡ ÖNERİLEN DİNAMİK İNDEKS (IndexAdvisor):
                         </div>
-                        <div class="sql-snippet" style="border-color:rgba(245,158,11,0.25);">
+                        <div class="sql-snippet" style="border-color:var(--amber-border);">
                             <span class="sql-text" style="color:#fde68a;">${item.recommended_sql}</span>
-                            <button class="copy-btn" onclick="copySql('${item.recommended_sql.replace(/'/g, "\\'")}')">Kopyala</button>
+                            <button class="copy-btn" onclick="copySql('${item.recommended_sql.replace(/'/g, "\'")}')">Kopyala</button>
                         </div>
                     `;
                 } else {
                     indexSqlBlock = `
-                        <div style="font-size:11px; color:var(--text-muted); margin-top:6px; font-style:italic; display:flex; align-items:center; gap:5px;">
-                            <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--border);"></span>
-                            <span>İndeks Önerisi: 1. Adım (Yavaş Trafik Simülasyonu) çalıştırıldığında üretilecektir.</span>
+                        <div style="font-size:10.5px; color:var(--text-muted); margin-top:5px; font-family:'JetBrains Mono',monospace;">
+                            İndeks Önerisi: Yavaş trafik simülasyonu ile üretilecektir.
                         </div>
                     `;
                 }
 
                 let baselineCell = '';
                 if (item.baseline_ms === null || item.baseline_ms === undefined) {
-                    baselineCell = `<span class="badge badge-neutral font-mono" style="font-size:10px;">— (Ölçüm Bekliyor)</span>`;
+                    baselineCell = `<span class="badge badge-neutral font-mono">— (Ölçüm Bekliyor)</span>`;
                 } else {
-                    baselineCell = `<div class="speed-pill speed-slow">${item.baseline_ms} ms</div>`;
+                    baselineCell = `<div class="speed-box speed-slow">${item.baseline_ms} ms</div>`;
                 }
 
                 html += `
                     <tr>
                         <td>
-                            <div style="font-weight:600; color:var(--text-primary); font-size:12px; margin-bottom:2px; display:flex; align-items:center; gap:6px;">
+                            <div style="font-weight:700; color:var(--text-primary); font-size:12px; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
                                 <span>${item.title}</span>
-                                ${activeBadge}
                             </div>
-                            <div style="font-size:11px; color:var(--text-secondary); margin-bottom:2px;">
-                                ${item.description}
+                            <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                                ${statusBadge}
+                                <span style="font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-secondary);">Tablo: <strong>${item.table}</strong></span>
                             </div>
-                            
-                            <!-- Concrete Applied or Recommended SQL Definition -->
-                            ${indexSqlBlock}
+                            <div style="font-size:11px; color:var(--text-muted);">
+                                ${item.description || ''}
+                            </div>
+                        </td>
+                        <td>
+                            <!-- SQL Query Block -->
+                            <div style="background:#020204; padding:6px 8px; border:1px solid var(--border); position:relative;">
+                                <pre style="margin:0; font-family:'JetBrains Mono',monospace; font-size:10.5px; color:#cbd5e1; white-space:pre-wrap; word-break:break-all; line-height:1.35;">${item.query_sql}</pre>
+                                <button class="copy-btn" style="position:absolute; top:4px; right:6px;" onclick="copySql('${item.query_sql.replace(/'/g, "\'").replace(/
+/g, "\n")}')">Kopyala</button>
+                            </div>
 
-                            <!-- Always Visible Concrete Test SQL Query -->
-                            <div style="margin-top:8px;">
-                                <div style="font-size:10px; font-weight:600; color:var(--cyan); margin-bottom:3px; text-transform:uppercase; letter-spacing:0.04em; display:flex; align-items:center; gap:5px;">
-                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
-                                    <span>Çalıştırılan Yavaş Test SQL Sorgusu:</span>
-                                </div>
-                                <div style="background:#040406; padding:8px 10px; border-radius:4px; border:1px solid var(--border); position:relative;">
-                                    <pre style="margin:0; font-family:'JetBrains Mono',monospace; font-size:11px; color:#cbd5e1; white-space:pre-wrap; word-break:break-all; line-height:1.4;">${item.query_sql}</pre>
-                                    <button class="copy-btn" style="position:absolute; top:6px; right:8px;" onclick="copySql('${item.query_sql.replace(/'/g, "\\'").replace(/\n/g, "\\n")}')">Kopyala</button>
-                                </div>
-                            </div>
+                            <!-- Applied or Recommended Index DDL Block -->
+                            ${indexSqlBlock}
                         </td>
                         <td>
                             ${baselineCell}
@@ -1445,48 +1554,25 @@
             document.getElementById('performance-matrix').innerHTML = html;
         }
 
-        /* --- Stats & Health --- */
+        /* --- Health Check & Dynamic Connection Indicator --- */
         async function loadHealth() {
             const d = await fetchJSON('/health');
             const el = document.getElementById('health-badge');
-            if (d && d.status === 'healthy') {
-                el.innerHTML = '<span class="status-dot"></span><span>Port 1433 [Connected]</span>';
-                el.className = 'status-pill';
+            const txt = document.getElementById('health-status-text');
+            
+            if (d && (d.connected === true || d.status === 'healthy')) {
+                el.className = 'status-box connected';
+                txt.textContent = `ONLINE | :${d.port || 1433}`;
             } else {
-                el.innerHTML = '<span class="status-dot" style="background:var(--rose)"></span><span>Bağlantı Hatası</span>';
-                el.className = 'status-pill';
-                el.style.background = 'var(--rose-bg)';
-                el.style.color = 'var(--rose)';
-                el.style.borderColor = 'var(--rose-border)';
+                el.className = 'status-box disconnected';
+                txt.textContent = 'OFFLINE | BAĞLANTI YOK';
             }
         }
 
+        /* --- Stats and Summary Updates --- */
         async function loadStats() {
             const d = await fetchJSON('/api/stats');
             if (!d) return;
-
-            const totalRows = d.tables?.reduce((s, t) => s + (t.live_tuples || 0), 0) || 0;
-            document.getElementById('total-rows').textContent = fmt(totalRows);
-            document.getElementById('total-tables').textContent = `${d.tables?.length || 0} Tablo (customers, orders)`;
-            
-            const totalSeq = d.tables?.reduce((s, t) => s + (t.seq_scans || 0), 0) || 0;
-            const totalIdx = d.tables?.reduce((s, t) => s + (t.idx_scans || 0), 0) || 0;
-            const totalScans = totalSeq + totalIdx;
-            
-            const healthEl = document.getElementById('health-score');
-            if (totalScans === 0) {
-                healthEl.textContent = '-%';
-                healthEl.style.color = 'var(--text-muted)';
-            } else {
-                const healthPct = ((totalIdx / totalScans) * 100).toFixed(1);
-                healthEl.textContent = `%${healthPct}`;
-                healthEl.style.color = healthPct >= 80 ? 'var(--emerald)' : (healthPct >= 50 ? 'var(--amber)' : 'var(--rose)');
-            }
-
-            if (!matrixData || !matrixData.length) {
-                const slowNum = d.top_queries?.filter(q => q.mean_ms > 50).length || 0;
-                document.getElementById('slow-count').textContent = `${slowNum} / 15`;
-            }
 
             // Table Stats
             if (d.tables?.length) {
@@ -1499,7 +1585,7 @@
                     else if (pct < 80) badge = '<span class="badge badge-warning">Orta</span>';
 
                     html += `<tr>
-                        <td><strong style="color:#ffffff;">${t.name}</strong></td>
+                        <td><strong style="color:#ffffff; font-family:'JetBrains Mono',monospace;">${t.name}</strong></td>
                         <td class="font-mono">${fmt(t.live_tuples)}</td>
                         <td class="font-mono" style="color:${t.seq_scans > 0 ? 'var(--rose)' : 'var(--text-muted)'}">${fmt(t.seq_scans)}</td>
                         <td class="font-mono" style="color:var(--emerald)">${fmt(t.idx_scans)}</td>
@@ -1511,37 +1597,12 @@
             } else {
                 document.getElementById('table-stats').innerHTML = '<div class="empty-text">Tablo verisi bulunamadı.</div>';
             }
-
-            // DMV Usage Stats
-            if (d.indexes?.length) {
-                const sorted = [...d.indexes].sort((a, b) => b.scans - a.scans);
-                let html = '<table><thead><tr><th>İndeks Adı</th><th>Tablo</th><th>Kullanım Sayısı (Scans)</th><th>Durum</th></tr></thead><tbody>';
-                sorted.forEach(idx => {
-                    let badge = '<span class="badge badge-success">Aktif</span>';
-                    if (idx.scans === 0) badge = '<span class="badge badge-danger">Kullanılmıyor (0)</span>';
-                    else if (idx.scans < 10) badge = '<span class="badge badge-warning">Düşük</span>';
-
-                    html += `<tr>
-                        <td><code style="color:var(--cyan); font-size:11px;">${idx.name}</code></td>
-                        <td>${idx.table}</td>
-                        <td class="font-mono"><strong>${fmt(idx.scans)}</strong></td>
-                        <td>${badge}</td>
-                    </tr>`;
-                });
-                html += '</tbody></table>';
-                document.getElementById('index-stats').innerHTML = html;
-            } else {
-                document.getElementById('index-stats').innerHTML = '<div class="empty-text">İndeks bulunamadı.</div>';
-            }
         }
 
         /* --- Unused Indexes --- */
         async function loadUnusedIndexes() {
             const d = await fetchJSON('/api/unused-indexes');
             if (!d) return;
-
-            document.getElementById('unused-count').textContent = d.unused_indexes?.length || 0;
-            document.getElementById('unused-size').textContent = d.unused_indexes?.length ? `${d.unused_indexes.length} adet atıl indeks` : 'Tertemiz';
 
             if (d.unused_indexes?.length) {
                 let html = '<table><thead><tr><th>İndeks & Tablo</th><th>Atıl Kalma Nedeni & Drop SQL</th><th>İşlem</th></tr></thead><tbody>';
@@ -1550,20 +1611,19 @@
                     let supersededHtml = '';
                     if (idx.superseding_index) {
                         supersededHtml = `
-                            <div style="font-size:11px; color:var(--amber); font-weight:600; margin-bottom:3px; display:flex; align-items:center; gap:6px;">
+                            <div style="font-size:11px; color:var(--amber); font-weight:600; margin-bottom:3px; display:flex; align-items:center; gap:6px; font-family:'JetBrains Mono',monospace;">
                                 <span>⚠️ Ezilme Nedeni:</span>
-                                <code style="color:#6ee7b7; background:var(--bg-elevated); padding:1px 6px; border-radius:3px; border:1px solid var(--border); font-size:10.5px;">${idx.superseding_index}</code>
-                                <span style="font-size:10.5px; color:var(--text-secondary); font-weight:normal;">bunu kapsadığı için tercih ediliyor</span>
+                                <code style="color:#6ee7b7; background:var(--bg-elevated); padding:1px 6px; border:1px solid var(--border); font-size:10.5px;">${idx.superseding_index}</code>
                             </div>
                         `;
                     } else {
-                        supersededHtml = `<div style="font-size:11px; color:var(--amber); font-weight:600; margin-bottom:3px;">⚠️ ${idx.category || 'Atıl İndeks'}</div>`;
+                        supersededHtml = `<div style="font-size:11px; color:var(--amber); font-weight:600; margin-bottom:3px; font-family:'JetBrains Mono',monospace;">⚠️ ${idx.category || 'Atıl İndeks'}</div>`;
                     }
 
                     html += `<tr>
                         <td>
-                            <code style="color:var(--rose); font-weight:600; font-size:11px;">${idx.name}</code>
-                            <div style="font-size:10.5px; color:var(--text-muted); margin-top:2px;">Tablo: <strong>${idx.table}</strong> (${idx.columns ? idx.columns.join(', ') : '-'})</div>
+                            <code style="color:var(--rose); font-weight:700; font-size:11.5px;">${idx.name}</code>
+                            <div style="font-size:10.5px; color:var(--text-muted); margin-top:2px; font-family:'JetBrains Mono',monospace;">Tablo: <strong>${idx.table}</strong></div>
                         </td>
                         <td>
                             ${supersededHtml}
@@ -1600,6 +1660,17 @@
             const customList = d.custom_indexes || [];
             const defaultList = d.default_indexes || [];
 
+            // Update Özet Section (Summary: Özel İndeksler)
+            const summaryIdxEl = document.getElementById('summary-custom-indexes');
+            const summaryIdxSub = document.getElementById('summary-custom-sub');
+            if (summaryIdxEl) {
+                summaryIdxEl.textContent = `${customList.length} Aktif İndeks`;
+                summaryIdxEl.style.color = customList.length > 0 ? 'var(--emerald)' : 'var(--text-muted)';
+                if (summaryIdxSub) {
+                    summaryIdxSub.textContent = customList.length > 0 ? `${customList.length} adet özel DDL çalışıyor` : 'Henüz özel indeks eklenmedi';
+                }
+            }
+
             let html = '';
             if (customList.length) {
                 html += '<table><thead><tr><th>Özel İndeks (VortexDBA) & DDL</th><th>Tablo</th><th>Kullanım (DMV)</th><th>İşlem</th></tr></thead><tbody>';
@@ -1607,13 +1678,13 @@
                     const createSql = idx.create_sql || `CREATE NONCLUSTERED INDEX [${idx.name}] ON [${idx.table}] (${idx.columns ? idx.columns.join(', ') : ''});`;
                     html += `<tr>
                         <td>
-                            <code style="color:var(--emerald); font-weight:600; font-size:11.5px;">${idx.name}</code>
+                            <code style="color:var(--emerald); font-weight:700; font-size:11.5px;">${idx.name}</code>
                             <div class="sql-snippet">
                                 <span class="sql-text">${createSql}</span>
                                 <button class="copy-btn" onclick="copySql('${createSql}')">Kopyala</button>
                             </div>
                         </td>
-                        <td><strong style="color:#ffffff;">${idx.table}</strong></td>
+                        <td><strong style="color:#ffffff; font-family:'JetBrains Mono',monospace;">${idx.table}</strong></td>
                         <td>
                             <span class="badge ${idx.status_class}">${idx.status_label}</span>
                         </td>
@@ -1631,14 +1702,14 @@
 
             if (defaultList.length) {
                 html += `
-                    <div style="background:#0a0a0e; border-top:1px solid var(--border); padding:8px 12px; margin-top:4px;">
-                        <div style="font-size:10px; font-weight:600; color:var(--text-muted); text-transform:uppercase; margin-bottom:4px;">
-                            📋 Şema Varsayılan İndeksleri (01_schema.sql ile gelenler):
+                    <div style="background:#040407; border-top:1px solid var(--border); padding:8px 12px; margin-top:4px;">
+                        <div style="font-size:10px; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:4px; font-family:'JetBrains Mono',monospace;">
+                            📋 ŞEMA VARSAYILAN İNDEKSLERİ (01_schema.sql):
                         </div>
                         <div style="display:flex; gap:8px; flex-wrap:wrap;">
                             ${defaultList.map(idx => `
-                                <div style="font-size:10.5px; font-family:'JetBrains Mono',monospace; color:var(--text-secondary); background:var(--bg-elevated); padding:2px 8px; border-radius:4px; border:1px solid var(--border);">
-                                    <span>${idx.name}</span> on <code>${idx.table}</code> (${idx.columns.join(', ')})
+                                <div style="font-size:10.5px; font-family:'JetBrains Mono',monospace; color:var(--text-secondary); background:var(--bg-elevated); padding:3px 8px; border:1px solid var(--border);">
+                                    <span>${idx.name}</span> on <code>${idx.table}</code>
                                 </div>
                             `).join('')}
                         </div>
@@ -1666,7 +1737,7 @@
 
                     html += `<tr>
                         <td>${badge}</td>
-                        <td style="font-size:11px; color:var(--text-secondary);">${dec.details || '-'}</td>
+                        <td style="font-size:11px; color:var(--text-secondary); font-family:'JetBrains Mono',monospace;">${dec.details || '-'}</td>
                         <td class="font-mono" style="color:var(--text-muted); font-size:10px;">${timeAgo(dec.timestamp)}</td>
                     </tr>`;
                 });
@@ -1677,10 +1748,10 @@
             }
         }
 
-        /* --- Real-Time Streaming Actions --- */
+        /* --- Terminal Actions & Streaming --- */
         function clearTerminal() {
-            document.getElementById('terminal-body').innerHTML = '<span style="color:#555566;">[Konsol temizlendi. Yeni komut bekleniyor...]</span>\n';
-            document.getElementById('terminal-status').innerHTML = '<span style="color:var(--emerald)">● READY</span>';
+            document.getElementById('terminal-body').innerHTML = '<span style="color:#525266;">[Konsol temizlendi. Yeni komut bekleniyor...]</span>\n';
+            document.getElementById('terminal-status').innerHTML = '<span style="color:var(--emerald)">■ HAZIR</span>';
         }
 
         async function runStreamingAction(endpoint, payload = null, btnId = null) {
@@ -1689,9 +1760,9 @@
 
             const term = document.getElementById('terminal-body');
             const statusEl = document.getElementById('terminal-status');
-            statusEl.innerHTML = '<span style="color:var(--amber);">● RUNNING...</span>';
+            statusEl.innerHTML = '<span style="color:var(--amber);">■ ÇALIŞIYOR...</span>';
 
-            term.innerHTML += `\n<span style="color:var(--cyan); font-weight:600;">❯ [${new Date().toLocaleTimeString()}] Başlatılıyor: ${endpoint}</span>\n`;
+            term.innerHTML += `\n<span style="color:var(--cyan); font-weight:700;">❯ [${new Date().toLocaleTimeString()}] Başlatılıyor: ${endpoint}</span>\n`;
             term.scrollTop = term.scrollHeight;
 
             try {
@@ -1710,25 +1781,24 @@
                     const text = decoder.decode(value, { stream: true });
                     
                     let formatted = text
-                        .replace(/\[OK\]/g, '<span style="color:var(--emerald);font-weight:600;">[OK]</span>')
-                        .replace(/\[HATA\]/g, '<span style="color:var(--rose);font-weight:600;">[HATA]</span>')
-                        .replace(/\[KRİTİK YAVAŞ\]/g, '<span style="color:var(--rose);font-weight:600;">[KRİTİK YAVAŞ]</span>')
-                        .replace(/\[YAVAŞ\]/g, '<span style="color:var(--amber);font-weight:600;">[YAVAŞ]</span>')
-                        .replace(/\[HIZLI\]/g, '<span style="color:var(--cyan);font-weight:600;">[HIZLI]</span>')
-                        .replace(/\[SÜPER HIZLI\]/g, '<span style="color:var(--emerald);font-weight:600;">[SÜPER HIZLI]</span>')
-                        .replace(/\[GÜVENLİK ATLAMASI\]/g, '<span style="color:var(--amber);font-weight:600;">[GÜVENLİK ATLAMASI]</span>')
-                        .replace(/▲/g, '<span style="color:var(--emerald);font-weight:600;">▲</span>')
-                        .replace(/▼/g, '<span style="color:var(--rose);font-weight:600;">▼</span>')
-                        .replace(/✔/g, '<span style="color:var(--emerald);font-weight:600;">✔</span>');
+                        .replace(/\[OK\]/g, '<span style="color:var(--emerald);font-weight:700;">[OK]</span>')
+                        .replace(/\[HATA\]/g, '<span style="color:var(--rose);font-weight:700;">[HATA]</span>')
+                        .replace(/\[KRİTİK YAVAŞ\]/g, '<span style="color:var(--rose);font-weight:700;">[KRİTİK YAVAŞ]</span>')
+                        .replace(/\[YAVAŞ\]/g, '<span style="color:var(--amber);font-weight:700;">[YAVAŞ]</span>')
+                        .replace(/\[HIZLI\]/g, '<span style="color:var(--cyan);font-weight:700;">[HIZLI]</span>')
+                        .replace(/\[SÜPER HIZLI\]/g, '<span style="color:var(--emerald);font-weight:700;">[SÜPER HIZLI]</span>')
+                        .replace(/▲/g, '<span style="color:var(--emerald);font-weight:700;">▲</span>')
+                        .replace(/▼/g, '<span style="color:var(--rose);font-weight:700;">▼</span>')
+                        .replace(/✔/g, '<span style="color:var(--emerald);font-weight:700;">✔</span>');
 
                     term.innerHTML += formatted;
                     term.scrollTop = term.scrollHeight;
                 }
 
-                statusEl.innerHTML = '<span style="color:var(--emerald)">● COMPLETED</span>';
+                statusEl.innerHTML = '<span style="color:var(--emerald)">■ TAMAMLANDI</span>';
             } catch (err) {
-                term.innerHTML += `<span style="color:var(--rose);font-weight:600;">❌ Akış Hatası: ${err.message}</span>\n`;
-                statusEl.innerHTML = '<span style="color:var(--rose)">● ERROR</span>';
+                term.innerHTML += `<span style="color:var(--rose);font-weight:700;">❌ Akış Hatası: ${err.message}</span>\n`;
+                statusEl.innerHTML = '<span style="color:var(--rose)">■ HATA</span>';
             } finally {
                 if (btn) btn.disabled = false;
                 await loadAll();
@@ -1754,7 +1824,7 @@
         }
 
         async function actionFullFactoryReset() {
-            if (!confirm('DİKKAT: Tüm özel indeksler, benchmark ölçümleri, karar geçmişi ve dinamik süreler tamamen silinip fabrika ayarlarına sıfırlanacak. Onaylıyor musunuz?')) return;
+            if (!confirm('DİKKAT: Tüm özel indeksler, benchmark ölçümleri, karar geçmişi ve süreler tamamen silinip fabrika ayarlarına sıfırlanacak. Onaylıyor musunuz?')) return;
             setMatrixFilter('all');
             await runStreamingAction('/api/stream/reset-all', null, 'btn-reset-all');
         }
@@ -1764,21 +1834,16 @@
             await runStreamingAction('/api/stream/drop-index', { index_name: indexName, table_name: tableName });
         }
 
-        /* --- Config Status & Connection Management --- */
-        let currentConfig = null;
-
+        /* --- Config & Connection Management --- */
         async function loadConfigStatus() {
             const d = await fetchJSON('/api/config/status');
             if (!d) return;
-            currentConfig = d;
 
-            // Update Navbar DB Text
             const dbText = document.getElementById('nav-db-text');
             if (dbText && d.database) {
                 dbText.textContent = `⚙️ DB: ${d.database.host}:${d.database.port}/${d.database.dbname}`;
             }
 
-            // Update Modal Inputs
             if (d.database) {
                 const hostEl = document.getElementById('cfg-host');
                 const portEl = document.getElementById('cfg-port');
@@ -1790,22 +1855,22 @@
                 if (userEl && !userEl.matches(':focus')) userEl.value = d.database.user || 'sa';
             }
 
-            // Update Mode Switcher UI
+            // Mode Selector
             const btnAdv = document.getElementById('mode-btn-advisor');
             const btnAuto = document.getElementById('mode-btn-autonomous');
             const autoBanner = document.getElementById('autopilot-banner');
 
             if (d.operating_mode === 'autonomous') {
-                if (btnAdv) { btnAdv.className = 'segment-btn'; }
-                if (btnAuto) { btnAuto.className = 'segment-btn active mode-auto'; }
+                if (btnAdv) btnAdv.className = 'segment-btn';
+                if (btnAuto) btnAuto.className = 'segment-btn active mode-auto';
                 if (autoBanner) autoBanner.style.display = 'flex';
             } else {
-                if (btnAdv) { btnAdv.className = 'segment-btn active mode-adv'; }
-                if (btnAuto) { btnAuto.className = 'segment-btn'; }
+                if (btnAdv) btnAdv.className = 'segment-btn active mode-adv';
+                if (btnAuto) btnAuto.className = 'segment-btn';
                 if (autoBanner) autoBanner.style.display = 'none';
             }
 
-            // Update Traffic Source Switcher UI
+            // Traffic Source
             const btnSim = document.getElementById('src-btn-sim');
             const btnLive = document.getElementById('src-btn-live');
 
@@ -1837,7 +1902,7 @@
             if (btn) btn.disabled = true;
             if (resBox) {
                 resBox.style.display = 'block';
-                resBox.style.background = '#12121c';
+                resBox.style.background = '#0d0d14';
                 resBox.style.border = '1px solid var(--border)';
                 resBox.style.color = 'var(--cyan)';
                 resBox.innerHTML = '<span class="spinner"></span> Bağlantı test ediliyor...';
@@ -1855,13 +1920,13 @@
             if (btn) btn.disabled = false;
 
             if (res && res.success) {
-                resBox.style.background = 'rgba(16, 185, 129, 0.1)';
+                resBox.style.background = 'var(--emerald-bg)';
                 resBox.style.border = '1px solid var(--emerald-border)';
                 resBox.style.color = '#6ee7b7';
                 resBox.innerHTML = `✔ BAĞLANTI BAŞARILI!<br><span style="color:#ffffff; font-size:10.5px;">${res.server_version}</span><br><span style="color:var(--text-secondary); font-size:10.5px;">Hedef Veritabanı: [${res.database}]</span>`;
                 showToast('SQL Server bağlantısı başarılı!');
             } else {
-                resBox.style.background = 'rgba(244, 63, 94, 0.1)';
+                resBox.style.background = 'var(--rose-bg)';
                 resBox.style.border = '1px solid var(--rose-border)';
                 resBox.style.color = '#fda4af';
                 resBox.innerHTML = `❌ BAĞLANTI HATASI:<br><span style="font-size:10.5px;">${res?.error || 'Bilinmeyen bağlantı hatası'}</span>`;
@@ -1891,7 +1956,7 @@
             } else {
                 if (resBox) {
                     resBox.style.display = 'block';
-                    resBox.style.background = 'rgba(244, 63, 94, 0.1)';
+                    resBox.style.background = 'var(--rose-bg)';
                     resBox.style.border = '1px solid var(--rose-border)';
                     resBox.style.color = '#fda4af';
                     resBox.innerHTML = `❌ Kayıt Başarısız: ${res?.error || 'Hata'}`;
@@ -1916,11 +1981,12 @@
             }
         }
 
+        /* --- Master Load Function (Automated Polling) --- */
         async function loadAll(manual = false) {
-            if (manual) showToast('Veriler güncelleniyor...');
+            if (manual) showToast('Veriler senkronize ediliyor...');
             await Promise.all([
-                loadConfigStatus(),
                 loadHealth(),
+                loadConfigStatus(),
                 loadPerformanceMatrix(),
                 loadStats(),
                 loadUnusedIndexes(),
@@ -1930,9 +1996,13 @@
             if (manual) showToast('Paneller güncellendi');
         }
 
+        // Initial Load
         loadAll();
-        setInterval(() => loadAll(false), 20000);
+
+        // Automatic Live Polling without waiting for user refresh click (Every 3 seconds)
+        setInterval(() => {
+            loadAll(false);
+        }, 3000);
     </script>
 </body>
 </html>
-

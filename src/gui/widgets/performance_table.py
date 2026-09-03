@@ -108,11 +108,12 @@ class PerformanceMatrixWidget(QFrame):
         self.table.setColumnCount(5)
         self.table.setHorizontalHeaderLabels([
             "Sorgu / T-SQL",
-            "Tablo & Kolon",
-            "İndekssiz",
-            "İndeks Durumu / DDL",
-            "İndeksli & Kazanç"
+            "Hedef Tablo",
+            "İndekssiz Süre",
+            "İndeks Durumu",
+            "İndeksli Süre & Kazanç"
         ])
+
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
@@ -183,6 +184,16 @@ class PerformanceMatrixWidget(QFrame):
             active_custom_rows = [r for r in all_active_rows if r.get("index_name") not in DEFAULT_SCHEMA_INDEXES]
 
 
+            any_baseline = any(get_latest_baseline(q["name"]) is not None for q in SLOW_QUERIES)
+
+            if not any_baseline and not vortex_applied:
+                self.sub_lbl.setText("🧪 Simülasyon Modu: Başlamak için '1. Trafik Simülasyonu' butonuna basın.")
+                self.raw_data = []
+                self.populate_table([])
+                return
+
+
+            self.sub_lbl.setText("🧪 15 Sentetik Test Sorgusu (İndeks Öncesi vs İndeks Sonrası):")
             matrix = []
             for q in SLOW_QUERIES:
                 name = q["name"]
@@ -191,6 +202,7 @@ class PerformanceMatrixWidget(QFrame):
 
                 latest_base = get_latest_baseline(name)
                 baseline_ms = latest_base if (latest_base is not None and latest_base > 0) else None
+
 
                 if baseline_ms is not None:
                     rec = recommend_index_for_query(sql)
@@ -319,7 +331,13 @@ class PerformanceMatrixWidget(QFrame):
             self.table.setItem(row, 2, col2_item)
 
             # Col 3: Index Status / DDL
-            col3_widget = self.create_index_cell(item["has_index"], item["applied_index_sqls"], item["recommended_sql"])
+            col3_widget = self.create_index_cell(
+                item["has_index"],
+                item["applied_index_sqls"],
+                item["recommended_sql"],
+                item.get("table", ""),
+                item.get("columns", "")
+            )
             self.table.setCellWidget(row, 3, col3_widget)
 
             # Col 4: Current ms & Speedup
@@ -360,10 +378,14 @@ class PerformanceMatrixWidget(QFrame):
         title_row.addStretch()
         layout.addLayout(title_row)
 
+        # Clean single-line representation of original SQL query
+        clean_sql = " ".join(sql.strip().split())
+
         # SQL box with Copy button
         sql_box = QHBoxLayout()
         sql_box.setSpacing(4)
-        sql_lbl = QLabel(sql)
+        sql_lbl = QLabel(clean_sql)
+        sql_lbl.setToolTip(clean_sql)
         sql_lbl.setStyleSheet("background: #05080e; border: 1px solid #141f30; border-radius: 4px; padding: 2px 6px; color: #93c5fd; font-family: 'JetBrains Mono', monospace; font-size: 9.5px;")
         sql_box.addWidget(sql_lbl, 1)
 
@@ -371,56 +393,99 @@ class PerformanceMatrixWidget(QFrame):
         btn_copy.setFixedWidth(50)
         btn_copy.setFixedHeight(20)
         btn_copy.setStyleSheet("font-size: 9.5px; padding: 1px 4px; background: #0c1421; border: 1px solid #1c2e46; border-radius: 3px; color: #cbd5e1;")
-        btn_copy.clicked.connect(lambda: self.copy_to_clipboard(sql, btn_copy))
+        btn_copy.clicked.connect(lambda: self.copy_to_clipboard(clean_sql, btn_copy))
         sql_box.addWidget(btn_copy)
         layout.addLayout(sql_box)
 
         return widget
 
-    def create_index_cell(self, has_index: bool, applied_sqls: list, rec_sql: str) -> QWidget:
+    def create_index_cell(self, has_index: bool, applied_sqls: list, rec_sql: str, table_name: str = "", columns: str = "") -> QWidget:
         widget = QWidget()
-        layout = QVBoxLayout(widget)
-        layout.setContentsMargins(4, 3, 4, 3)
-        layout.setSpacing(2)
+        layout = QHBoxLayout(widget)
+        layout.setContentsMargins(6, 4, 6, 4)
+        layout.setSpacing(6)
 
         if has_index and applied_sqls:
-            for sql in applied_sqls:
-                h_box = QHBoxLayout()
-                h_box.setSpacing(4)
-                sql_lbl = QLabel(sql)
-                sql_lbl.setStyleSheet("background: #0c1828; border: 1px solid #1e3a5f; border-radius: 4px; padding: 2px 6px; color: #93c5fd; font-family: 'JetBrains Mono', monospace; font-size: 9.5px;")
-                h_box.addWidget(sql_lbl, 1)
-
-                btn_copy = QPushButton("Kopyala")
-                btn_copy.setFixedWidth(50)
-                btn_copy.setFixedHeight(20)
-                btn_copy.setStyleSheet("font-size: 9.5px; padding: 1px 4px; background: #0c1421; border: 1px solid #1c2e46; border-radius: 3px; color: #cbd5e1;")
-                btn_copy.clicked.connect(lambda checked, s=sql, b=btn_copy: self.copy_to_clipboard(s, b))
-                h_box.addWidget(btn_copy)
-                layout.addLayout(h_box)
-        elif rec_sql:
-            h_box = QHBoxLayout()
-            h_box.setSpacing(4)
-            sql_lbl = QLabel(rec_sql)
-            sql_lbl.setStyleSheet("background: #090f18; border: 1px solid #1b2d45; border-radius: 4px; padding: 2px 6px; color: #60a5fa; font-family: 'JetBrains Mono', monospace; font-size: 9.5px;")
-            h_box.addWidget(sql_lbl, 1)
+            sql_lbl = QLabel(applied_sqls[0])
+            sql_lbl.setToolTip(f"Aktif İndeks:\n{applied_sqls[0]}")
+            sql_lbl.setStyleSheet("background: #0c1828; border: 1px solid #1e3a5f; border-radius: 4px; padding: 2px 6px; color: #93c5fa; font-family: 'JetBrains Mono', monospace; font-size: 9.5px;")
+            layout.addWidget(sql_lbl, 1)
 
             btn_copy = QPushButton("Kopyala")
             btn_copy.setFixedWidth(50)
-            btn_copy.setFixedHeight(20)
+            btn_copy.setFixedHeight(22)
             btn_copy.setStyleSheet("font-size: 9.5px; padding: 1px 4px; background: #0c1421; border: 1px solid #1c2e46; border-radius: 3px; color: #cbd5e1;")
+            btn_copy.clicked.connect(lambda checked, s=applied_sqls[0], b=btn_copy: self.copy_to_clipboard(s, b))
+            layout.addWidget(btn_copy)
+        elif rec_sql:
+            status_lbl = QLabel("İndekssiz")
+            status_lbl.setStyleSheet("color: #94a3b8; font-size: 10px; font-weight: 600;")
+            layout.addWidget(status_lbl)
+
+            btn_create = QPushButton("⚡ İndeks Oluştur")
+            btn_create.setToolTip(f"SQL Server üzerinde oluşturulacak DDL:\n{rec_sql}")
+            btn_create.setFixedHeight(22)
+            btn_create.setStyleSheet("font-size: 9.5px; font-weight: 700; padding: 1px 8px; background: #2563eb; border: 1px solid #3b82f6; border-radius: 4px; color: #ffffff;")
+            btn_create.clicked.connect(lambda checked, s=rec_sql, t=table_name, c=columns, b=btn_create: self.create_single_index(s, t, c, b))
+            layout.addWidget(btn_create)
+
+            btn_copy = QPushButton("Öneri DDL")
+            btn_copy.setFixedWidth(60)
+            btn_copy.setFixedHeight(22)
+            btn_copy.setToolTip(rec_sql)
+            btn_copy.setStyleSheet("font-size: 9.5px; padding: 1px 4px; background: #0c1421; border: 1px solid #1c2e46; border-radius: 3px; color: #60a5fa;")
             btn_copy.clicked.connect(lambda checked, s=rec_sql, b=btn_copy: self.copy_to_clipboard(s, b))
-            h_box.addWidget(btn_copy)
-            layout.addLayout(h_box)
+            layout.addWidget(btn_copy)
+
+            layout.addStretch()
         else:
-            lbl = QLabel("Henüz öneri oluşturulmadı")
-            lbl.setStyleSheet("color: #55697f; font-size: 9.5px;")
-            layout.addWidget(lbl)
+            blank_lbl = QLabel("İndeks Yok")
+            blank_lbl.setStyleSheet("color: #64748b; font-size: 10px;")
+            layout.addWidget(blank_lbl)
+            layout.addStretch()
 
         return widget
+
+
+    def create_single_index(self, create_sql: str, table_name: str, columns: str, btn: QPushButton):
+        if not create_sql:
+            return
+        btn.setEnabled(False)
+        btn.setText("Oluşturuluyor...")
+        try:
+            import re
+            from src.db_connection import execute_query
+            from src.state_store import record_index_applied
+            
+            # Execute CREATE INDEX on SQL Server
+            execute_query(create_sql, autocommit=True)
+            
+            # Parse index name
+            m = re.search(r"INDEX\s+\[?(\w+)\]?", create_sql, re.IGNORECASE)
+            idx_name = m.group(1) if m else "idx_custom"
+            cols = [col.strip() for col in columns.split(",")] if columns else []
+            
+            # Record state
+            record_index_applied(idx_name, table_name or "customers", cols, create_sql, "Kullanıcı manuel oluşturdu")
+            
+            # Refresh all windows & table
+            parent_win = self.window()
+            if hasattr(parent_win, "refresh_all"):
+                parent_win.refresh_all()
+            else:
+                self.load_data(is_connected=True)
+        except Exception as e:
+            btn.setText("Hata!")
+            btn.setStyleSheet("background: #991b1b; color: white;")
+            btn.setEnabled(True)
+            try:
+                from PyQt6.QtWidgets import QMessageBox
+                QMessageBox.critical(self, "İndeks Oluşturma Hatası", f"SQL Server üzerinde indeks oluşturulamadı:\n{e}")
+            except Exception:
+                pass
 
     def copy_to_clipboard(self, text: str, btn: QPushButton):
         QApplication.clipboard().setText(text)
         btn.setText("Kopyalandı")
+        QTimer.singleShot(1500, lambda: btn.setText("Kopyala"))
         btn.setStyleSheet("font-size: 9.5px; padding: 1px 4px; background: #1d4ed8; color: #ffffff; border: 1px solid #3b82f6; border-radius: 3px;")
-

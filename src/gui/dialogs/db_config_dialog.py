@@ -22,6 +22,9 @@ except ImportError:
     from gui.workers import DbPingWorker, SchemaInitWorker
 
 
+from pathlib import Path
+from PyQt6.QtGui import QIcon
+
 class DbConfigDialog(QDialog):
     """Modern modal dialog for configuring and connecting to SQL Server."""
     def __init__(self, parent=None):
@@ -30,7 +33,14 @@ class DbConfigDialog(QDialog):
         self.resize(500, 460)
         self.setModal(True)
 
+        logo_path = Path(__file__).resolve().parent.parent.parent.parent / "logo.svg"
+        if not logo_path.exists():
+            logo_path = Path.cwd() / "logo.svg"
+        if logo_path.exists():
+            self.setWindowIcon(QIcon(str(logo_path)))
+
         self.cfg = get_config()
+
         self.db_cfg = self.cfg.database
 
         self.ping_worker = None

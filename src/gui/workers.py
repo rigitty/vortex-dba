@@ -76,18 +76,16 @@ class SimulateWorker(QThread):
             
             try:
                 t0 = time.time()
-                rows = execute_query(sql) or []
+                rows = execute_query(sql, params=q.get("params")) or []
                 duration_ms = (time.time() - t0) * 1000
+
 
                 success_count += 1
                 total_time += duration_ms
 
-                existing_base = get_latest_baseline(name)
-                if existing_base is None and not has_custom_indexes:
-                    record_baseline(name, duration_ms)
-                    self.log_signal.emit(f"    ⏱ Süre: {duration_ms:.1f} ms | Satır: {len(rows):,} | 📌 Baseline Kaydedildi\n")
-                else:
-                    self.log_signal.emit(f"    ⏱ Süre: {duration_ms:.1f} ms | Satır: {len(rows):,}\n")
+                record_baseline(name, duration_ms)
+                self.log_signal.emit(f"    ⏱ Süre: {duration_ms:.1f} ms | Satır: {len(rows):,} | 📌 Baseline Kaydedildi\n")
+
             except Exception as e:
                 self.log_signal.emit(f"    ❌ HATA: {e}\n")
 
@@ -124,23 +122,49 @@ class RemediateWorker(QThread):
             return
 
         try:
-            report = run_remediation(dry_run=False, apply=True, compare=False, rollback=False)
-            applied = report.applied_indexes
-            errors = report.errors
+            cfg = get_config()
+            source = getattr(cfg, "traffic_source", "simulation")
 
-            for item in applied:
-                if item.applied:
-                    self.log_signal.emit(f"✔ [UYGULANDI] {item.index_name} -> {item.table}\n"
-                                         f"    DDL: {item.create_sql}\n"
-                                         f"    Süre: {item.duration_ms:.0f} ms\n")
-                else:
-                    self.log_signal.emit(f"❌ [HATA] {item.index_name}: {item.error}\n")
+            from src.index_advisor import recommend_index_for_query
+            from src.pg_stats_reader import get_top_queries_by_time
 
-            for err in errors:
-                self.log_signal.emit(f"❌ [HATA]: {err}\n")
+            applied_count = 0
+            applied_names = set()
+
+            if source == "live_dmv":
+                stats = get_top_queries_by_time(limit=15)
+                queries_to_index = [s.query for s in stats if s.query]
+            else:
+                queries_to_index = [q["query"] for q in SLOW_QUERIES]
+
+            recs = []
+            for sql in queries_to_index:
+                rec = recommend_index_for_query(sql)
+                if rec and rec.index_name not in applied_names:
+                    recs.append(rec)
+                    applied_names.add(rec.index_name)
+
+            if not recs:
+                msg = "ℹ [BİLGİ] Önerilen yeni bir indeks bulunamadı veya tüm sorgular zaten indeksli.\n"
+                self.log_signal.emit(msg)
+                self.finished_signal.emit(True, msg)
+                return
+
+            for rec in recs:
+                self.log_signal.emit(f"⚙ [OLUŞTURULUYOR] {rec.index_name} -> {rec.table}\n"
+                                     f"   DDL: {rec.create_statement}")
+                t0 = time.time()
+                try:
+                    execute_query(rec.create_statement, autocommit=True)
+                    elapsed_ms = (time.time() - t0) * 1000
+                    record_index_applied(rec.index_name, rec.table, rec.columns, rec.create_statement, rec.reason)
+                    applied_count += 1
+                    self.log_signal.emit(f"   ✔ [OLUŞTURULDU] ({elapsed_ms:.0f} ms)\n")
+                except Exception as e:
+                    self.log_signal.emit(f"   ❌ [HATA]: {e}\n")
 
             summary = (f"{'=' * 65}\n"
-                       f"✔ [İNDEKSLENME BİTTİ] Toplam {len([a for a in applied if a.applied])} özel indeks oluşturuldu.\n")
+                       f"✔ [İNDEKSLER OLUŞTURULDU] Toplam {applied_count} özel indeks başarıyla oluşturuldu.\n")
             self.log_signal.emit(summary)
             self.finished_signal.emit(True, summary)
         except Exception as e:
@@ -149,10 +173,15 @@ class RemediateWorker(QThread):
             self.finished_signal.emit(False, err_msg)
 
 
+
 class BenchmarkWorker(QThread):
-    """Runs live 3-iteration benchmark comparison."""
+    """Runs live 3-iteration benchmark comparison for currently active queries."""
     log_signal = pyqtSignal(str)
     finished_signal = pyqtSignal(bool, str)
+
+    def __init__(self, queries: list[dict] | None = None):
+        super().__init__()
+        self.queries = queries
 
     def run(self):
         start_time = datetime.now()
@@ -171,8 +200,27 @@ class BenchmarkWorker(QThread):
             return
 
         try:
-            queries = [{"name": q["name"], "query": q["query"], "params": q.get("params")} for q in SLOW_QUERIES]
+            if self.queries:
+                queries = self.queries
+            else:
+                cfg = get_config()
+                source = getattr(cfg, "traffic_source", "simulation")
+                if source == "live_dmv":
+                    from src.pg_stats_reader import get_top_queries_by_time
+                    stats = get_top_queries_by_time(limit=15)
+                    queries = [{"name": f"live_{s.queryid}", "query": s.query, "params": None} for s in stats if s.query]
+                else:
+                    queries = [{"name": q["name"], "query": q["query"], "params": q.get("params")} for q in SLOW_QUERIES]
+
+            if not queries:
+                msg = "ℹ [BİLGİ] Benchmark edilecek sorgu bulunamadı (Tabloda aktif sorgu yok).\n"
+                self.log_signal.emit(msg)
+                self.finished_signal.emit(True, msg)
+                return
+
+            self.log_signal.emit(f"📋 Tablodaki {len(queries)} adet aktif sorgu test ediliyor...\n")
             results = run_benchmark_suite(queries, runs=3)
+
 
             total_base = 0.0
             total_curr = 0.0
@@ -250,16 +298,19 @@ class ResetWorker(QThread):
                     self.log_signal.emit(f"   ❌ Kaldırılamadı {index_name}: {e}\n")
 
             if self.full_reset:
-                from src.state_store import _get_connection
-                conn = _get_connection()
                 try:
-                    conn.execute("DELETE FROM benchmark_history;")
-                    conn.execute("DELETE FROM applied_indexes;")
-                    conn.execute("DELETE FROM agent_decisions;")
-                    conn.commit()
-                finally:
-                    conn.close()
-                self.log_signal.emit("   ✔ SQLite durum deposu ve tüm baseline süreleri sıfırlandı.\n")
+                    from src.state_store import clear_all_state
+                    clear_all_state()
+                except Exception:
+                    pass
+
+                try:
+                    execute_query("DBCC FREEPROCCACHE;", autocommit=True)
+                    self.log_signal.emit("   ✔ SQL Server Plan Önbelleği (sys.dm_exec_query_stats) temizlendi.\n")
+                except Exception:
+                    pass
+                self.log_signal.emit("   ✔ Durum deposu ve tüm baseline süreleri sıfırlandı.\n")
+
 
             summary = f"✔ [SIFIRLAMA TAMAMLANDI] Toplam {drop_count} özel indeks temizlendi.\n"
             self.log_signal.emit(summary)

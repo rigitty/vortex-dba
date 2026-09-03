@@ -114,7 +114,10 @@ def execute_query(query: str, params: tuple | None = None, fetch: bool = True, a
     conn = get_connection(autocommit=autocommit)
     try:
         with conn.cursor(as_dict=True) as cur:
-            cur.execute(query, params)
+            if params is not None:
+                cur.execute(query, params)
+            else:
+                cur.execute(query)
             if fetch and cur.description:
                 return cur.fetchall()
             if not autocommit:
@@ -122,6 +125,7 @@ def execute_query(query: str, params: tuple | None = None, fetch: bool = True, a
             return None
     finally:
         conn.close()
+
 
 
 def execute_script(script: str) -> None:

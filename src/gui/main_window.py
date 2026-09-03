@@ -12,8 +12,10 @@ from PyQt6.QtWidgets import (
     QPlainTextEdit,
     QMessageBox,
     QStatusBar,
+    QSplitter,
 )
 from PyQt6.QtCore import Qt, QTimer
+
 import qtawesome as qta
 
 try:
@@ -48,13 +50,31 @@ except ImportError:
     )
 
 
+from pathlib import Path
+from PyQt6.QtGui import QIcon
+
 class MainWindow(QMainWindow):
     """Main window for VortexDBA native desktop application."""
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("VortexDBA - Autonomous AI Database Optimization Engine")
+        self.setWindowTitle("VortexDBA")
+        self.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowSystemMenuHint
+            | Qt.WindowType.WindowMinMaxButtonsHint
+        )
         self.resize(1420, 920)
         self.setMinimumSize(1080, 720)
+
+        self._drag_pos = None
+
+        # Load application logo
+        logo_path = Path(__file__).resolve().parent.parent.parent / "logo.svg"
+        if not logo_path.exists():
+            logo_path = Path.cwd() / "logo.svg"
+        self.logo_path = logo_path
+        if self.logo_path.exists():
+            self.setWindowIcon(QIcon(str(self.logo_path)))
 
         self.current_worker = None
         self.check_worker = None
@@ -72,41 +92,72 @@ class MainWindow(QMainWindow):
         self.timer.timeout.connect(self.auto_refresh)
         self.timer.start(3000)
 
+    def toggle_maximize(self):
+        """Toggle between maximized and normal window state."""
+        if self.isMaximized():
+            self.showNormal()
+            self.btn_max.setText("🗖")
+        else:
+            self.showMaximized()
+            self.btn_max.setText("🗗")
 
-
+    def eventFilter(self, obj, event):
+        """Handle custom window dragging and double-click maximizing on the header."""
+        if obj == getattr(self, "header_frame", None):
+            if event.type() == event.Type.MouseButtonPress:
+                if event.button() == Qt.MouseButton.LeftButton:
+                    self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+                    return False
+            elif event.type() == event.Type.MouseMove:
+                if event.buttons() == Qt.MouseButton.LeftButton and self._drag_pos is not None:
+                    if self.isMaximized():
+                        self.showNormal()
+                        self.btn_max.setText("🗖")
+                    self.move(event.globalPosition().toPoint() - self._drag_pos)
+                    return True
+            elif event.type() == event.Type.MouseButtonRelease:
+                self._drag_pos = None
+            elif event.type() == event.Type.MouseButtonDblClick:
+                if event.button() == Qt.MouseButton.LeftButton:
+                    self.toggle_maximize()
+                    return True
+        return super().eventFilter(obj, event)
 
     def init_ui(self):
         central_widget = QWidget()
+        central_widget.setObjectName("central_widget")
         self.setCentralWidget(central_widget)
         root_layout = QVBoxLayout(central_widget)
         root_layout.setContentsMargins(0, 0, 0, 0)
         root_layout.setSpacing(0)
 
-        # 1. Top Header Bar
-        header_frame = QFrame()
-        header_frame.setProperty("class", "header-panel")
-        header_frame.setFixedHeight(42)
-        header_layout = QHBoxLayout(header_frame)
-        header_layout.setContentsMargins(14, 0, 14, 0)
+        # 1. Custom Top Title & Header Bar
+        self.header_frame = QFrame()
+        self.header_frame.setProperty("class", "header-panel")
+        self.header_frame.setFixedHeight(42)
+        self.header_frame.installEventFilter(self)
+
+        header_layout = QHBoxLayout(self.header_frame)
+        header_layout.setContentsMargins(12, 0, 8, 0)
         header_layout.setSpacing(10)
 
-        # Brand Logo
+        # Brand Logo & Title
         brand_box = QHBoxLayout()
-        brand_box.setSpacing(6)
+        brand_box.setSpacing(10)
         logo_lbl = QLabel()
-        try:
-            logo_lbl.setPixmap(qta.icon("fa5s.bolt", color="#3b82f6").pixmap(15, 15))
-        except Exception:
-            pass
+        if self.logo_path.exists():
+            logo_pix = QIcon(str(self.logo_path)).pixmap(22, 22)
+            logo_lbl.setPixmap(logo_pix)
+        else:
+            try:
+                logo_lbl.setPixmap(qta.icon("fa5s.bolt", color="#06b6d4").pixmap(20, 20))
+            except Exception:
+                pass
         brand_box.addWidget(logo_lbl)
 
-        brand_lbl = QLabel("VORTEX//DBA")
-        brand_lbl.setStyleSheet("font-size: 12.5px; font-weight: 800; color: #ffffff; letter-spacing: 0.5px;")
+        brand_lbl = QLabel("VORTEX DBA")
+        brand_lbl.setStyleSheet("font-size: 15px; font-weight: 800; color: #ffffff; letter-spacing: 0.8px; font-family: 'JetBrains Mono', 'Segoe UI', sans-serif;")
         brand_box.addWidget(brand_lbl)
-
-        tag_lbl = QLabel("v2.4")
-        tag_lbl.setStyleSheet("background: #0d1e38; color: #60a5fa; border: 1px solid #1d3d6e; border-radius: 4px; padding: 1px 5px; font-size: 9.5px; font-weight: 600;")
-        brand_box.addWidget(tag_lbl)
         header_layout.addLayout(brand_box)
 
         header_layout.addStretch()
@@ -199,7 +250,85 @@ class MainWindow(QMainWindow):
         self.btn_refresh.clicked.connect(self.refresh_all)
         header_layout.addWidget(self.btn_refresh)
 
-        root_layout.addWidget(header_frame)
+        # Separator line before window controls
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.VLine)
+        sep.setStyleSheet("color: #1e293b; background: #1e293b; max-width: 1px; margin: 8px 3px;")
+        header_layout.addWidget(sep)
+
+        # Custom Window Control Buttons (Minimize, Maximize/Restore, Close)
+        win_controls = QHBoxLayout()
+        win_controls.setSpacing(3)
+        win_controls.setContentsMargins(0, 0, 0, 0)
+
+        self.btn_min = QPushButton("🗕")
+        self.btn_min.setFixedSize(28, 26)
+        self.btn_min.setToolTip("Simge Durumuna Küçült")
+        self.btn_min.setStyleSheet("""
+            QPushButton {
+                background: transparent;
+                border: 1px solid transparent;
+                color: #94a3b8;
+                font-size: 11px;
+                border-radius: 4px;
+                padding: 0;
+            }
+            QPushButton:hover {
+                background: #111d33;
+                border: 1px solid #1e3a5f;
+                color: #ffffff;
+            }
+        """)
+        self.btn_min.clicked.connect(self.showMinimized)
+        win_controls.addWidget(self.btn_min)
+
+        self.btn_max = QPushButton("🗖")
+        self.btn_max.setFixedSize(28, 26)
+        self.btn_max.setToolTip("Ekranı Kapla / Geri Yükle")
+        self.btn_max.setStyleSheet("""
+            QPushButton {
+                background: transparent;
+                border: 1px solid transparent;
+                color: #94a3b8;
+                font-size: 11px;
+                border-radius: 4px;
+                padding: 0;
+            }
+            QPushButton:hover {
+                background: #111d33;
+                border: 1px solid #1e3a5f;
+                color: #ffffff;
+            }
+        """)
+        self.btn_max.clicked.connect(self.toggle_maximize)
+        win_controls.addWidget(self.btn_max)
+
+        self.btn_close = QPushButton("✕")
+        self.btn_close.setFixedSize(28, 26)
+        self.btn_close.setToolTip("Kapat")
+        self.btn_close.setStyleSheet("""
+            QPushButton {
+                background: transparent;
+                border: 1px solid transparent;
+                color: #94a3b8;
+                font-size: 11px;
+                font-weight: 700;
+                border-radius: 4px;
+                padding: 0;
+            }
+            QPushButton:hover {
+                background: #dc2626;
+                border: 1px solid #ef4444;
+                color: #ffffff;
+            }
+        """)
+        self.btn_close.clicked.connect(self.close)
+        win_controls.addWidget(self.btn_close)
+
+        header_layout.addLayout(win_controls)
+
+        root_layout.addWidget(self.header_frame)
+
 
         # 2. Scrollable Body Content
         scroll = QScrollArea()
@@ -278,11 +407,12 @@ class MainWindow(QMainWindow):
         self.btn_step1.clicked.connect(self.run_step1)
         deck_layout.addWidget(self.btn_step1)
 
-        self.btn_step2 = QPushButton("2. İndeksleri Uygula")
+        self.btn_step2 = QPushButton("2. İndeks Oluştur")
         self.btn_step2.setProperty("class", "btn-primary")
-        self.btn_step2.setToolTip("IndexAdvisor DDL önerilerini ONLINE=ON ile uygular")
+        self.btn_step2.setToolTip("Önerilen tüm indeksleri SQL Server üzerinde ONLINE=ON ile oluşturur")
         self.btn_step2.clicked.connect(self.run_step2)
         deck_layout.addWidget(self.btn_step2)
+
 
         self.btn_step3 = QPushButton("3. Benchmark Testi")
         self.btn_step3.setProperty("class", "btn-secondary")
@@ -319,7 +449,11 @@ class MainWindow(QMainWindow):
         metrics_grid.addWidget(self.card_safety)
         self.content_layout.addLayout(metrics_grid)
 
-        # 5. Real-Time Streaming Terminal Log Box
+        # 5. Resizable Splitter between Live Log Stream and Performance Matrix
+        main_splitter = QSplitter(Qt.Orientation.Vertical)
+        main_splitter.setChildrenCollapsible(False)
+
+        # Terminal Card Frame
         terminal_frame = QFrame()
         terminal_frame.setProperty("class", "card-panel")
         term_layout = QVBoxLayout(terminal_frame)
@@ -344,14 +478,18 @@ class MainWindow(QMainWindow):
 
         self.terminal_box = QPlainTextEdit()
         self.terminal_box.setReadOnly(True)
-        self.terminal_box.setFixedHeight(180)
+        self.terminal_box.setMinimumHeight(100)
         self.terminal_box.setPlaceholderText("[Hazır] SQL Server optimizasyon ve benchmark akışları burada canlı gösterilir...")
         term_layout.addWidget(self.terminal_box)
-        self.content_layout.addWidget(terminal_frame)
+
+        main_splitter.addWidget(terminal_frame)
 
         # 6. Performance Matrix Table Widget (Full-length without inner slider)
         self.matrix_widget = PerformanceMatrixWidget()
-        self.content_layout.addWidget(self.matrix_widget)
+        main_splitter.addWidget(self.matrix_widget)
+
+        main_splitter.setSizes([190, 820])
+        self.content_layout.addWidget(main_splitter)
 
         scroll.setWidget(content_widget)
         scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
@@ -361,6 +499,7 @@ class MainWindow(QMainWindow):
         # Status Bar
         self.setStatusBar(QStatusBar())
         self.statusBar().showMessage("VortexDBA Motoru Hazır.")
+
 
     def update_header_state(self):
         cfg = get_config()
@@ -505,6 +644,8 @@ class MainWindow(QMainWindow):
 
     def switch_source(self, source: str):
         update_traffic_source(source)
+        self.btn_src_sim.setChecked(source == "simulation")
+        self.btn_src_live.setChecked(source == "live_dmv")
         self.refresh_all()
 
     def open_db_dialog(self):
@@ -536,13 +677,14 @@ class MainWindow(QMainWindow):
         self.trigger_connection_check()
         self.refresh_all()
 
-
     def run_step1(self):
+        self.switch_source("simulation")
         self.set_running_state(True)
         self.current_worker = SimulateWorker()
         self.current_worker.log_signal.connect(self.append_log)
         self.current_worker.finished_signal.connect(self.on_worker_finished)
         self.current_worker.start()
+
 
     def run_step2(self):
         self.set_running_state(True)
@@ -552,11 +694,20 @@ class MainWindow(QMainWindow):
         self.current_worker.start()
 
     def run_step3(self):
+        matrix_data = self.matrix_widget.raw_data or []
+        queries = []
+        for item in matrix_data:
+            sql = item.get("query_sql")
+            name = item.get("name") or "query"
+            if sql:
+                queries.append({"name": name, "query": sql, "params": None})
+
         self.set_running_state(True)
-        self.current_worker = BenchmarkWorker()
+        self.current_worker = BenchmarkWorker(queries=queries if queries else None)
         self.current_worker.log_signal.connect(self.append_log)
         self.current_worker.finished_signal.connect(self.on_worker_finished)
         self.current_worker.start()
+
 
     def run_step4(self):
         reply = QMessageBox.question(

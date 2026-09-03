@@ -280,22 +280,27 @@ def recommend_index_for_query(query_sql: str) -> IndexRecommendation | None:
         return None
 
     clean = re.sub(r"--.*", "", query_sql)
+    # Strip brackets like [customers], [city]
+    clean_norm = re.sub(r"\[(\w+)\]", r"\1", clean)
 
     # Extract WHERE clause
-    where_match = re.search(r"WHERE\s+(.*?)(?:GROUP\s+BY|ORDER\s+BY|HAVING|$)", clean, re.IGNORECASE | re.DOTALL)
+    where_match = re.search(r"WHERE\s+(.*?)(?:GROUP\s+BY|ORDER\s+BY|HAVING|$)", clean_norm, re.IGNORECASE | re.DOTALL)
     where_clause = where_match.group(1) if where_match else ""
 
-    # Extract FROM/JOIN tables
-    tables = re.findall(r"(?:FROM|JOIN)\s+(\w+)(?:\s+(\w+))?", clean, re.IGNORECASE)
+    # Extract FROM/JOIN tables (handling optional schema prefix like dbo.customers)
+    tables = re.findall(r"(?:FROM|JOIN)\s+(?:(\w+)\.)?(\w+)(?:\s+(?:AS\s+)?(\w+))?", clean_norm, re.IGNORECASE)
     table_alias: dict[str, str] = {}
-    for t, a in tables:
-        t_low = t.lower()
-        if a and a.lower() not in ("where", "on", "join", "group", "order", "inner", "left", "right", "outer", "cross"):
-            table_alias[a.lower()] = t_low
+    from_tables = []
+    for schema, tbl, alias in tables:
+        t_low = tbl.lower()
+        if t_low in ("where", "on", "join", "group", "order", "inner", "left", "right", "outer", "cross", "select"):
+            continue
+        from_tables.append(t_low)
         table_alias[t_low] = t_low
+        if alias and alias.lower() not in ("where", "on", "join", "group", "order", "inner", "left", "right", "outer", "cross", "as"):
+            table_alias[alias.lower()] = t_low
 
-    from_match = re.search(r"FROM\s+(\w+)(?:\s+(\w+))?", clean, re.IGNORECASE)
-    single_from_table = from_match.group(1).lower() if (from_match and len(tables) <= 1) else None
+    single_from_table = from_tables[0] if len(from_tables) == 1 else None
 
     known_table_cols = {
         "orders": {"customer_id", "status", "total_amount", "order_date", "product_category", "shipping_address"},
@@ -310,7 +315,7 @@ def recommend_index_for_query(query_sql: str) -> IndexRecommendation | None:
 
     for alias, col, op in predicates:
         col_lower = col.lower()
-        if col_lower in ("id", "text", "numeric", "varchar", "nvarchar", "count", "sum", "avg"):
+        if col_lower in ("id", "text", "numeric", "varchar", "nvarchar", "count", "sum", "avg", "top", "distinct"):
             continue
 
         if single_from_table:
@@ -324,7 +329,7 @@ def recommend_index_for_query(query_sql: str) -> IndexRecommendation | None:
                     tbl = t_name
                     break
             if not tbl:
-                tbl = "orders" if "orders" in clean.lower() else "customers"
+                tbl = "orders" if "orders" in clean_norm.lower() else "customers"
 
         if op.upper() in ("=", "IS"):
             if tbl not in table_equality_cols:
@@ -338,7 +343,7 @@ def recommend_index_for_query(query_sql: str) -> IndexRecommendation | None:
                 table_range_cols[tbl].append(col_lower)
 
     # Check ORDER BY columns
-    order_match = re.search(r"ORDER\s+BY\s+(.*?)$", clean, re.IGNORECASE | re.DOTALL)
+    order_match = re.search(r"ORDER\s+BY\s+(.*?)$", clean_norm, re.IGNORECASE | re.DOTALL)
     table_order_cols: dict[str, list[str]] = {}
     if order_match:
         order_cols = re.findall(r"(?:(\w+)\.)?(\w+)(?:\s+DESC|\s+ASC)?", order_match.group(1), re.IGNORECASE)
@@ -357,7 +362,8 @@ def recommend_index_for_query(query_sql: str) -> IndexRecommendation | None:
                         tbl = t_name
                         break
                 if not tbl:
-                    tbl = "orders" if "orders" in clean.lower() else "customers"
+                    tbl = "orders" if "orders" in clean_norm.lower() else "customers"
+
 
             if tbl not in table_order_cols:
                 table_order_cols[tbl] = []

@@ -47,10 +47,7 @@ class IndexStat:
     indexrelname: str
     idx_scan: int
     idx_tup_read: int
-    idx_tup_fetch: int
-
-
-def get_top_queries_by_time(limit: int = 10) -> list[QueryStat]:
+def get_top_queries_by_time(limit: int = 15) -> list[QueryStat]:
     """Get the slowest queries by mean execution time."""
     query = f"""
         SELECT TOP ({int(limit)})
@@ -70,13 +67,19 @@ def get_top_queries_by_time(limit: int = 10) -> list[QueryStat]:
             qs.total_physical_reads AS shared_blks_read
         FROM sys.dm_exec_query_stats qs
         CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) st
-        WHERE st.text NOT LIKE '%sys.dm_%'
+        WHERE (st.text LIKE '%customers%' OR st.text LIKE '%orders%' OR (st.dbid = DB_ID() AND st.text NOT LIKE '%sys.%'))
+          AND st.text NOT LIKE '%sys.dm_%'
+          AND st.text NOT LIKE '%dm_exec_query_stats%'
+          AND st.text NOT LIKE '%CHECKSUM%'
+          AND st.text NOT LIKE '%sys.%'
           AND st.text NOT LIKE '%SHOWPLAN%'
           AND st.text NOT LIKE '%CREATE INDEX%'
           AND st.text NOT LIKE '%DROP INDEX%'
-        ORDER BY mean_exec_time DESC
+          AND st.text NOT LIKE '%DBCC%'
+        ORDER BY qs.last_execution_time DESC, mean_exec_time DESC
     """
     results = execute_query(query)
+
     return [
         QueryStat(
             queryid=r["queryid"] or 0,
@@ -94,7 +97,7 @@ def get_top_queries_by_time(limit: int = 10) -> list[QueryStat]:
     ]
 
 
-def get_top_queries_by_calls(limit: int = 10) -> list[QueryStat]:
+def get_top_queries_by_calls(limit: int = 15) -> list[QueryStat]:
     """Get the most frequently called queries."""
     query = f"""
         SELECT TOP ({int(limit)})
@@ -114,14 +117,20 @@ def get_top_queries_by_calls(limit: int = 10) -> list[QueryStat]:
             qs.total_physical_reads AS shared_blks_read
         FROM sys.dm_exec_query_stats qs
         CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) st
-        WHERE st.text NOT LIKE '%sys.dm_%'
+        WHERE (st.text LIKE '%customers%' OR st.text LIKE '%orders%' OR (st.dbid = DB_ID() AND st.text NOT LIKE '%sys.%'))
+          AND st.text NOT LIKE '%sys.dm_%'
+          AND st.text NOT LIKE '%dm_exec_query_stats%'
+          AND st.text NOT LIKE '%CHECKSUM%'
+          AND st.text NOT LIKE '%sys.%'
           AND st.text NOT LIKE '%SHOWPLAN%'
           AND st.text NOT LIKE '%CREATE INDEX%'
           AND st.text NOT LIKE '%DROP INDEX%'
-        ORDER BY calls DESC
+          AND st.text NOT LIKE '%DBCC%'
+        ORDER BY qs.execution_count DESC, mean_exec_time DESC
     """
     results = execute_query(query)
     return [
+
         QueryStat(
             queryid=r["queryid"] or 0,
             query=(r["query"] or "").strip(),

@@ -16,14 +16,27 @@ from gui.main_window import MainWindow
 
 def main():
     """Start the native desktop application."""
+    # Set Windows AppUserModelID for taskbar icon
+    try:
+        import ctypes
+        myappid = "vortexdba.enterprise.gui.v2"
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+    except Exception:
+        pass
+
     app = QApplication(sys.argv)
     app.setApplicationName("VortexDBA")
     app.setOrganizationName("VortexDBA")
+
+    logo_path = Path(__file__).parent / "logo.svg"
+    if logo_path.exists():
+        app.setWindowIcon(QIcon(str(logo_path)))
 
     window = MainWindow()
     window.show()
 
     sys.exit(app.exec())
+
 
 
 if __name__ == "__main__":

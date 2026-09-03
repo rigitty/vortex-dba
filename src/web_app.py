@@ -57,8 +57,45 @@ async def dashboard():
 
 @app.get("/health")
 async def health():
-    """Health check endpoint."""
-    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+    """Health check endpoint testing real database connection."""
+    try:
+        from db_connection import is_server_reachable, get_connection
+        cfg = get_config().database
+        reachable = is_server_reachable(cfg.host, cfg.port, timeout_sec=0.6)
+        if not reachable:
+            return {
+                "status": "unhealthy",
+                "connected": False,
+                "error": f"Server {cfg.host}:{cfg.port} ulaşılamıyor",
+                "host": cfg.host,
+                "port": cfg.port,
+                "dbname": cfg.dbname,
+                "timestamp": datetime.now().isoformat()
+            }
+        
+        conn = get_connection(login_timeout=1, timeout=1)
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1")
+        conn.close()
+        return {
+            "status": "healthy",
+            "connected": True,
+            "host": cfg.host,
+            "port": cfg.port,
+            "dbname": cfg.dbname,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        cfg = get_config().database
+        return {
+            "status": "unhealthy",
+            "connected": False,
+            "error": str(e),
+            "host": getattr(cfg, "host", "localhost"),
+            "port": getattr(cfg, "port", 1433),
+            "dbname": getattr(cfg, "dbname", "vortex_db"),
+            "timestamp": datetime.now().isoformat()
+        }
 
 
 @app.get("/api/stats")

@@ -336,3 +336,16 @@ def get_index_snapshot() -> str:
     """Get a snapshot of currently active index names."""
     indexes = get_active_indexes()
     return ",".join(sorted(idx.index_name for idx in indexes))
+
+
+def clear_all_state() -> None:
+    """Wipe all applied index records, benchmark history, baselines and decisions."""
+    conn = _get_connection()
+    try:
+        conn.execute("DELETE FROM applied_indexes")
+        conn.execute("DELETE FROM benchmark_history")
+        conn.execute("DELETE FROM agent_decisions")
+        conn.commit()
+    finally:
+        conn.close()
+

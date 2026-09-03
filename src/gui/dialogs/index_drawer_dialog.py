@@ -30,6 +30,9 @@ except ImportError:
     from db_connection import execute_query
 
 
+from pathlib import Path
+from PyQt6.QtGui import QIcon
+
 class IndexDrawerDialog(QDialog):
     """Slide-over style Index Management Dialog."""
     def __init__(self, active_tab: str = "applied", parent=None):
@@ -38,7 +41,14 @@ class IndexDrawerDialog(QDialog):
         self.resize(720, 500)
         self.setModal(True)
 
+        logo_path = Path(__file__).resolve().parent.parent.parent.parent / "logo.svg"
+        if not logo_path.exists():
+            logo_path = Path.cwd() / "logo.svg"
+        if logo_path.exists():
+            self.setWindowIcon(QIcon(str(logo_path)))
+
         self.init_ui(active_tab)
+
         self.load_data()
 
     def init_ui(self, initial_tab: str):

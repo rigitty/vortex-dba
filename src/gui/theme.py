@@ -3,9 +3,9 @@
 DARK_THEME_QSS = """
 /* Global Application Styles */
 QWidget {
-    background-color: #06090f;
+    background-color: #000000;
     color: #e2e8f0;
-    font-family: "Segoe UI", "Inter", -apple-system, sans-serif;
+    font-family: "JetBrains Mono", "Segoe UI", "Inter", -apple-system, sans-serif;
     font-size: 11px;
     selection-background-color: #1d4ed8;
     selection-color: #ffffff;
@@ -13,7 +13,7 @@ QWidget {
 
 /* Main Window */
 QMainWindow {
-    background-color: #06090f;
+    background-color: #000000;
 }
 
 /* Scroll Area */
@@ -28,14 +28,14 @@ QScrollArea > QWidget > QWidget {
 /* Custom Minimal Scrollbars */
 QScrollBar:vertical {
     border: none;
-    background: #06090f;
+    background: #000000;
     width: 6px;
     margin: 0px;
 }
 QScrollBar::handle:vertical {
     background: #192333;
     min-height: 20px;
-    border-radius: 3px;
+    border-radius: 0px;
 }
 QScrollBar::handle:vertical:hover {
     background: #2563eb;
@@ -46,14 +46,14 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
 
 QScrollBar:horizontal {
     border: none;
-    background: #06090f;
+    background: #000000;
     height: 6px;
     margin: 0px;
 }
 QScrollBar::handle:horizontal {
     background: #192333;
     min-width: 20px;
-    border-radius: 3px;
+    border-radius: 0px;
 }
 QScrollBar::handle:horizontal:hover {
     background: #2563eb;
@@ -62,40 +62,40 @@ QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
     width: 0px;
 }
 
-/* Solid Cards & Frames (Smooth rounded corners) */
+/* Solid Cards & Frames (Strictly Boxy) */
 QFrame.card-panel {
-    background-color: #0b111c;
-    border: 1px solid #162234;
-    border-radius: 6px;
+    background-color: #07070a;
+    border: 1px solid #1a1a24;
+    border-radius: 0px;
 }
 
 QFrame.header-panel {
-    background-color: #080d17;
-    border-bottom: 1px solid #141d2c;
+    background-color: #07070a;
+    border-bottom: 1px solid #1a1a24;
 }
 
 /* Standard Buttons */
 QPushButton {
-    background-color: #0f1827;
-    border: 1px solid #1c2c44;
+    background-color: #0c0c12;
+    border: 1px solid #242434;
     color: #cbd5e1;
-    border-radius: 5px;
-    padding: 5px 11px;
+    border-radius: 0px;
+    padding: 6px 12px;
     font-weight: 600;
     font-size: 11px;
 }
 QPushButton:hover {
-    background-color: #16243a;
-    border-color: #2563eb;
+    background-color: #151520;
+    border-color: #3b3b52;
     color: #ffffff;
 }
 QPushButton:pressed {
-    background-color: #0b1320;
-    border-color: #1d4ed8;
+    background-color: #000000;
+    border-color: #2563eb;
 }
 QPushButton:disabled {
-    background-color: #090e18;
-    border-color: #121b29;
+    background-color: #050508;
+    border-color: #14141c;
     color: #475569;
 }
 
@@ -289,5 +289,20 @@ QStatusBar {
     font-size: 10px;
     padding: 2px 8px;
 }
+
+/* Splitter */
+QSplitter::handle {
+    background-color: #121d2d;
+    height: 7px;
+    margin: 3px 0px;
+    border-radius: 3px;
+}
+QSplitter::handle:hover {
+    background-color: #2563eb;
+}
+QSplitter::handle:pressed {
+    background-color: #3b82f6;
+}
 """
+
 
