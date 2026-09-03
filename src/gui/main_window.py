@@ -1565,13 +1565,14 @@ class MainWindow(QMainWindow):
             it_4.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table_queries_only.setItem(row_idx, 4, it_4)
 
-            # 5. Duration
+            # 5. Duration (Pure white in dark theme, pure black in light theme)
             ms_val = q.get("initial_ms")
             ms_str = f"{ms_val} ms" if ms_val is not None else "—"
             it_5 = QTableWidgetItem(ms_str)
-            it_5.setForeground(QColor(self.c("accent_danger")) if (ms_val and ms_val > 20) else QColor(self.c("text_secondary")))
+            it_5.setForeground(QColor("#000000" if self.is_light_theme else "#ffffff"))
             it_5.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table_queries_only.setItem(row_idx, 5, it_5)
+
 
         self.table_queries_only.resizeRowsToContents()
 
@@ -1967,7 +1968,17 @@ class MainWindow(QMainWindow):
             if not has_index:
                 b_apply = QPushButton("İndeksle")
                 b_apply.setProperty("class", "btn-success")
-                b_apply.setStyleSheet("background-color: #059669; color: #ffffff; border: 1px solid #047857; font-weight: 800; font-size: 11px; border-radius: 2px; padding: 3px 8px;" if self.is_light_theme else "background-color: #065f46; color: #ffffff; border: 1px solid #10b981; font-weight: 800; font-size: 11px; border-radius: 2px; padding: 3px 8px;")
+                b_apply.setCursor(Qt.CursorShape.PointingHandCursor)
+                b_apply_style = """
+                    QPushButton { background-color: #059669; color: #ffffff; border: 1px solid #047857; font-weight: 800; font-size: 11px; border-radius: 2px; padding: 3px 8px; }
+                    QPushButton:hover { background-color: #047857; border-color: #065f46; color: #ffffff; }
+                    QPushButton:pressed { background-color: #064e3b; }
+                """ if self.is_light_theme else """
+                    QPushButton { background-color: #065f46; color: #ffffff; border: 1px solid #10b981; font-weight: 800; font-size: 11px; border-radius: 2px; padding: 3px 8px; }
+                    QPushButton:hover { background-color: #047857; border-color: #6ee7b7; color: #ffffff; }
+                    QPushButton:pressed { background-color: #064e3b; }
+                """
+                b_apply.setStyleSheet(b_apply_style)
                 b_apply.setMinimumWidth(80)
                 b_apply.setMinimumHeight(24)
                 b_apply.clicked.connect(lambda checked, it=item_pass: self.apply_index_only(it))
@@ -1975,7 +1986,17 @@ class MainWindow(QMainWindow):
             else:
                 b_test = QPushButton("Test")
                 b_test.setProperty("class", "btn-warning")
-                b_test.setStyleSheet("background-color: #d97706; color: #ffffff; border: 1px solid #b45309; font-weight: 800; font-size: 11px; border-radius: 2px; padding: 3px 6px;" if self.is_light_theme else "background-color: #854d0e; color: #ffffff; border: 1px solid #f59e0b; font-weight: 800; font-size: 11px; border-radius: 2px; padding: 3px 6px;")
+                b_test.setCursor(Qt.CursorShape.PointingHandCursor)
+                b_test_style = """
+                    QPushButton { background-color: #d97706; color: #ffffff; border: 1px solid #b45309; font-weight: 800; font-size: 11px; border-radius: 2px; padding: 3px 6px; }
+                    QPushButton:hover { background-color: #b45309; border-color: #92400e; color: #ffffff; }
+                    QPushButton:pressed { background-color: #78350f; }
+                """ if self.is_light_theme else """
+                    QPushButton { background-color: #854d0e; color: #ffffff; border: 1px solid #f59e0b; font-weight: 800; font-size: 11px; border-radius: 2px; padding: 3px 6px; }
+                    QPushButton:hover { background-color: #a16207; border-color: #fde68a; color: #ffffff; }
+                    QPushButton:pressed { background-color: #713f12; }
+                """
+                b_test.setStyleSheet(b_test_style)
                 b_test.setMinimumWidth(55)
                 b_test.setMinimumHeight(24)
                 b_test.clicked.connect(lambda checked, it=item_pass: self.benchmark_single_index_query(it))
@@ -1983,7 +2004,17 @@ class MainWindow(QMainWindow):
 
                 b_drop = QPushButton("Sil")
                 b_drop.setProperty("class", "btn-danger")
-                b_drop.setStyleSheet("background-color: #e11d48; color: #ffffff; border: 1px solid #be123c; font-weight: 800; font-size: 11px; border-radius: 2px; padding: 3px 6px;" if self.is_light_theme else "background-color: #881337; color: #ffffff; border: 1px solid #f43f5e; font-weight: 800; font-size: 11px; border-radius: 2px; padding: 3px 6px;")
+                b_drop.setCursor(Qt.CursorShape.PointingHandCursor)
+                b_drop_style = """
+                    QPushButton { background-color: #e11d48; color: #ffffff; border: 1px solid #be123c; font-weight: 800; font-size: 11px; border-radius: 2px; padding: 3px 6px; }
+                    QPushButton:hover { background-color: #be123c; border-color: #9f1239; color: #ffffff; }
+                    QPushButton:pressed { background-color: #881337; }
+                """ if self.is_light_theme else """
+                    QPushButton { background-color: #881337; color: #ffffff; border: 1px solid #f43f5e; font-weight: 800; font-size: 11px; border-radius: 2px; padding: 3px 6px; }
+                    QPushButton:hover { background-color: #9f1239; border-color: #fecdd3; color: #ffffff; }
+                    QPushButton:pressed { background-color: #4c0519; }
+                """
+                b_drop.setStyleSheet(b_drop_style)
                 b_drop.setMinimumWidth(50)
                 b_drop.setMinimumHeight(24)
                 b_drop.clicked.connect(lambda checked, it=item_pass: self.drop_single_index_row(it["active_indexes"][0], it["table"]))
@@ -2052,7 +2083,17 @@ class MainWindow(QMainWindow):
             if not meta["is_active"]:
                 b_c_apply = QPushButton("İndeksi Oluştur")
                 b_c_apply.setProperty("class", "btn-success")
-                b_c_apply.setStyleSheet("background-color: #059669; color: #ffffff; border: 1px solid #047857; font-weight: 800; font-size: 11px; border-radius: 2px; padding: 3px 10px;" if self.is_light_theme else "background-color: #065f46; color: #ffffff; border: 1px solid #10b981; font-weight: 800; font-size: 11px; border-radius: 2px; padding: 3px 10px;")
+                b_c_apply.setCursor(Qt.CursorShape.PointingHandCursor)
+                b_c_apply_style = """
+                    QPushButton { background-color: #059669; color: #ffffff; border: 1px solid #047857; font-weight: 800; font-size: 11px; border-radius: 2px; padding: 3px 10px; }
+                    QPushButton:hover { background-color: #047857; border-color: #065f46; color: #ffffff; }
+                    QPushButton:pressed { background-color: #064e3b; }
+                """ if self.is_light_theme else """
+                    QPushButton { background-color: #065f46; color: #ffffff; border: 1px solid #10b981; font-weight: 800; font-size: 11px; border-radius: 2px; padding: 3px 10px; }
+                    QPushButton:hover { background-color: #047857; border-color: #6ee7b7; color: #ffffff; }
+                    QPushButton:pressed { background-color: #064e3b; }
+                """
+                b_c_apply.setStyleSheet(b_c_apply_style)
                 b_c_apply.setMinimumWidth(125)
                 b_c_apply.setMinimumHeight(24)
                 b_c_apply.clicked.connect(lambda checked, it=cat_item: self.apply_index_only(it))
@@ -2060,11 +2101,22 @@ class MainWindow(QMainWindow):
             else:
                 b_c_drop = QPushButton("İndeksi Kaldır")
                 b_c_drop.setProperty("class", "btn-danger")
-                b_c_drop.setStyleSheet("background-color: #e11d48; color: #ffffff; border: 1px solid #be123c; font-weight: 800; font-size: 11px; border-radius: 2px; padding: 3px 10px;" if self.is_light_theme else "background-color: #881337; color: #ffffff; border: 1px solid #f43f5e; font-weight: 800; font-size: 11px; border-radius: 2px; padding: 3px 10px;")
+                b_c_drop.setCursor(Qt.CursorShape.PointingHandCursor)
+                b_c_drop_style = """
+                    QPushButton { background-color: #e11d48; color: #ffffff; border: 1px solid #be123c; font-weight: 800; font-size: 11px; border-radius: 2px; padding: 3px 10px; }
+                    QPushButton:hover { background-color: #be123c; border-color: #9f1239; color: #ffffff; }
+                    QPushButton:pressed { background-color: #881337; }
+                """ if self.is_light_theme else """
+                    QPushButton { background-color: #881337; color: #ffffff; border: 1px solid #f43f5e; font-weight: 800; font-size: 11px; border-radius: 2px; padding: 3px 10px; }
+                    QPushButton:hover { background-color: #9f1239; border-color: #fecdd3; color: #ffffff; }
+                    QPushButton:pressed { background-color: #4c0519; }
+                """
+                b_c_drop.setStyleSheet(b_c_drop_style)
                 b_c_drop.setMinimumWidth(125)
                 b_c_drop.setMinimumHeight(24)
                 b_c_drop.clicked.connect(lambda checked, it=cat_item: self.drop_single_index_row(it["active_indexes"][0], it["table"]))
                 act_layout.addWidget(b_c_drop)
+
 
 
 
