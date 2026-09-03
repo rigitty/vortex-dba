@@ -76,24 +76,24 @@ QFrame.header-panel {
 
 /* Standard Buttons */
 QPushButton {
-    background-color: #0c0c12;
-    border: 1px solid #242434;
-    color: #cbd5e1;
-    border-radius: 0px;
-    padding: 6px 14px;
+    background-color: #0c0c14;
+    border: 1px solid #2a2a3c;
+    color: #e2e8f0;
+    border-radius: 2px;
+    padding: 8px 16px;
     font-weight: 700;
-    font-size: 11px;
+    font-size: 11.5px;
     font-family: "JetBrains Mono", monospace;
     text-transform: uppercase;
 }
 QPushButton:hover {
-    background-color: #151520;
-    border-color: #3b3b52;
+    background-color: #161624;
+    border-color: #4b4b66;
     color: #ffffff;
 }
 QPushButton:pressed {
-    background-color: #000000;
-    border-color: #2563eb;
+    background-color: #050508;
+    border-color: #38bdf8;
 }
 QPushButton:disabled {
     background-color: #050508;
@@ -101,74 +101,107 @@ QPushButton:disabled {
     color: #475569;
 }
 
-/* Primary Blue Action Button */
+/* Primary Blue Action Button (With Blue Glow) */
 QPushButton.btn-primary {
-    background-color: #1e3a8a;
+    background-color: #1d4ed8;
     border: 1px solid #3b82f6;
     color: #ffffff;
-    font-weight: 700;
+    font-weight: 800;
+    font-size: 11.5px;
+    padding: 8px 18px;
 }
 QPushButton.btn-primary:hover {
     background-color: #2563eb;
-    border-color: #60a5fa;
+    border: 1px solid #93c5fd;
+    color: #ffffff;
+}
+QPushButton.btn-primary:pressed {
+    background-color: #1e40af;
+    border: 1px solid #bfdbfe;
 }
 
-/* Success Green Action Button */
+/* Success Green Action Button (With Emerald Glow) */
 QPushButton.btn-success {
-    background-color: #064e3b;
+    background-color: #065f46;
     border: 1px solid #10b981;
-    color: #6ee7b7;
-    font-weight: 700;
+    color: #ecfdf5;
+    font-weight: 800;
+    font-size: 11.5px;
+    padding: 8px 18px;
 }
 QPushButton.btn-success:hover {
     background-color: #047857;
+    border: 1px solid #6ee7b7;
     color: #ffffff;
 }
+QPushButton.btn-success:pressed {
+    background-color: #064e3b;
+    border: 1px solid #a7f3d0;
+}
 
-/* Warning Amber Action Button */
+/* Warning Amber Action Button (With Amber Glow) */
 QPushButton.btn-warning {
-    background-color: #78350f;
+    background-color: #854d0e;
     border: 1px solid #f59e0b;
-    color: #fde68a;
-    font-weight: 700;
+    color: #fffbeb;
+    font-weight: 800;
+    font-size: 11.5px;
+    padding: 8px 18px;
 }
 QPushButton.btn-warning:hover {
-    background-color: #b45309;
+    background-color: #a16207;
+    border: 1px solid #fde68a;
     color: #ffffff;
 }
+QPushButton.btn-warning:pressed {
+    background-color: #713f12;
+    border: 1px solid #fef3c7;
+}
 
-/* Danger Red Button */
+/* Danger Red Button (With Rose Glow) */
 QPushButton.btn-danger {
     background-color: #881337;
     border: 1px solid #f43f5e;
-    color: #fecdd3;
-    font-weight: 700;
+    color: #fff1f2;
+    font-weight: 800;
+    font-size: 11.5px;
+    padding: 8px 18px;
 }
 QPushButton.btn-danger:hover {
-    background-color: #be123c;
+    background-color: #9f1239;
+    border: 1px solid #fecdd3;
     color: #ffffff;
 }
+QPushButton.btn-danger:pressed {
+    background-color: #4c0519;
+    border: 1px solid #ffe4e6;
+}
 
-/* Top Nav Tab Button */
+/* Top Nav Tab Button (With Glowing Active State) */
 QPushButton.nav-tab-btn {
     background-color: transparent;
     border: 1px solid transparent;
     color: #9494a8;
-    padding: 7px 15px;
-    font-weight: 700;
-    font-size: 11px;
+    padding: 8px 18px;
+    font-weight: 800;
+    font-size: 12px;
     font-family: "JetBrains Mono", monospace;
     text-transform: uppercase;
+    border-radius: 2px;
 }
 QPushButton.nav-tab-btn:hover {
-    background-color: #0e0e16;
+    background-color: #0c1728;
     color: #ffffff;
+    border: 1px solid #1e3a8a;
 }
 QPushButton.nav-tab-btn:checked {
-    background-color: #141420;
-    color: #ffffff;
-    border: 1px solid #2a2a38;
+    background-color: #0c213d;
+    color: #38bdf8;
+    border: 1px solid #38bdf8;
+    font-weight: 800;
 }
+
+
 
 /* Input Fields */
 QLineEdit, QSpinBox {

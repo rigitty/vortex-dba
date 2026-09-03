@@ -62,7 +62,9 @@ try:
     from src.pg_stats_reader import get_table_stats
     from src.gui.theme import DARK_THEME_QSS
     from src.gui.widgets.stat_card import StatCard
+    from src.gui.widgets.toast import ToastOverlay
     from src.gui.workers import (
+
         SimulateWorker,
         RemediateWorker,
         BenchmarkWorker,
@@ -99,12 +101,14 @@ except ImportError:
     from pg_stats_reader import get_table_stats
     from gui.theme import DARK_THEME_QSS
     from gui.widgets.stat_card import StatCard
+    from gui.widgets.toast import ToastOverlay
     from gui.workers import (
         SimulateWorker,
         RemediateWorker,
         BenchmarkWorker,
         ResetWorker,
     )
+
 
 
 class MainWindow(QMainWindow):
@@ -147,12 +151,23 @@ class MainWindow(QMainWindow):
         self.setStyleSheet(DARK_THEME_QSS)
 
         self.init_ui()
+        self.toast_overlay = ToastOverlay(self)
         self.refresh_all()
 
         # Auto-refresh timer (3 seconds) for live telemetry & background DMV sniffing
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.auto_refresh)
         self.timer.start(3000)
+
+    def show_toast(self, title: str, message: str, toast_type: str = "success"):
+        """Displays a sleek floating non-blocking persistent toast notification."""
+        if hasattr(self, "toast_overlay"):
+            self.toast_overlay.add_toast(title, message, toast_type)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, "toast_overlay"):
+            self.toast_overlay.reposition()
 
     def toggle_maximize(self):
         if self.isMaximized():
@@ -161,6 +176,9 @@ class MainWindow(QMainWindow):
         else:
             self.showMaximized()
             self.btn_max.setText("❐")
+        if hasattr(self, "toast_overlay"):
+            self.toast_overlay.reposition()
+
 
     # -------------------------------------------------------------------------
     # 8-DIRECTIONAL BORDER RESIZING & TITLE BAR DRAGGING
@@ -484,12 +502,23 @@ class MainWindow(QMainWindow):
         self.stacked_widget.addWidget(self.page_idx_mgmt)  # Index 3
         self.stacked_widget.addWidget(self.page_mgmt)      # Index 4
 
+
         root_layout.addWidget(self.stacked_widget, 1)
+        self._apply_hand_cursor_recursively(self)
+
+
+    def _apply_hand_cursor_recursively(self, widget: QWidget):
+        from PyQt6.QtWidgets import QAbstractButton, QComboBox
+        for btn in widget.findChildren(QAbstractButton):
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        for cb in widget.findChildren(QComboBox):
+            cb.setCursor(Qt.CursorShape.PointingHandCursor)
 
     # -------------------------------------------------------------------------
     # TAB NAVIGATION
     # -------------------------------------------------------------------------
     def switch_page(self, index: int):
+
         self.btn_tab_connect.setChecked(index == 0)
         self.btn_tab_editor.setChecked(index == 1)
         self.btn_tab_queries.setChecked(index == 2)
@@ -955,12 +984,13 @@ class MainWindow(QMainWindow):
 
             record_applied_index(rec.index_name, rec.table, rec.columns, rec.create_statement, "SQL Editörü isteği")
             record_decision("applied_index", f"Oluşturuldu: [{rec.index_name}] ON [{rec.table}]")
-            QMessageBox.information(self, "İndeks Oluşturuldu", f"[{rec.index_name}] başarıyla SQL Server üzerinde oluşturuldu!")
+            self.show_toast("İNDEKS OLUŞTURULDU", f"[{rec.index_name}] indeksi SQL Server üzerinde başarıyla oluşturuldu!", "success")
             self.rec_frame.setVisible(False)
+            self.load_queries_only_table()
             self.load_index_mgmt_table()
             self.refresh_mgmt_page()
         except Exception as e:
-            QMessageBox.critical(self, "İndeks Oluşturma Hatası", str(e))
+            self.show_toast("İNDEKS HATASI", str(e), "danger")
 
 
     # -------------------------------------------------------------------------
@@ -1172,15 +1202,16 @@ class MainWindow(QMainWindow):
 
     def delete_selected_queries(self):
         if not self.selected_query_ids:
-            QMessageBox.information(self, "Seçim Yapılmadı", "Lütfen silmek istediğiniz sorguları yanlarındaki kutucuklardan seçin.")
+            self.show_toast("SEÇİM YAPILMADI", "Lütfen silmek istediğiniz sorguları yanlarındaki kutucuklardan seçin.", "warning")
             return
 
+        cnt = len(self.selected_query_ids)
         delete_captured_queries(list(self.selected_query_ids))
         self.selected_query_ids.clear()
         self.load_queries_only_table()
         self.load_index_mgmt_table()
         self.refresh_mgmt_page()
-        QMessageBox.information(self, "Silindi", "Seçilen sorgular başarıyla listeden silindi.")
+        self.show_toast("SORGULAR SİLİNDİ", f"{cnt} adet sorgu başarıyla tablodan kaldırıldı.", "danger")
 
     def clear_all_queries_prompt(self):
         ret = QMessageBox.warning(
@@ -1195,7 +1226,8 @@ class MainWindow(QMainWindow):
             self.load_queries_only_table()
             self.load_index_mgmt_table()
             self.refresh_mgmt_page()
-            QMessageBox.information(self, "Temizlendi", "Tüm sorgular temizlendi.")
+            self.show_toast("TÜMÜ TEMİZLENDİ", "Tüm sorgu kayıtları başarıyla sıfırlandı.", "info")
+
 
     # -------------------------------------------------------------------------
     # PAGE 3: İNDEKS YÖNETİMİ (Index Recommendations, DDL, Benchmarks, Apply All)
@@ -1630,12 +1662,12 @@ class MainWindow(QMainWindow):
             record_decision("applied_index", f"Oluşturuldu: [{item['recommended_name']}] ON [{item['table']}]")
 
             if show_dialog:
-                QMessageBox.information(self, "İndeks Oluşturuldu", f"[{item['recommended_name']}] başarıyla SQL Server üzerinde oluşturuldu!\nPerformans kazancını test etmek için yanındaki [Test] butonuna basabilirsiniz.")
+                self.show_toast("İNDEKS OLUŞTURULDU", f"[{item['recommended_name']}] indeksi SQL Server üzerinde başarıyla oluşturuldu!\nPerformansı test etmek için [Test] butonuna basabilirsiniz.", "success")
             self.load_index_mgmt_table()
             self.refresh_mgmt_page()
         except Exception as e:
             if show_dialog:
-                QMessageBox.critical(self, "Hata", str(e))
+                self.show_toast("İNDEKS OLUŞTURMA HATASI", str(e), "danger")
 
 
     def benchmark_single_index_query(self, item, show_dialog=True):
@@ -1662,12 +1694,12 @@ class MainWindow(QMainWindow):
             record_benchmark(item["id"], measured, measured, "single_bench")
 
             if show_dialog:
-                QMessageBox.information(self, "Benchmark Tamamlandı", f"[{item['title']}] canlı yürütme süresi: {measured} ms")
-                self.load_index_mgmt_table()
-                self.refresh_mgmt_page()
+                self.show_toast("BENCHMARK TAMAMLANDI", f"[{item['title']}] canlı yürütme süresi: {measured} ms", "info")
+            self.load_index_mgmt_table()
+            self.refresh_mgmt_page()
         except Exception as e:
             if show_dialog:
-                QMessageBox.critical(self, "Benchmark Hatası", str(e))
+                self.show_toast("BENCHMARK HATASI", str(e), "danger")
 
 
     def drop_single_index_row(self, idx_name, table_name):
@@ -1691,9 +1723,10 @@ class MainWindow(QMainWindow):
             record_decision("manual_drop", f"Silindi: [{idx_name}] on [{table_name}]")
             self.load_index_mgmt_table()
             self.refresh_mgmt_page()
-            QMessageBox.information(self, "İndeks Silindi", f"[{idx_name}] başarıyla SQL Server'dan silindi ve RAM önbelleği temizlendi.")
+            self.show_toast("İNDEKS SİLİNDİ", f"[{idx_name}] indeksi SQL Server'dan silindi ve RAM önbelleği temizlendi.", "danger")
         except Exception as e:
-            QMessageBox.critical(self, "Silme Hatası", str(e))
+            self.show_toast("SİLME HATASI", str(e), "danger")
+
 
 
     # -------------------------------------------------------------------------
@@ -1903,8 +1936,17 @@ class MainWindow(QMainWindow):
         self.current_worker.finished_signal.connect(self.on_worker_finished)
         self.current_worker.start()
 
-    def on_worker_finished(self):
+    def on_worker_finished(self, success: bool = True, message: str = ""):
         self.refresh_all()
+        if message:
+            toast_type = "success" if success else "danger"
+            if "SIFIRLAMA" in message or "Sıfırlama" in message:
+                toast_type = "danger"
+            elif "BENCHMARK" in message or "Benchmark" in message:
+                toast_type = "info"
+            title = "İŞLEM BAŞARILI" if success else "İŞLEM HATASI"
+            self.show_toast(title, message.strip(), toast_type)
+
 
     # -------------------------------------------------------------------------
     # AUTO-REFRESH & HEALTH MONITORING (Runs every 3 seconds)
