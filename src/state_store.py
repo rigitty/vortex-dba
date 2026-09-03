@@ -83,6 +83,11 @@ def _ensure_tables(conn: sqlite3.Connection) -> None:
             created_at TEXT NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS ignored_queries (
+            query_hash TEXT PRIMARY KEY,
+            ignored_at TEXT NOT NULL
+        );
+
         CREATE INDEX IF NOT EXISTS idx_applied_indexes_name
             ON applied_indexes(index_name);
         CREATE INDEX IF NOT EXISTS idx_applied_indexes_table
@@ -93,6 +98,7 @@ def _ensure_tables(conn: sqlite3.Connection) -> None:
             ON agent_decisions(decision_type);
     """)
     conn.commit()
+
 
 
 def _get_connection() -> sqlite3.Connection:
@@ -374,6 +380,30 @@ def get_captured_queries() -> list[dict]:
         conn.close()
 
 
+def get_dmv_watermark() -> str:
+    """Get the watermark timestamp for DMV polling."""
+    conn = _get_connection()
+    try:
+        conn.execute("CREATE TABLE IF NOT EXISTS app_metadata (key TEXT PRIMARY KEY, value TEXT)")
+        row = conn.execute("SELECT value FROM app_metadata WHERE key = 'dmv_watermark'").fetchone()
+        return row["value"] if row else "2000-01-01 00:00:00"
+    finally:
+        conn.close()
+
+
+def set_dmv_watermark(ts: str = "") -> None:
+    """Set watermark timestamp for DMV polling."""
+    if not ts:
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = _get_connection()
+    try:
+        conn.execute("CREATE TABLE IF NOT EXISTS app_metadata (key TEXT PRIMARY KEY, value TEXT)")
+        conn.execute("INSERT OR REPLACE INTO app_metadata (key, value) VALUES ('dmv_watermark', ?)", (ts,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def add_captured_query(title: str, query_sql: str, target_table: str = "orders", initial_ms: float = 0.0, query_name: str = "") -> int:
     """Add a new captured query with timestamp."""
     conn = _get_connection()
@@ -406,11 +436,70 @@ def delete_captured_queries(ids: list[int]) -> None:
 
 
 def clear_all_captured_queries() -> None:
-    """Delete all captured queries."""
+    """Delete all captured queries and bump watermark to SQL Server time."""
     conn = _get_connection()
     try:
         conn.execute("DELETE FROM captured_queries")
         conn.commit()
     finally:
         conn.close()
+
+    try:
+        from src.db_connection import execute_query
+        rows = execute_query("SELECT CONVERT(VARCHAR(19), GETDATE(), 120) AS srv_time")
+        if rows and rows[0].get("srv_time"):
+            set_dmv_watermark(str(rows[0]["srv_time"]))
+        else:
+            set_dmv_watermark(datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"))
+    except Exception:
+        set_dmv_watermark("2000-01-01 00:00:00")
+
+    reset_dmv_tracker()
+
+
+def get_dmv_tracker() -> dict[str, tuple[int, str]]:
+    """Get mapping of query_hash to (last_calls, last_exec_time)."""
+    conn = _get_connection()
+    try:
+        conn.execute("CREATE TABLE IF NOT EXISTS dmv_tracker (query_hash TEXT PRIMARY KEY, last_calls INTEGER, last_exec TEXT)")
+        rows = conn.execute("SELECT query_hash, last_calls, last_exec FROM dmv_tracker").fetchall()
+        return {r["query_hash"]: (r["last_calls"], r["last_exec"]) for r in rows}
+    finally:
+        conn.close()
+
+
+def update_dmv_tracker(query_hash: str, calls: int, last_exec: str) -> None:
+    """Update call count and last execution time for a query."""
+    conn = _get_connection()
+    try:
+        conn.execute("CREATE TABLE IF NOT EXISTS dmv_tracker (query_hash TEXT PRIMARY KEY, last_calls INTEGER, last_exec TEXT)")
+        conn.execute("INSERT OR REPLACE INTO dmv_tracker (query_hash, last_calls, last_exec) VALUES (?, ?, ?)", (query_hash, calls, last_exec))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def reset_dmv_tracker() -> None:
+    """Reset DMV tracker on clear."""
+    conn = _get_connection()
+    try:
+        conn.execute("CREATE TABLE IF NOT EXISTS dmv_tracker (query_hash TEXT PRIMARY KEY, last_calls INTEGER, last_exec TEXT)")
+        conn.execute("DELETE FROM dmv_tracker")
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def clear_agent_decisions() -> None:
+    """Clear all records from agent_decisions."""
+    conn = _get_connection()
+    try:
+        conn.execute("DELETE FROM agent_decisions")
+        conn.commit()
+    finally:
+        conn.close()
+
+
+
+
 

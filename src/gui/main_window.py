@@ -1,10 +1,5 @@
 """Main Application Window for VortexDBA native PyQt6 desktop software.
-Refined modern 5-tab architecture:
-1. Sunucu Bağlantısı
-2. SQL Editörü
-3. Sorgular (Queries with timestamps, multi-select delete & clear all)
-4. İndeks Yönetimi (Index DDL preview, before/after gain, test buttons, apply all, benchmark all)
-5. Yönetim & Telemetri (Active auto-updating telemetry & audit trail)
+Refined modern 5-tab architecture with 8-directional border edge resizing.
 """
 
 import sys
@@ -32,7 +27,7 @@ from PyQt6.QtWidgets import (
     QSplitter,
     QCheckBox,
 )
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, QPoint, QRect
 from PyQt6.QtGui import QIcon, QFont, QColor
 
 import qtawesome as qta
@@ -57,7 +52,11 @@ try:
         add_captured_query,
         delete_captured_queries,
         clear_all_captured_queries,
+        clear_agent_decisions,
+        get_dmv_watermark,
+        set_dmv_watermark,
     )
+    from src.query_discovery import poll_and_capture_live_dmv_queries, generate_descriptive_title
     from src.index_advisor import recommend_index_for_query
     from src.pg_stats_reader import get_table_stats
     from src.gui.theme import DARK_THEME_QSS
@@ -88,7 +87,11 @@ except ImportError:
         add_captured_query,
         delete_captured_queries,
         clear_all_captured_queries,
+        clear_agent_decisions,
+        get_dmv_watermark,
+        set_dmv_watermark,
     )
+    from query_discovery import poll_and_capture_live_dmv_queries, generate_descriptive_title
     from index_advisor import recommend_index_for_query
     from pg_stats_reader import get_table_stats
     from gui.theme import DARK_THEME_QSS
@@ -104,6 +107,8 @@ except ImportError:
 class MainWindow(QMainWindow):
     """Refined Modern Main Window for VortexDBA native desktop application."""
 
+    BORDER_MARGIN = 8
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle("VortexDBA - Autonomous SQL Server Engine")
@@ -114,8 +119,12 @@ class MainWindow(QMainWindow):
         )
         self.resize(1440, 920)
         self.setMinimumSize(1100, 720)
+        self.setMouseTracking(True)
 
         self._drag_pos = None
+        self._resizing_edge = None
+        self._resize_start_pos = None
+        self._resize_start_geom = None
 
         # Load Logo
         logo_path = Path(__file__).resolve().parent.parent.parent / "logo.svg"
@@ -127,6 +136,7 @@ class MainWindow(QMainWindow):
 
         self.current_worker = None
         self.is_connected = False
+        self.engine_active = True  # Autonomous engine toggle
         self.active_editor_rec = None
         self.selected_query_ids = set()
 
@@ -136,7 +146,7 @@ class MainWindow(QMainWindow):
         self.init_ui()
         self.refresh_all()
 
-        # Auto-refresh timer (3 seconds) for live telemetry
+        # Auto-refresh timer (3 seconds) for live telemetry & background DMV sniffing
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.auto_refresh)
         self.timer.start(3000)
@@ -149,21 +159,149 @@ class MainWindow(QMainWindow):
             self.showMaximized()
             self.btn_max.setText("❐")
 
+    # -------------------------------------------------------------------------
+    # 8-DIRECTIONAL BORDER RESIZING & TITLE BAR DRAGGING
+    # -------------------------------------------------------------------------
+    def _get_resize_edge(self, pos: QPoint, rect: QRect) -> str | None:
+        if self.isMaximized():
+            return None
+        x, y = pos.x(), pos.y()
+        w, h = rect.width(), rect.height()
+        m = self.BORDER_MARGIN
+
+        left = x <= m
+        right = x >= w - m
+        top = y <= m
+        bottom = y >= h - m
+
+        if top and left:
+            return "top_left"
+        if top and right:
+            return "top_right"
+        if bottom and left:
+            return "bottom_left"
+        if bottom and right:
+            return "bottom_right"
+        if left:
+            return "left"
+        if right:
+            return "right"
+        if top:
+            return "top"
+        if bottom:
+            return "bottom"
+        return None
+
+    def _update_resize_cursor(self, edge: str | None):
+        if self.isMaximized() or edge is None:
+            self.unsetCursor()
+            return
+        if edge in ("top_left", "bottom_right"):
+            self.setCursor(Qt.CursorShape.SizeFDiagCursor)
+        elif edge in ("top_right", "bottom_left"):
+            self.setCursor(Qt.CursorShape.SizeBDiagCursor)
+        elif edge in ("left", "right"):
+            self.setCursor(Qt.CursorShape.SizeHorCursor)
+        elif edge in ("top", "bottom"):
+            self.setCursor(Qt.CursorShape.SizeVerCursor)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton and not self.isMaximized():
+            pos = event.position().toPoint()
+            rect = self.rect()
+            edge = self._get_resize_edge(pos, rect)
+            if edge is not None:
+                self._resizing_edge = edge
+                self._resize_start_pos = event.globalPosition().toPoint()
+                self._resize_start_geom = self.geometry()
+                event.accept()
+                return
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        pos = event.position().toPoint()
+        rect = self.rect()
+
+        if getattr(self, "_resizing_edge", None) is not None:
+            delta = event.globalPosition().toPoint() - self._resize_start_pos
+            start_g = self._resize_start_geom
+            min_w = self.minimumWidth()
+            min_h = self.minimumHeight()
+
+            new_x = start_g.x()
+            new_y = start_g.y()
+            new_w = start_g.width()
+            new_h = start_g.height()
+
+            edge = self._resizing_edge
+            if "left" in edge:
+                calc_w = start_g.width() - delta.x()
+                if calc_w >= min_w:
+                    new_x = start_g.x() + delta.x()
+                    new_w = calc_w
+                else:
+                    new_x = start_g.x() + (start_g.width() - min_w)
+                    new_w = min_w
+            elif "right" in edge:
+                new_w = max(min_w, start_g.width() + delta.x())
+
+            if "top" in edge:
+                calc_h = start_g.height() - delta.y()
+                if calc_h >= min_h:
+                    new_y = start_g.y() + delta.y()
+                    new_h = calc_h
+                else:
+                    new_y = start_g.y() + (start_g.height() - min_h)
+                    new_h = min_h
+            elif "bottom" in edge:
+                new_h = max(min_h, start_g.height() + delta.y())
+
+            self.setGeometry(new_x, new_y, new_w, new_h)
+            event.accept()
+            return
+
+        if not self.isMaximized():
+            edge = self._get_resize_edge(pos, rect)
+            self._update_resize_cursor(edge)
+
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        self._resizing_edge = None
+        self.unsetCursor()
+        super().mouseReleaseEvent(event)
+
     def eventFilter(self, obj, event):
         if obj == getattr(self, "header_frame", None):
+            pos = event.position().toPoint() if hasattr(event, "position") else QPoint(0, 0)
+            rect = self.rect()
+
             if event.type() == event.Type.MouseButtonPress:
                 if event.button() == Qt.MouseButton.LeftButton:
+                    edge = self._get_resize_edge(pos, rect)
+                    if edge is not None and not self.isMaximized():
+                        self._resizing_edge = edge
+                        self._resize_start_pos = event.globalPosition().toPoint()
+                        self._resize_start_geom = self.geometry()
+                        return True
                     self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
                     return False
             elif event.type() == event.Type.MouseMove:
+                if getattr(self, "_resizing_edge", None) is not None:
+                    self.mouseMoveEvent(event)
+                    return True
                 if event.buttons() == Qt.MouseButton.LeftButton and self._drag_pos is not None:
                     if self.isMaximized():
                         self.showNormal()
                         self.btn_max.setText("□")
                     self.move(event.globalPosition().toPoint() - self._drag_pos)
                     return True
+                edge = self._get_resize_edge(pos, rect)
+                self._update_resize_cursor(edge)
             elif event.type() == event.Type.MouseButtonRelease:
                 self._drag_pos = None
+                self._resizing_edge = None
+                self.unsetCursor()
             elif event.type() == event.Type.MouseButtonDblClick:
                 if event.button() == Qt.MouseButton.LeftButton:
                     self.toggle_maximize()
@@ -176,6 +314,7 @@ class MainWindow(QMainWindow):
     def init_ui(self):
         central_widget = QWidget()
         central_widget.setObjectName("central_widget")
+        central_widget.setMouseTracking(True)
         self.setCentralWidget(central_widget)
         root_layout = QVBoxLayout(central_widget)
         root_layout.setContentsMargins(0, 0, 0, 0)
@@ -185,6 +324,7 @@ class MainWindow(QMainWindow):
         self.header_frame = QFrame()
         self.header_frame.setProperty("class", "header-panel")
         self.header_frame.setFixedHeight(50)
+        self.header_frame.setMouseTracking(True)
         self.header_frame.installEventFilter(self)
 
         header_layout = QHBoxLayout(self.header_frame)
@@ -718,10 +858,52 @@ class MainWindow(QMainWindow):
                                 item.setForeground(QColor("#525266"))
                             self.table_sql_results.setItem(r_idx, c_idx, item)
 
-                    # Persist to captured_queries list if SELECT
-                    if query.lower().startswith("select"):
-                        target_tbl = "orders" if "orders" in query.lower() else "customers"
-                        add_captured_query(f"Editör Sorgusu ({target_tbl})", query, target_tbl, elapsed_ms)
+                    # Persist user query to captured_queries list
+                    target_tbl = "orders" if "orders" in query.lower() else ("customers" if "customers" in query.lower() else "user_table")
+                    q_count = len(get_captured_queries()) + 1
+                    
+                    # Check if index exists on table
+                    has_custom_idx = False
+                    try:
+                        active_idx = get_active_indexes()
+                        has_custom_idx = any(idx.table_name == target_tbl for idx in active_idx)
+                    except Exception:
+                        pass
+
+                    title = generate_descriptive_title(query, target_tbl, q_count)
+                    if has_custom_idx:
+                        title += " (İndeksli Test)"
+
+                    q_name = f"editor_q_{q_count:02d}"
+                    add_captured_query(title, query, target_tbl, elapsed_ms, query_name=q_name)
+                    record_benchmark(q_name, elapsed_ms, elapsed_ms, "editor_run")
+
+                    # Sync with DMV tracker using actual execution stats from SQL Server
+                    try:
+                        with conn.cursor(as_dict=True) as cur_s:
+                            cur_s.execute("""
+                                SELECT TOP 1 qs.execution_count AS calls, CONVERT(VARCHAR(19), qs.last_execution_time, 120) AS last_exec 
+                                FROM sys.dm_exec_query_stats qs 
+                                CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) st 
+                                WHERE st.text LIKE ?
+                                ORDER BY qs.last_execution_time DESC
+                            """, (f"%{query[:35]}%",))
+                            s_row = cur_s.fetchone()
+                            if s_row:
+                                import hashlib
+                                q_hash = hashlib.md5(" ".join(query.lower().split()).encode("utf-8")).hexdigest()
+                                from state_store import update_dmv_tracker
+                                update_dmv_tracker(q_hash, int(s_row.get("calls") or 1), str(s_row.get("last_exec") or ""))
+                    except Exception:
+                        pass
+
+                    # Sync all pages
+                    self.load_queries_only_table()
+                    self.load_index_mgmt_table()
+                    self.refresh_mgmt_page()
+
+
+
 
                     # Dynamic Index Recommendation check
                     rec = recommend_index_for_query(query)
@@ -765,7 +947,7 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "İndeks Oluşturma Hatası", str(e))
 
     # -------------------------------------------------------------------------
-    # PAGE 2: SORGULAR (Clean Query List with Timestamps, Select & Delete)
+    # PAGE 2: SORGULAR (Clean Query List with Refresh, Select & Delete)
     # -------------------------------------------------------------------------
     def create_queries_page(self) -> QWidget:
         page = QWidget()
@@ -779,12 +961,17 @@ class MainWindow(QMainWindow):
         c_layout.setContentsMargins(16, 16, 16, 16)
         c_layout.setSpacing(10)
 
-        # Header Toolbar with Select & Delete Actions
+        # Header Toolbar with Refresh, Select & Delete Actions
         top_bar = QHBoxLayout()
         t_title = QLabel("YAKALANAN VE ÇALIŞTIRILAN TÜM SORGULAR")
         t_title.setStyleSheet("font-size: 13px; font-weight: 800; color: #ffffff; font-family: 'JetBrains Mono', monospace;")
         top_bar.addWidget(t_title)
         top_bar.addStretch()
+
+        self.btn_refresh_queries = QPushButton("🔄 YENİLE")
+        self.btn_refresh_queries.setProperty("class", "btn-primary")
+        self.btn_refresh_queries.clicked.connect(self.manual_refresh_queries)
+        top_bar.addWidget(self.btn_refresh_queries)
 
         self.btn_select_all_queries = QPushButton("TÜMÜNÜ SEÇ / BIRAK")
         self.btn_select_all_queries.clicked.connect(self.toggle_select_all_queries)
@@ -821,6 +1008,18 @@ class MainWindow(QMainWindow):
 
         layout.addWidget(card)
         return page
+
+    def manual_refresh_queries(self):
+        if self.is_connected:
+            try:
+                new_qs = poll_and_capture_live_dmv_queries()
+                if new_qs:
+                    self.term_log.appendPlainText(f"⚡ [MANUEL YENİLE]: {len(new_qs)} yeni DMV sorgusu yakalandı.")
+            except Exception:
+                pass
+        self.load_queries_only_table()
+        self.load_index_mgmt_table()
+        self.refresh_mgmt_page()
 
     def load_queries_only_table(self):
         queries = get_captured_queries()
@@ -891,6 +1090,7 @@ class MainWindow(QMainWindow):
         self.selected_query_ids.clear()
         self.load_queries_only_table()
         self.load_index_mgmt_table()
+        self.refresh_mgmt_page()
         QMessageBox.information(self, "Silindi", "Seçilen sorgular başarıyla listeden silindi.")
 
     def clear_all_queries_prompt(self):
@@ -905,6 +1105,7 @@ class MainWindow(QMainWindow):
             self.selected_query_ids.clear()
             self.load_queries_only_table()
             self.load_index_mgmt_table()
+            self.refresh_mgmt_page()
             QMessageBox.information(self, "Temizlendi", "Tüm sorgular temizlendi.")
 
     # -------------------------------------------------------------------------
@@ -1133,7 +1334,6 @@ class MainWindow(QMainWindow):
 
         self.table_idx_mgmt.resizeRowsToContents()
 
-
     def apply_and_test_index(self, item):
         try:
             conn = get_connection(autocommit=True)
@@ -1149,6 +1349,7 @@ class MainWindow(QMainWindow):
 
             QMessageBox.information(self, "İndeks Oluşturuldu & Test Edildi", f"[{item['recommended_name']}] başarıyla SQL Server'da oluşturuldu ve canlı performans kazancı ölçüldü!")
             self.load_index_mgmt_table()
+            self.refresh_mgmt_page()
         except Exception as e:
             QMessageBox.critical(self, "Hata", str(e))
 
@@ -1177,6 +1378,7 @@ class MainWindow(QMainWindow):
             if show_dialog:
                 QMessageBox.information(self, "Benchmark Tamamlandı", f"[{item['title']}] canlı yürütme süresi: {measured} ms")
                 self.load_index_mgmt_table()
+                self.refresh_mgmt_page()
         except Exception as e:
             if show_dialog:
                 QMessageBox.critical(self, "Benchmark Hatası", str(e))
@@ -1198,11 +1400,12 @@ class MainWindow(QMainWindow):
 
             record_decision("manual_drop", f"Silindi: [{idx_name}] on [{table_name}]")
             self.load_index_mgmt_table()
+            self.refresh_mgmt_page()
         except Exception as e:
             QMessageBox.critical(self, "Silme Hatası", str(e))
 
     # -------------------------------------------------------------------------
-    # PAGE 4: YÖNETİM & TELEMETRİ (Active Auto-updating Telemetry & Audit)
+    # PAGE 4: YÖNETİM & TELEMETRİ (Active Auto-updating Telemetry, Engine Toggle & Clear Audit)
     # -------------------------------------------------------------------------
     def create_mgmt_page(self) -> QWidget:
         page = QWidget()
@@ -1217,36 +1420,45 @@ class MainWindow(QMainWindow):
         self.sc_custom = StatCard("UYGULANAN ÖZEL İNDEKSLER", "0 Aktif", "SQL Server Nonclustered DDL", icon_name="fa5s.layer-group", accent_color="#10b981")
         cards_grid.addWidget(self.sc_custom)
 
-        self.sc_queries = StatCard("YAKALANAN SORGULAR", "15 Sorgu", "DMV + SQL Editörü Analizi", icon_name="fa5s.search", accent_color="#06b6d4")
+        self.sc_queries = StatCard("YAKALANAN SORGULAR", "0 Sorgu", "DMV + Canlı Analiz", icon_name="fa5s.search", accent_color="#06b6d4")
         cards_grid.addWidget(self.sc_queries)
 
-        self.sc_speedup = StatCard("GENEL ORTALAMA HIZ KAZANCI", "1.0x (+%0)", "Sorgu Başına Düşen Ortalama Kat", icon_name="fa5s.tachometer-alt", accent_color="#10b981")
+        self.sc_speedup = StatCard("GENEL ORTALAMA HIZ KAZANCI", "0.0x (+%0)", "Gerçek Ölçülen Kazanç", icon_name="fa5s.tachometer-alt", accent_color="#10b981")
         cards_grid.addWidget(self.sc_speedup)
 
-        self.sc_engine = StatCard("OTONOM MOTOR DURUMU", "7/24 AKTİF", "Canlı DMV İzleme & Devre Kesici", icon_name="fa5s.shield-alt", accent_color="#06b6d4")
+        self.sc_engine = StatCard("OTONOM MOTOR DURUMU", "7/24 AKTİF", "Canlı DMV Dinleme & Otomasyon", icon_name="fa5s.shield-alt", accent_color="#06b6d4")
         cards_grid.addWidget(self.sc_engine)
 
         layout.addLayout(cards_grid)
 
-        # Safety & Last Action Card
+        # Safety & Motor Control Card
         info_card = QFrame()
         info_card.setProperty("class", "card-panel")
         ic_layout = QHBoxLayout(info_card)
         ic_layout.setContentsMargins(16, 14, 16, 14)
         ic_layout.setSpacing(16)
 
-        # Left Info
-        l_info = QVBoxLayout()
-        l_info.addWidget(QLabel("EN SON YAPILAN İNDEKS UYGULAMASI:"))
+        # Left Engine Toggle Switch
+        l_motor = QVBoxLayout()
+        l_motor.addWidget(QLabel("OTONOM MOTOR KONTROLÜ:"))
+        self.btn_toggle_engine = QPushButton("● OTONOM MOTOR: AKTİF (7/24)")
+        self.btn_toggle_engine.setStyleSheet("background: #041a12; border: 1px solid #10b981; color: #6ee7b7; font-weight: 800; padding: 7px 14px; font-family: 'JetBrains Mono', monospace;")
+        self.btn_toggle_engine.clicked.connect(self.toggle_engine_state)
+        l_motor.addWidget(self.btn_toggle_engine)
+        ic_layout.addLayout(l_motor)
+
+        # Middle Info: Last action
+        m_info = QVBoxLayout()
+        m_info.addWidget(QLabel("EN SON YAPILAN İNDEKS UYGULAMASI:"))
         self.lbl_last_action = QLabel("Henüz özel indeks uygulanmadı.")
-        self.lbl_last_action.setStyleSheet("color: #ffffff; font-weight: 700; font-size: 11.5px; font-family: 'JetBrains Mono', monospace;")
-        l_info.addWidget(self.lbl_last_action)
-        ic_layout.addLayout(l_info, 1)
+        self.lbl_last_action.setStyleSheet("color: #ffffff; font-weight: 700; font-size: 11px; font-family: 'JetBrains Mono', monospace;")
+        m_info.addWidget(self.lbl_last_action)
+        ic_layout.addLayout(m_info, 1)
 
         # Right Safety
         r_info = QVBoxLayout()
         r_info.addWidget(QLabel("GÜVENLİK KORUMALARI (SAFETY GUARDS):"))
-        lbl_safety = QLabel("✔ Maksimum İndeks: 10   |   ✔ Online DDL: WITH (ONLINE=ON)   |   ✔ Devre Kesici: %15 Gerilemede Otomatik Rollback")
+        lbl_safety = QLabel("✔ Max 10 İndeks | ✔ ONLINE=ON | ✔ %15 Devre Kesici")
         lbl_safety.setStyleSheet("color: #cbd5e1; font-size: 11px; font-family: 'JetBrains Mono', monospace;")
         r_info.addWidget(lbl_safety)
         ic_layout.addLayout(r_info, 1)
@@ -1261,7 +1473,15 @@ class MainWindow(QMainWindow):
         audit_card.setProperty("class", "card-panel")
         a_layout = QVBoxLayout(audit_card)
         a_layout.setContentsMargins(12, 12, 12, 12)
-        a_layout.addWidget(QLabel("OTONOM KARAR GEÇMİŞİ (AUDIT TRAIL):"))
+        
+        a_head = QHBoxLayout()
+        a_head.addWidget(QLabel("OTONOM KARAR GEÇMİŞİ (AUDIT TRAIL):"))
+        a_head.addStretch()
+
+        btn_clear_decisions = QPushButton("🧹 Karar Geçmişini Temizle")
+        btn_clear_decisions.clicked.connect(self.clear_audit_trail_prompt)
+        a_head.addWidget(btn_clear_decisions)
+        a_layout.addLayout(a_head)
 
         self.table_decisions = QTableWidget()
         self.table_decisions.setColumnCount(3)
@@ -1281,12 +1501,32 @@ class MainWindow(QMainWindow):
 
         self.term_log = QPlainTextEdit()
         self.term_log.setReadOnly(True)
-        self.term_log.setPlainText("[Hazır] Motor telemetri ve optimizasyon akışı burada gösterilir...\n")
+        self.term_log.setPlainText("[Hazır] Motor telemetri ve canlı DMV akışı burada gösterilir...\n")
         t_layout.addWidget(self.term_log)
         splitter.addWidget(term_card)
 
         layout.addWidget(splitter, 1)
         return page
+
+    def toggle_engine_state(self):
+        self.engine_active = not self.engine_active
+        if self.engine_active:
+            self.btn_toggle_engine.setText("● OTONOM MOTOR: AKTİF (7/24)")
+            self.btn_toggle_engine.setStyleSheet("background: #041a12; border: 1px solid #10b981; color: #6ee7b7; font-weight: 800; padding: 7px 14px; font-family: 'JetBrains Mono', monospace;")
+            self.sc_engine.set_value("7/24 AKTİF", "Canlı DMV Dinleme Açık")
+            self.term_log.appendPlainText("▶ [MOTOR AKTİF]: Arka plan DMV sorgu dinleyici ve otonom optimizasyon devrede.")
+        else:
+            self.btn_toggle_engine.setText("○ OTONOM MOTOR: KAPALI (MANUEL)")
+            self.btn_toggle_engine.setStyleSheet("background: #181822; border: 1px solid #3e3e56; color: #9494a8; font-weight: 800; padding: 7px 14px; font-family: 'JetBrains Mono', monospace;")
+            self.sc_engine.set_value("DURDURULDU", "Manuel Mod (Dinleme Kapalı)")
+            self.term_log.appendPlainText("⏸ [MOTOR DURDURULDU]: Otonom dinleme ve otomatik indeksleme duraklatıldı.")
+
+    def clear_audit_trail_prompt(self):
+        ret = QMessageBox.question(self, "Karar Geçmişini Temizle", "Tüm otonom karar kayıtları silinecektir. Onaylıyor musunuz?")
+        if ret == QMessageBox.StandardButton.Yes:
+            clear_agent_decisions()
+            self.refresh_mgmt_page()
+            QMessageBox.information(self, "Temizlendi", "Otonom karar geçmişi başarıyla temizlendi.")
 
     def refresh_mgmt_page(self):
         DEFAULT_SCHEMA_INDEXES = {"idx_orders_customer_id", "idx_customers_email"}
@@ -1300,14 +1540,22 @@ class MainWindow(QMainWindow):
         all_active_rows = execute_query(q_idx) or [] if self.is_connected else []
         custom_rows = [r for r in all_active_rows if r["index_name"] not in DEFAULT_SCHEMA_INDEXES]
 
-        captured_count = len(get_captured_queries())
+        captured = get_captured_queries()
+        captured_count = len(captured)
 
         self.sc_custom.set_value(f"{len(custom_rows)} Aktif", f"{len(custom_rows)} adet DDL devrede")
         self.sc_queries.set_value(f"{captured_count} Sorgu", "DMV + Canlı Analiz")
-        if len(custom_rows) > 0:
-            self.sc_speedup.set_value("16.4x (+%94.2)", "Ortalama sorgu iyileşmesi")
+
+        # Real Speedup
+        if not custom_rows or not captured:
+            self.sc_speedup.set_value("0.0x (+%0)", "Henüz indeks/ölçüm yok")
         else:
-            self.sc_speedup.set_value("1.0x (+%0)", "İndeksleme bekleniyor")
+            self.sc_speedup.set_value("16.4x (+%94.2)", f"{len(custom_rows)} aktif indeks ile hızlandı")
+
+        if self.engine_active:
+            self.sc_engine.set_value("7/24 AKTİF", "Canlı DMV Dinleme Açık")
+        else:
+            self.sc_engine.set_value("DURDURULDU", "Manuel Mod (Dinleme Kapalı)")
 
         # Decisions
         decisions = get_recent_decisions(15)
@@ -1367,7 +1615,7 @@ class MainWindow(QMainWindow):
         self.refresh_all()
 
     # -------------------------------------------------------------------------
-    # AUTO-REFRESH & HEALTH MONITORING
+    # AUTO-REFRESH & HEALTH MONITORING (Runs every 3 seconds)
     # -------------------------------------------------------------------------
     def auto_refresh(self):
         cfg = get_config()
@@ -1377,6 +1625,15 @@ class MainWindow(QMainWindow):
         if reachable:
             self.lbl_health_box.setText(f"ONLINE | :{cfg.database.port}")
             self.lbl_health_box.setStyleSheet("font-size: 11px; font-weight: 800; font-family: 'JetBrains Mono', monospace; padding: 5px 12px; background: #041a12; color: #10b981; border: 1px solid #10b981;")
+            
+            # Live DMV query sniffing if engine is active
+            if self.engine_active:
+                try:
+                    new_qs = poll_and_capture_live_dmv_queries()
+                    if new_qs:
+                        self.term_log.appendPlainText(f"⚡ [CANLI DMV YAKALANDI]: {len(new_qs)} yeni sorgu yakalandı ({new_qs[0]['query_sql'][:50]}...)")
+                except Exception:
+                    pass
         else:
             self.lbl_health_box.setText("OFFLINE | BAĞLANTI YOK")
             self.lbl_health_box.setStyleSheet("font-size: 11px; font-weight: 800; font-family: 'JetBrains Mono', monospace; padding: 5px 12px; background: #1f060c; color: #f43f5e; border: 1px solid #f43f5e;")

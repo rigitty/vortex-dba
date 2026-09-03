@@ -214,3 +214,138 @@ def format_discovered_queries(queries: list[DiscoveredQuery]) -> str:
 
     lines.append("=" * 80)
     return "\n".join(lines)
+
+
+def is_real_user_query(sql: str) -> bool:
+    """Check if SQL statement is a user application query and not internal SQL Server noise."""
+    s = sql.strip().lower()
+    system_noise = [
+        "sys.", "@intervals", "@plans", "@bestplan", "plan_persist",
+        "sys.dm_", "sp_", "dbcc", "information_schema", "showplan",
+        "create index", "drop index", "db_id()", "ledger_type",
+        "autocommit", "select @@", "set transaction", "set nocount",
+        "alter table", "create table", "select count_big(*)", "fn_"
+    ]
+    if any(noise in s for noise in system_noise):
+        return False
+
+    if not (s.startswith("select") or s.startswith("insert") or s.startswith("update") or s.startswith("delete") or s.startswith("with")):
+        return False
+
+    return True
+
+
+def generate_descriptive_title(sql: str, target_table: str, query_index: int) -> str:
+    """Generate a readable, numbered and categorized title for captured queries."""
+    s = sql.lower()
+    op = "Filtreleme"
+    if "join" in s:
+        op = "JOIN İlişkisi"
+    elif "group by" in s:
+        op = "Gruplama"
+    elif "order by" in s:
+        op = "Sıralama"
+    elif "like" in s:
+        op = "LIKE Metin Arama"
+    elif "in (" in s or "in(" in s:
+        op = "Çoklu Değer Filtresi"
+    elif "top" in s:
+        op = "Toplu Kayıt Seçimi"
+    elif "count(" in s or "sum(" in s or "avg(" in s:
+        op = "Agregasyon / Toplam"
+    elif s.startswith("insert"):
+        op = "Kayıt Ekleme"
+    elif s.startswith("update"):
+        op = "Kayıt Güncelleme"
+    elif s.startswith("delete"):
+        op = "Kayıt Silme"
+
+    return f"Sorgu #{query_index:02d} ({target_table} - {op})"
+
+
+def poll_and_capture_live_dmv_queries() -> list[dict]:
+    """Poll SQL Server DMV for user queries run on user tables and persist them."""
+    try:
+        import hashlib
+        from db_connection import get_connection, is_server_reachable
+        from config import get_config
+        from state_store import get_captured_queries, add_captured_query, get_dmv_watermark, get_dmv_tracker, update_dmv_tracker
+        
+        cfg = get_config()
+        if not is_server_reachable(cfg.database.host, cfg.database.port, timeout_sec=0.4):
+            return []
+
+        watermark = get_dmv_watermark()
+
+        query = f"""
+            SELECT TOP 40
+                CAST(SUBSTRING(st.text, (qs.statement_start_offset/2)+1,
+                    ((CASE qs.statement_end_offset
+                        WHEN -1 THEN DATALENGTH(st.text)
+                        ELSE qs.statement_end_offset
+                     END - qs.statement_start_offset)/2) + 1) AS NVARCHAR(MAX)) AS query,
+                qs.execution_count AS calls,
+                ((qs.total_elapsed_time / qs.execution_count) / 1000.0) AS mean_exec_time,
+                CONVERT(VARCHAR(19), qs.last_execution_time, 120) AS last_execution_time
+            FROM sys.dm_exec_query_stats qs
+            CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) st
+            WHERE st.text NOT LIKE '%sys.dm_%'
+              AND st.text NOT LIKE '%SHOWPLAN%'
+              AND st.text NOT LIKE '%CREATE INDEX%'
+              AND st.text NOT LIKE '%DROP INDEX%'
+              AND st.text NOT LIKE '%INFORMATION_SCHEMA%'
+              AND CONVERT(VARCHAR(19), qs.last_execution_time, 120) >= '{watermark}'
+            ORDER BY qs.last_execution_time DESC
+        """
+        conn = get_connection(autocommit=True)
+        try:
+            with conn.cursor(as_dict=True) as cur:
+                cur.execute(query)
+                rows = cur.fetchall() or []
+        finally:
+            conn.close()
+
+        existing = get_captured_queries()
+        tracker = get_dmv_tracker()
+        new_captured = []
+
+        for r in rows:
+            raw_sql = (r.get("query") or "").strip()
+            if len(raw_sql) < 10 or not is_real_user_query(raw_sql):
+                continue
+            
+            clean_check = " ".join(raw_sql.lower().split())
+            q_hash = hashlib.md5(clean_check.encode("utf-8")).hexdigest()
+            calls = int(r.get("calls") or 0)
+            last_exec = str(r.get("last_execution_time") or "")
+
+            # If tracked, check if call count increased or execution timestamp changed
+            is_rerun = False
+            if q_hash in tracker:
+                prev_calls, prev_exec = tracker[q_hash]
+                if calls <= prev_calls and last_exec == prev_exec:
+                    continue  # No new execution since last poll
+                is_rerun = True
+
+            target_table = "orders" if "orders" in clean_check else ("customers" if "customers" in clean_check else "user_table")
+            mean_ms = round(float(r.get("mean_exec_time") or 0.0), 2)
+            
+            q_num = len(existing) + len(new_captured) + 1
+            title = generate_descriptive_title(raw_sql, target_table, q_num)
+            if is_rerun:
+                title += " (Tekrar Çalıştırma)"
+
+            add_captured_query(title, raw_sql, target_table, mean_ms, query_name=f"q_dmv_{q_num:02d}")
+            update_dmv_tracker(q_hash, calls, last_exec)
+            tracker[q_hash] = (calls, last_exec)
+            new_captured.append({"title": title, "query_sql": raw_sql, "target_table": target_table, "initial_ms": mean_ms})
+
+        return new_captured
+    except Exception:
+        return []
+
+
+
+
+
+
