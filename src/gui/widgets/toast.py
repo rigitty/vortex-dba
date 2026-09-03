@@ -3,7 +3,7 @@ from datetime import datetime
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, QGraphicsDropShadowEffect
 )
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 from PyQt6.QtGui import QColor
 
 
@@ -115,9 +115,22 @@ class ToastCard(QFrame):
         msg_lbl.setStyleSheet("color: #e2e8f0; font-size: 11px; font-family: 'JetBrains Mono', 'Segoe UI', sans-serif; background: transparent; border: none; line-height: 1.3;")
         layout.addWidget(msg_lbl)
 
+        # Auto-close timer after 5 seconds
+        self._closing = False
+        self.auto_timer = QTimer(self)
+        self.auto_timer.setSingleShot(True)
+        self.auto_timer.timeout.connect(self.close_toast)
+        self.auto_timer.start(5000)
+
     def close_toast(self):
+        if getattr(self, "_closing", False):
+            return
+        self._closing = True
+        if hasattr(self, "auto_timer"):
+            self.auto_timer.stop()
         self.closed_signal.emit(self)
         self.deleteLater()
+
 
 
 class ToastOverlay(QWidget):

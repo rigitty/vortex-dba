@@ -8,8 +8,10 @@ from datetime import datetime
 from pathlib import Path
 
 from PyQt6.QtWidgets import (
+    QApplication,
     QMainWindow,
     QWidget,
+
     QVBoxLayout,
     QHBoxLayout,
     QGridLayout,
@@ -26,7 +28,9 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QSplitter,
     QCheckBox,
+    QSpinBox,
 )
+
 from PyQt6.QtCore import Qt, QTimer, QPoint, QRect
 from PyQt6.QtGui import QIcon, QFont, QColor
 
@@ -144,13 +148,16 @@ class MainWindow(QMainWindow):
         self.current_worker = None
         self.is_connected = False
         self.engine_active = True  # Autonomous engine toggle
+        self.max_indexes_limit = 5  # Configurable autonomous quota limit
         self.active_editor_rec = None
         self.selected_query_ids = set()
+
 
         # Apply QSS Dark Theme
         self.setStyleSheet(DARK_THEME_QSS)
 
         self.init_ui()
+        self.center_on_screen()
         self.toast_overlay = ToastOverlay(self)
         self.refresh_all()
 
@@ -158,6 +165,15 @@ class MainWindow(QMainWindow):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.auto_refresh)
         self.timer.start(3000)
+
+    def center_on_screen(self):
+        """Center the window perfectly on the primary screen available geometry."""
+        screen = QApplication.primaryScreen()
+        if screen:
+            geo = screen.availableGeometry()
+            x = geo.x() + (geo.width() - self.width()) // 2
+            y = geo.y() + (geo.height() - self.height()) // 2
+            self.move(max(geo.x(), x), max(geo.y(), y))
 
     def show_toast(self, title: str, message: str, toast_type: str = "success"):
         """Displays a sleek floating non-blocking persistent toast notification."""
@@ -168,6 +184,7 @@ class MainWindow(QMainWindow):
         super().resizeEvent(event)
         if hasattr(self, "toast_overlay"):
             self.toast_overlay.reposition()
+
 
     def toggle_maximize(self):
         if self.isMaximized():
@@ -1245,9 +1262,23 @@ class MainWindow(QMainWindow):
         tb_layout.setContentsMargins(14, 10, 14, 10)
         tb_layout.setSpacing(10)
 
-        lbl_ops = QLabel("TOPLU İNDEKS & PERFORMANS OPERASYONLARI:")
+        lbl_ops = QLabel("TOPLU İNDEKS OPERASYONLARI:")
         lbl_ops.setStyleSheet("font-size: 11.5px; font-weight: 800; color: #ffffff; font-family: 'JetBrains Mono', monospace;")
         tb_layout.addWidget(lbl_ops)
+
+        # Autonomous Quota Control
+        lbl_quota = QLabel("⚡ MAKSİMUM İNDEKS KOTASI:")
+        lbl_quota.setStyleSheet("font-size: 11px; font-weight: 800; color: #38bdf8; font-family: 'JetBrains Mono', monospace; margin-left: 10px;")
+        tb_layout.addWidget(lbl_quota)
+
+        self.spin_quota_idx = QSpinBox()
+        self.spin_quota_idx.setRange(1, 20)
+        self.spin_quota_idx.setValue(self.max_indexes_limit)
+        self.spin_quota_idx.setSuffix(" İndeks")
+        self.spin_quota_idx.setStyleSheet("background: #020204; border: 1px solid #38bdf8; color: #38bdf8; font-weight: 800; padding: 4px 8px;")
+        self.spin_quota_idx.valueChanged.connect(self.set_max_indexes_quota)
+        tb_layout.addWidget(self.spin_quota_idx)
+
         tb_layout.addStretch()
 
         btn_rem = QPushButton("TÜM HEPSİNİ OTOMATİK UYGULA")
@@ -1290,6 +1321,7 @@ class MainWindow(QMainWindow):
             "HIZLANMA ORANI",
             "İŞLEMLER & TEST"
         ])
+        self.table_idx_mgmt.horizontalHeader().setMinimumSectionSize(110)
         self.table_idx_mgmt.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         self.table_idx_mgmt.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.table_idx_mgmt.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
@@ -1299,6 +1331,7 @@ class MainWindow(QMainWindow):
         self.table_idx_mgmt.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)
         c1_layout.addWidget(self.table_idx_mgmt)
         layout.addWidget(card1, 3)
+
 
         # 2. Numbered Index Catalog & Details Table
         card2 = QFrame()
@@ -1564,16 +1597,19 @@ class MainWindow(QMainWindow):
             if not has_index:
                 b_apply = QPushButton("İndeksle")
                 b_apply.setProperty("class", "btn-success")
+                b_apply.setStyleSheet("padding: 4px 10px; font-size: 11px; font-weight: 800; min-width: 65px;")
                 b_apply.clicked.connect(lambda checked, it=item_pass: self.apply_index_only(it))
                 btn_layout.addWidget(b_apply)
             else:
                 b_test = QPushButton("Test")
                 b_test.setProperty("class", "btn-warning")
+                b_test.setStyleSheet("padding: 4px 8px; font-size: 11px; font-weight: 800; min-width: 45px;")
                 b_test.clicked.connect(lambda checked, it=item_pass: self.benchmark_single_index_query(it))
                 btn_layout.addWidget(b_test)
 
                 b_drop = QPushButton("Sil")
                 b_drop.setProperty("class", "btn-danger")
+                b_drop.setStyleSheet("padding: 4px 8px; font-size: 11px; font-weight: 800; min-width: 40px;")
                 b_drop.clicked.connect(lambda checked, it=item_pass: self.drop_single_index_row(it["active_indexes"][0], it["table"]))
                 btn_layout.addWidget(b_drop)
 
@@ -1638,15 +1674,18 @@ class MainWindow(QMainWindow):
             if not meta["is_active"]:
                 b_c_apply = QPushButton("İndeksi Oluştur")
                 b_c_apply.setProperty("class", "btn-success")
+                b_c_apply.setStyleSheet("padding: 4px 10px; font-size: 11px; font-weight: 800; min-width: 100px;")
                 b_c_apply.clicked.connect(lambda checked, it=cat_item: self.apply_index_only(it))
                 act_layout.addWidget(b_c_apply)
             else:
                 b_c_drop = QPushButton("İndeksi Kaldır")
                 b_c_drop.setProperty("class", "btn-danger")
+                b_c_drop.setStyleSheet("padding: 4px 10px; font-size: 11px; font-weight: 800; min-width: 100px;")
                 b_c_drop.clicked.connect(lambda checked, it=cat_item: self.drop_single_index_row(it["active_indexes"][0], it["table"]))
                 act_layout.addWidget(b_c_drop)
 
             self.table_idx_catalog.setCellWidget(c_idx, 5, act_widget)
+
 
         self.table_idx_catalog.resizeRowsToContents()
 
@@ -1780,13 +1819,28 @@ class MainWindow(QMainWindow):
         m_info.addWidget(self.lbl_last_action)
         ic_layout.addLayout(m_info, 1)
 
-        # Right Safety
+        # Right Safety & Quota Control
         r_info = QVBoxLayout()
-        r_info.addWidget(QLabel("GÜVENLİK KORUMALARI (SAFETY GUARDS):"))
-        lbl_safety = QLabel("✔ Max 10 İndeks | ✔ ONLINE=ON | ✔ %15 Devre Kesici")
-        lbl_safety.setStyleSheet("color: #cbd5e1; font-size: 11px; font-family: 'JetBrains Mono', monospace;")
+        r_info.addWidget(QLabel("OTONOM KOTA & GÜVENLİK AYARI:"))
+        q_row = QHBoxLayout()
+        q_lbl = QLabel("Max İndeks Kotası:")
+        q_lbl.setStyleSheet("color: #38bdf8; font-weight: 700; font-size: 11px;")
+        q_row.addWidget(q_lbl)
+
+        self.spin_quota_mgmt = QSpinBox()
+        self.spin_quota_mgmt.setRange(1, 20)
+        self.spin_quota_mgmt.setValue(self.max_indexes_limit)
+        self.spin_quota_mgmt.setSuffix(" İndeks")
+        self.spin_quota_mgmt.setStyleSheet("background: #020204; border: 1px solid #38bdf8; color: #38bdf8; font-weight: 800; padding: 4px 8px;")
+        self.spin_quota_mgmt.valueChanged.connect(self.set_max_indexes_quota)
+        q_row.addWidget(self.spin_quota_mgmt)
+        r_info.addLayout(q_row)
+
+        lbl_safety = QLabel("✔ ONLINE=ON | ✔ %15 Devre Kesici | ✔ Dinamik Dengeleme")
+        lbl_safety.setStyleSheet("color: #94a3b8; font-size: 10px; font-family: 'JetBrains Mono', monospace;")
         r_info.addWidget(lbl_safety)
         ic_layout.addLayout(r_info, 1)
+
 
         layout.addWidget(info_card)
 
@@ -1948,6 +2002,132 @@ class MainWindow(QMainWindow):
             self.show_toast(title, message.strip(), toast_type)
 
 
+    def set_max_indexes_quota(self, val: int):
+        self.max_indexes_limit = val
+        if hasattr(self, "spin_quota_idx") and self.spin_quota_idx.value() != val:
+            self.spin_quota_idx.blockSignals(True)
+            self.spin_quota_idx.setValue(val)
+            self.spin_quota_idx.blockSignals(False)
+        if hasattr(self, "spin_quota_mgmt") and self.spin_quota_mgmt.value() != val:
+            self.spin_quota_mgmt.blockSignals(True)
+            self.spin_quota_mgmt.setValue(val)
+            self.spin_quota_mgmt.blockSignals(False)
+        self.run_autonomous_optimizer_tick()
+
+    def run_autonomous_optimizer_tick(self):
+        """Autonomous optimization engine: evaluates workload and ensures TOP N optimum indexes are applied."""
+        if not self.engine_active or not self.is_connected:
+            return
+
+        try:
+            persisted = get_captured_queries()
+            if not persisted:
+                return
+
+            # Score recommendations across all captured queries
+            candidate_scores = {}
+            for q in persisted:
+                raw_sql = q.get("query_sql", "").strip()
+                tbl = q.get("target_table", "orders")
+                init_ms = float(q.get("initial_ms") or 50.0)
+                rec = recommend_index_for_query(raw_sql)
+                if not rec:
+                    continue
+
+                idx_key = (tbl, rec.index_name)
+                if idx_key not in candidate_scores:
+                    candidate_scores[idx_key] = {
+                        "name": rec.index_name,
+                        "table": tbl,
+                        "ddl": rec.create_statement,
+                        "columns": rec.columns,
+                        "score": 0.0,
+                        "query_count": 0,
+                    }
+                candidate_scores[idx_key]["score"] += init_ms
+                candidate_scores[idx_key]["query_count"] += 1
+
+            if not candidate_scores:
+                return
+
+            # Sort candidate indexes by impact score descending
+            ranked = sorted(candidate_scores.values(), key=lambda x: (x["score"], x["query_count"]), reverse=True)
+            top_optimum = ranked[:self.max_indexes_limit]
+            top_names = {item["name"] for item in top_optimum}
+
+            # Fetch active custom non-clustered indexes on SQL Server
+            active_custom = []
+            try:
+                conn = get_connection(autocommit=True)
+                with conn.cursor(as_dict=True) as cur:
+                    cur.execute("""
+                        SELECT i.name AS index_name, t.name AS table_name
+                        FROM sys.indexes i
+                        JOIN sys.tables t ON i.object_id = t.object_id
+                        WHERE i.is_primary_key = 0 
+                          AND i.is_unique_constraint = 0 
+                          AND i.type_desc = 'NONCLUSTERED'
+                          AND i.name NOT IN ('idx_orders_customer_id', 'idx_customers_email')
+                    """)
+                    active_custom = cur.fetchall() or []
+                conn.close()
+            except Exception:
+                return
+
+            active_names = {r["index_name"] for r in active_custom}
+
+            # 1. Apply any missing top optimum index up to quota
+            newly_applied = []
+            for opt in top_optimum:
+                if opt["name"] not in active_names and len(active_names) < self.max_indexes_limit:
+                    try:
+                        conn = get_connection(autocommit=True)
+                        with conn.cursor() as cur:
+                            cur.execute(opt["ddl"])
+                        conn.close()
+
+                        record_applied_index(opt["name"], opt["table"], opt["columns"], opt["ddl"], "Otonom Motor (Top Optimum)")
+                        record_decision("autonomous_apply", f"Otonom İndeks Uygulandı: [{opt['name']}] ON [{opt['table']}] (Kota: {self.max_indexes_limit})")
+                        active_names.add(opt["name"])
+                        newly_applied.append(opt["name"])
+                        self.term_log.appendPlainText(f"⚡ [OTONOM MOTOR]: Optimum İndeks [{opt['name']}] SQL Server'a uygulandı (Kota: {self.max_indexes_limit}).")
+                    except Exception as e:
+                        self.term_log.appendPlainText(f"⚠ [OTONOM MOTOR HATASI]: [{opt['name']}] oluşturulamadı: {e}")
+
+            # 2. If active indexes exceed quota, automatically prune active indexes not in top_optimum
+            if len(active_names) > self.max_indexes_limit:
+                for act in active_custom:
+                    if len(active_names) <= self.max_indexes_limit:
+                        break
+                    nm = act["index_name"]
+                    tbl = act["table_name"]
+                    if nm not in top_names:
+                        try:
+                            conn = get_connection(autocommit=True)
+                            with conn.cursor() as cur:
+                                cur.execute(f"DROP INDEX [{nm}] ON [{tbl}]")
+                                try:
+                                    cur.execute("DBCC FREEPROCCACHE")
+                                    cur.execute("DBCC DROPCLEANBUFFERS")
+                                except Exception:
+                                    pass
+                            conn.close()
+                            from src.state_store import record_index_rolled_back
+                            record_index_rolled_back(nm)
+                            record_decision("autonomous_prune", f"Kota Dengeleme: [{nm}] kaldırıldı.")
+                            active_names.discard(nm)
+                            self.term_log.appendPlainText(f"🗑 [OTONOM KOTA DÜZENLEME]: Kota sınırı ({self.max_indexes_limit}) için önceliği düşük [{nm}] indeksi kaldırıldı.")
+                        except Exception:
+                            pass
+
+            if newly_applied:
+                self.show_toast("OTONOM İNDEKS UYGULANDI", f"{len(newly_applied)} adet optimum indeks otomatik olarak SQL Server'a uygulandı (Kota: {self.max_indexes_limit}).", "success")
+                self.load_index_mgmt_table()
+                self.refresh_mgmt_page()
+
+        except Exception:
+            pass
+
     # -------------------------------------------------------------------------
     # AUTO-REFRESH & HEALTH MONITORING (Runs every 3 seconds)
     # -------------------------------------------------------------------------
@@ -1960,12 +2140,14 @@ class MainWindow(QMainWindow):
             self.lbl_health_box.setText(f"ONLINE | :{cfg.database.port}")
             self.lbl_health_box.setStyleSheet("font-size: 11px; font-weight: 800; font-family: 'JetBrains Mono', monospace; padding: 5px 12px; background: #041a12; color: #10b981; border: 1px solid #10b981;")
             
-            # Live DMV query sniffing if engine is active
+            # Live DMV query sniffing & autonomous optimization if engine is active
             if self.engine_active:
                 try:
                     new_qs = poll_and_capture_live_dmv_queries()
                     if new_qs:
                         self.term_log.appendPlainText(f"⚡ [CANLI DMV YAKALANDI]: {len(new_qs)} yeni sorgu yakalandı ({new_qs[0]['query_sql'][:50]}...)")
+                    # Run autonomous optimizer pass
+                    self.run_autonomous_optimizer_tick()
                 except Exception:
                     pass
         else:
@@ -1983,4 +2165,4 @@ class MainWindow(QMainWindow):
             self.refresh_mgmt_page()
 
     def refresh_all(self):
-        self.auto_refresh()
+        self.auto_refresh()

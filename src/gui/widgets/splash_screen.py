@@ -1,0 +1,126 @@
+"""Seamless Borderless Splash Screen for VortexDBA."""
+from pathlib import Path
+from PyQt6.QtWidgets import (
+    QWidget, QVBoxLayout, QLabel, QProgressBar
+)
+from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, pyqtSignal
+from PyQt6.QtGui import QIcon
+
+
+class SplashScreen(QWidget):
+    """Completely borderless, frameless minimal splash screen with smooth fade transitions."""
+    finished = pyqtSignal()
+
+    def __init__(self, logo_path: Path = None):
+        super().__init__()
+        self.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.SplashScreen
+        )
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
+        self.setFixedSize(480, 290)
+        self.setStyleSheet("background-color: #000000; border: none;")
+        self.center_on_screen()
+
+        self._elapsed_ms = 0
+
+        self.TOTAL_DURATION_MS = 3000
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(40, 40, 40, 40)
+        layout.setSpacing(16)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        # 1. Logo (Completely seamless icon, zero boxes or borders)
+        logo_lbl = QLabel()
+        logo_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        logo_lbl.setStyleSheet("background: transparent; border: none; padding: 0px;")
+        if logo_path and logo_path.exists():
+            pix = QIcon(str(logo_path)).pixmap(72, 72)
+            logo_lbl.setPixmap(pix)
+        else:
+            logo_lbl.setText("⚡")
+            logo_lbl.setStyleSheet("font-size: 56px; color: #06b6d4; background: transparent; border: none;")
+        layout.addWidget(logo_lbl)
+
+        # 2. Typography: VORTEX DBA
+        brand_lbl = QLabel("VORTEX DBA")
+        brand_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        brand_lbl.setStyleSheet("font-size: 24px; font-weight: 900; color: #ffffff; letter-spacing: 3px; font-family: 'JetBrains Mono', 'Segoe UI', monospace; background: transparent; border: none;")
+        layout.addWidget(brand_lbl)
+
+        layout.addSpacing(4)
+
+        # 3. Moving Neon Progress Bar (No border box)
+        self.prog_bar = QProgressBar()
+        self.prog_bar.setFixedHeight(4)
+        self.prog_bar.setRange(0, 100)
+        self.prog_bar.setValue(0)
+        self.prog_bar.setTextVisible(False)
+        self.prog_bar.setStyleSheet("""
+            QProgressBar {
+                background-color: #10101a;
+                border: none;
+                border-radius: 2px;
+            }
+            QProgressBar::chunk {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0284c7, stop:0.5 #06b6d4, stop:1 #38bdf8);
+                border-radius: 2px;
+            }
+        """)
+        layout.addWidget(self.prog_bar)
+
+        # 4. Status Text (Loading Steps)
+        self.lbl_status = QLabel("● Sistem bileşenleri başlatılıyor...")
+        self.lbl_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_status.setStyleSheet("font-size: 11px; font-weight: 600; color: #9494a8; font-family: 'JetBrains Mono', monospace; background: transparent; border: none;")
+        layout.addWidget(self.lbl_status)
+
+        # Timer for 3-Second Sequence
+        self.timer = QTimer(self)
+        self.timer.setInterval(25)
+        self.timer.timeout.connect(self._on_tick)
+        self.timer.start()
+
+    def _on_tick(self):
+        self._elapsed_ms += 25
+        pct = min(100, int((self._elapsed_ms / self.TOTAL_DURATION_MS) * 100))
+        self.prog_bar.setValue(pct)
+
+        if self._elapsed_ms < 1000:
+            self.lbl_status.setText("● SQL Server bağlantı hatları taranıyor...")
+        elif self._elapsed_ms < 2000:
+            self.lbl_status.setText("● Otonom AI optimizasyon motoru yükleniyor...")
+        elif self._elapsed_ms < 2700:
+            self.lbl_status.setText("● Canlı telemetri ve DBA kontrol paneli hazır...")
+        else:
+            self.lbl_status.setText("✔ VortexDBA hazır.")
+
+        if self._elapsed_ms >= self.TOTAL_DURATION_MS:
+            self.timer.stop()
+            self._fade_out_and_finish()
+
+    def center_on_screen(self):
+        from PyQt6.QtWidgets import QApplication
+        screen = QApplication.primaryScreen()
+        if screen:
+            geo = screen.availableGeometry()
+            x = geo.x() + (geo.width() - self.width()) // 2
+            y = geo.y() + (geo.height() - self.height()) // 2
+            self.move(x, y)
+
+    def _fade_out_and_finish(self):
+        # Smooth fade-out from 1.0 down to 0.0
+        self.anim = QPropertyAnimation(self, b"windowOpacity")
+        self.anim.setDuration(700)
+        self.anim.setStartValue(1.0)
+        self.anim.setEndValue(0.0)
+        self.anim.setEasingCurve(QEasingCurve.Type.InOutCubic)
+        self.anim.finished.connect(self._on_fade_finished)
+        self.anim.start()
+
+    def _on_fade_finished(self):
+        self.finished.emit()
+        self.close()
+
