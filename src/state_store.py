@@ -66,6 +66,16 @@ def _ensure_tables(conn: sqlite3.Connection) -> None:
             index_snapshot TEXT
         );
 
+                CREATE TABLE IF NOT EXISTS captured_queries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            query_name TEXT NOT NULL,
+            title TEXT NOT NULL,
+            query_sql TEXT NOT NULL,
+            target_table TEXT NOT NULL,
+            initial_ms REAL,
+            created_at TEXT NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS agent_decisions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             decision_type TEXT NOT NULL,
@@ -115,6 +125,9 @@ def record_index_applied(index_name: str, table_name: str, columns: list[str],
         conn.commit()
     finally:
         conn.close()
+
+
+record_applied_index = record_index_applied
 
 
 def record_index_rolled_back(index_name: str) -> None:
@@ -345,6 +358,58 @@ def clear_all_state() -> None:
         conn.execute("DELETE FROM applied_indexes")
         conn.execute("DELETE FROM benchmark_history")
         conn.execute("DELETE FROM agent_decisions")
+        conn.commit()
+    finally:
+        conn.close()
+
+
+
+def get_captured_queries() -> list[dict]:
+    """Get all persisted captured queries sorted by created_at DESC."""
+    conn = _get_connection()
+    try:
+        rows = conn.execute("SELECT * FROM captured_queries ORDER BY id DESC").fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def add_captured_query(title: str, query_sql: str, target_table: str = "orders", initial_ms: float = 0.0, query_name: str = "") -> int:
+    """Add a new captured query with timestamp."""
+    conn = _get_connection()
+    try:
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if not query_name:
+            query_name = f"query_{abs(hash(query_sql)) % 100000}"
+        cur = conn.execute(
+            """INSERT INTO captured_queries (query_name, title, query_sql, target_table, initial_ms, created_at)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (query_name, title, query_sql.strip(), target_table, initial_ms, now_str)
+        )
+        conn.commit()
+        return cur.lastrowid
+    finally:
+        conn.close()
+
+
+def delete_captured_queries(ids: list[int]) -> None:
+    """Delete specific captured queries by ID."""
+    if not ids:
+        return
+    conn = _get_connection()
+    try:
+        placeholders = ",".join("?" for _ in ids)
+        conn.execute(f"DELETE FROM captured_queries WHERE id IN ({placeholders})", ids)
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def clear_all_captured_queries() -> None:
+    """Delete all captured queries."""
+    conn = _get_connection()
+    try:
+        conn.execute("DELETE FROM captured_queries")
         conn.commit()
     finally:
         conn.close()

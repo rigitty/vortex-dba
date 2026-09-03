@@ -44,7 +44,7 @@
             --blue-border: #3b82f6;
         }
 
-        /* Strictly Boxy Geometric Edges - Zero Rounding */
+        /* Strictly Boxy Geometric Edges */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -70,25 +70,26 @@
         .navbar {
             background: var(--bg-surface);
             border-bottom: 1px solid var(--border);
-            padding: 12px 24px;
+            padding: 10px 24px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             position: sticky;
             top: 0;
             z-index: 50;
+            gap: 16px;
         }
 
         .nav-brand {
             display: flex;
             align-items: center;
             gap: 12px;
+            flex-shrink: 0;
         }
 
-        /* Prominent Brand Title without Version Tag */
         .brand-logo {
             font-weight: 800;
-            font-size: 19px;
+            font-size: 18px;
             letter-spacing: 0.06em;
             color: #ffffff;
             display: flex;
@@ -109,13 +110,61 @@
             color: var(--cyan);
         }
 
+        /* Navigation Tab Switcher */
+        .nav-tabs {
+            display: flex;
+            background: #020204;
+            border: 1px solid var(--border);
+            padding: 3px;
+            gap: 3px;
+        }
+        .nav-tab-btn {
+            background: transparent;
+            border: 1px solid transparent;
+            color: var(--text-secondary);
+            font-size: 11px;
+            font-weight: 700;
+            padding: 7px 15px;
+            cursor: pointer;
+            transition: all 0.12s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            white-space: nowrap;
+            font-family: 'JetBrains Mono', monospace;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .nav-tab-btn:hover {
+            color: var(--text-primary);
+            background: #0d0d14;
+        }
+        .nav-tab-btn.active {
+            background: #141420;
+            color: #ffffff;
+            border-color: var(--border-hover);
+        }
+        .nav-tab-btn.active.tab-connect {
+            border-bottom: 2px solid var(--cyan);
+        }
+        .nav-tab-btn.active.tab-editor {
+            border-bottom: 2px solid var(--blue);
+        }
+        .nav-tab-btn.active.tab-queries {
+            border-bottom: 2px solid var(--emerald);
+        }
+        .nav-tab-btn.active.tab-mgmt {
+            border-bottom: 2px solid var(--amber);
+        }
+
         .nav-tools {
             display: flex;
             align-items: center;
             gap: 10px;
+            flex-shrink: 0;
         }
 
-        /* Connection Status Box (Green when Healthy, Red when Unhealthy) */
+        /* Connection Status Box */
         .status-box {
             display: inline-flex;
             align-items: center;
@@ -152,7 +201,7 @@
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            padding: 5px 9px;
+            padding: 6px 10px;
             background: #060910;
             border: 1px solid #1a2538;
             color: #60a5fa;
@@ -176,37 +225,51 @@
         .container {
             max-width: 1540px;
             margin: 0 auto;
-            padding: 20px 24px 60px;
+            padding: 22px 24px 60px;
         }
 
-        /* Action Control Bar */
-        .control-panel {
+        /* Tab Content Pages */
+        .tab-page {
+            display: none;
+            animation: tabFadeIn 0.15s ease;
+        }
+        .tab-page.active {
+            display: block;
+        }
+        @keyframes tabFadeIn {
+            from { opacity: 0; transform: translateY(2px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Section Cards */
+        .card {
             background: var(--bg-surface);
             border: 1px solid var(--border);
-            padding: 12px 16px;
             margin-bottom: 16px;
+            overflow: hidden;
+        }
+        .card-header {
+            padding: 12px 18px;
+            border-bottom: 1px solid var(--border);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            flex-wrap: wrap;
-            gap: 12px;
+            background: #07070b;
         }
-        .control-label {
-            font-size: 11px;
+        .card-title {
+            font-size: 12px;
             font-weight: 700;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
+            color: var(--text-primary);
             display: flex;
             align-items: center;
             gap: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
             font-family: 'JetBrains Mono', monospace;
         }
-        .button-group {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-wrap: wrap;
+        .card-body {
+            padding: 18px;
+            background: var(--bg-surface);
         }
 
         /* Sharp Technical Buttons */
@@ -215,9 +278,9 @@
             align-items: center;
             justify-content: center;
             gap: 6px;
-            padding: 7px 14px;
+            padding: 8px 16px;
             font-size: 11.5px;
-            font-weight: 600;
+            font-weight: 700;
             cursor: pointer;
             border: 1px solid var(--border);
             background: var(--bg-elevated);
@@ -249,203 +312,121 @@
         .btn-danger { background: #881337; border-color: #f43f5e; color: #fecdd3; }
         .btn-danger:hover { background: #be123c; color: #ffffff; }
         
-        .btn-sm { padding: 4px 10px; font-size: 10.5px; }
-        .btn-xs { padding: 3px 7px; font-size: 10px; }
+        .btn-sm { padding: 5px 12px; font-size: 11px; }
+        .btn-xs { padding: 3px 8px; font-size: 10px; }
 
-        /* Segmented Mode Controls */
-        .segmented-control {
-            display: inline-flex;
-            background: #040406;
-            border: 1px solid var(--border);
-            padding: 2px;
-            gap: 2px;
-        }
-        .segment-btn {
-            background: transparent;
-            border: 1px solid transparent;
-            color: var(--text-secondary);
-            font-size: 11px;
-            font-weight: 600;
-            padding: 5px 12px;
-            cursor: pointer;
-            transition: all 0.12s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            white-space: nowrap;
-            font-family: 'JetBrains Mono', monospace;
-            text-transform: uppercase;
-        }
-        .segment-btn:hover {
-            color: var(--text-primary);
-            background: #0f0f16;
-        }
-        .segment-btn.active {
-            background: #161622;
-            color: #ffffff;
-            border-color: var(--border-hover);
-        }
-        .segment-btn.active.mode-auto {
-            background: var(--emerald-bg);
-            color: var(--emerald);
-            border-color: var(--emerald-border);
-        }
-        .segment-btn.active.mode-adv {
-            background: var(--cyan-bg);
-            color: var(--cyan);
-            border-color: var(--cyan-border);
-        }
-
-        /* ÖZET (SUMMARY METRICS) SECTION */
-        .summary-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 10px;
-            padding-bottom: 6px;
-            border-bottom: 1px solid var(--border);
-        }
-        .summary-title {
-            font-size: 12px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: var(--text-secondary);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-family: 'JetBrains Mono', monospace;
-        }
-
-        .summary-grid {
+        /* Form Inputs */
+        .form-row {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 12px;
-            margin-bottom: 18px;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
         }
-        .summary-card {
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            padding: 14px 16px;
-            position: relative;
-            transition: border-color 0.15s ease;
-        }
-        .summary-card:hover {
-            border-color: var(--border-hover);
-        }
-        .summary-card-label {
-            font-size: 10.5px;
-            color: var(--text-secondary);
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            margin-bottom: 6px;
+        .form-group {
             display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-family: 'JetBrains Mono', monospace;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 14px;
         }
-        .summary-card-value {
-            font-size: 21px;
-            font-weight: 800;
-            letter-spacing: -0.02em;
-            font-family: 'JetBrains Mono', monospace;
-            line-height: 1.2;
-            margin-bottom: 4px;
-        }
-        .summary-card-sub {
+        .form-label {
             font-size: 10.5px;
-            color: var(--text-muted);
-            line-height: 1.3;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .form-input {
+            background: #020204;
+            border: 1px solid var(--border);
+            color: #ffffff;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            padding: 10px 14px;
+            transition: all 0.12s ease;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: var(--cyan);
+            background: #06060c;
         }
 
-        /* Terminal Console */
-        .terminal-box {
-            background: #020203;
+        /* SQL Editor Component */
+        .sql-editor-container {
             border: 1px solid var(--border);
-            margin-bottom: 16px;
-            overflow: hidden;
+            background: #020204;
+            position: relative;
         }
-        .terminal-topbar {
-            background: #09090d;
+        .sql-textarea {
+            width: 100%;
+            min-height: 180px;
+            background: #020204;
+            border: none;
+            color: #93c5fd;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12.5px;
+            line-height: 1.5;
+            padding: 14px 16px;
+            resize: vertical;
+            outline: none;
+        }
+        .sql-textarea:focus {
+            background: #040408;
+        }
+
+        .sql-editor-toolbar {
+            background: #09090f;
             border-bottom: 1px solid var(--border);
             padding: 8px 14px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-        }
-        .terminal-title {
-            font-size: 11px;
-            font-weight: 700;
-            color: var(--text-secondary);
-            display: flex;
-            align-items: center;
+            flex-wrap: wrap;
             gap: 8px;
-            font-family: 'JetBrains Mono', monospace;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-        .terminal-status-tag {
-            font-size: 10.5px;
-            font-weight: 700;
-            color: var(--emerald);
-            font-family: 'JetBrains Mono', monospace;
-        }
-        .terminal-content {
-            height: 150px;
-            padding: 12px 16px;
-            overflow-y: auto;
-            font-size: 11.5px;
-            line-height: 1.55;
-            color: #d1d5db;
-            font-family: 'JetBrains Mono', monospace;
-            white-space: pre-wrap;
-            word-break: break-all;
         }
 
-        /* Section Cards */
-        .card {
-            background: var(--bg-surface);
+        .sample-pills {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .sample-pill-btn {
+            background: #050508;
             border: 1px solid var(--border);
-            margin-bottom: 16px;
-            overflow: hidden;
-        }
-        .card-header {
-            padding: 12px 16px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #07070b;
-        }
-        .card-title {
-            font-size: 12px;
-            font-weight: 700;
-            color: var(--text-primary);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
+            color: var(--text-secondary);
+            padding: 4px 9px;
+            font-size: 10.5px;
             font-family: 'JetBrains Mono', monospace;
+            cursor: pointer;
+            transition: all 0.12s ease;
         }
-        .card-body {
-            padding: 0;
-            background: var(--bg-surface);
-        }
-
-        .grid-2 {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-        }
-        .grid-1 {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 16px;
+        .sample-pill-btn:hover {
+            color: #ffffff;
+            border-color: var(--border-hover);
+            background: #101018;
         }
 
-        /* Clean Data Tables */
+        /* Execution Result Metric Strip */
+        .exec-strip {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 8px 14px;
+            background: #040407;
+            border-top: 1px solid var(--border);
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-secondary);
+        }
+
+        /* Result Data Grid */
+        .table-container {
+            max-height: 480px;
+            overflow: auto;
+            border: 1px solid var(--border);
+            background: #020204;
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
@@ -453,7 +434,7 @@
             font-size: 12px;
         }
         th {
-            background: #030305;
+            background: #040407;
             padding: 10px 14px;
             color: var(--text-secondary);
             font-size: 10.5px;
@@ -463,9 +444,12 @@
             border-bottom: 1px solid var(--border);
             white-space: nowrap;
             font-family: 'JetBrains Mono', monospace;
+            position: sticky;
+            top: 0;
+            z-index: 10;
         }
         td {
-            padding: 12px 14px;
+            padding: 10px 14px;
             border-bottom: 1px solid var(--border);
             vertical-align: middle;
         }
@@ -476,7 +460,19 @@
             background: #0b0b10;
         }
 
-        /* Sharp Badges */
+        /* Recommendation Banner */
+        .recommendation-banner {
+            background: #03141c;
+            border: 1px solid var(--cyan-border);
+            padding: 12px 16px;
+            margin-top: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+
+        /* Badges */
         .badge {
             display: inline-flex;
             align-items: center;
@@ -496,7 +492,31 @@
         .badge-info { background: var(--cyan-bg); color: var(--cyan); border-color: var(--cyan-border); }
         .badge-neutral { background: var(--bg-elevated); color: var(--text-secondary); border-color: var(--border); }
 
-        /* SQL Command Block */
+        .speed-box {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11.5px;
+            font-weight: 700;
+            border: 1px solid var(--border);
+        }
+        .speed-fast { background: var(--emerald-bg); color: var(--emerald); border-color: var(--emerald-border); }
+        .speed-slow { background: var(--rose-bg); color: var(--rose); border-color: var(--rose-border); }
+        .speed-mid { background: var(--amber-bg); color: var(--amber); border-color: var(--amber-border); }
+
+        .multiplier-tag {
+            font-size: 10.5px;
+            font-weight: 800;
+            color: var(--emerald);
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--emerald-bg);
+            border: 1px solid var(--emerald-border);
+            padding: 2px 6px;
+        }
+
+        /* SQL Snippet */
         .sql-snippet {
             position: relative;
             background: #020204;
@@ -534,32 +554,96 @@
             background: #1a1a28;
         }
 
-        /* Speed Badges */
-        .speed-box {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 3px 8px;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 11.5px;
-            font-weight: 700;
-            border: 1px solid var(--border);
+        /* Summary Grid */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 18px;
         }
-        .speed-fast { background: var(--emerald-bg); color: var(--emerald); border-color: var(--emerald-border); }
-        .speed-slow { background: var(--rose-bg); color: var(--rose); border-color: var(--rose-border); }
-        .speed-mid { background: var(--amber-bg); color: var(--amber); border-color: var(--amber-border); }
-
-        .multiplier-tag {
+        .summary-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            padding: 16px 18px;
+            position: relative;
+        }
+        .summary-card-label {
             font-size: 10.5px;
+            color: var(--text-secondary);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .summary-card-value {
+            font-size: 22px;
             font-weight: 800;
+            letter-spacing: -0.02em;
+            font-family: 'JetBrains Mono', monospace;
+            line-height: 1.2;
+            margin-bottom: 4px;
+        }
+        .summary-card-sub {
+            font-size: 10.5px;
+            color: var(--text-muted);
+            line-height: 1.3;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        /* Terminal Console */
+        .terminal-box {
+            background: #020203;
+            border: 1px solid var(--border);
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+        .terminal-topbar {
+            background: #09090d;
+            border-bottom: 1px solid var(--border);
+            padding: 8px 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .terminal-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .terminal-status-tag {
+            font-size: 10.5px;
+            font-weight: 700;
             color: var(--emerald);
             font-family: 'JetBrains Mono', monospace;
-            background: var(--emerald-bg);
-            border: 1px solid var(--emerald-border);
-            padding: 2px 6px;
+        }
+        .terminal-content {
+            height: 160px;
+            padding: 12px 16px;
+            overflow-y: auto;
+            font-size: 11.5px;
+            line-height: 1.55;
+            color: #d1d5db;
+            font-family: 'JetBrains Mono', monospace;
+            white-space: pre-wrap;
+            word-break: break-all;
         }
 
-        /* Filter Tabs */
+        /* Filter Tab Buttons */
         .tab-btn {
             background: transparent;
             border: 1px solid transparent;
@@ -575,7 +659,6 @@
         .tab-btn:hover { color: var(--text-primary); background: #12121c; }
         .tab-btn.active { background: var(--bg-elevated); color: #ffffff; border-color: var(--border-hover); }
 
-        /* Toast */
         #toast {
             position: fixed;
             bottom: 20px;
@@ -611,213 +694,18 @@
             font-family: 'JetBrains Mono', monospace;
         }
 
-        /* App Slide-Over Drawer */
-        .drawer-backdrop {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: rgba(0, 0, 0, 0.85);
-            z-index: 9998;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.2s ease, visibility 0.2s;
-        }
-        .drawer-backdrop.active {
-            opacity: 1;
-            visibility: visible;
-        }
-        .drawer-panel {
-            position: fixed;
-            top: 0;
-            right: -750px;
-            width: 680px;
-            max-width: 95vw;
-            height: 100vh;
-            background: #050508;
-            border-left: 1px solid var(--border-hover);
-            box-shadow: -20px 0 60px rgba(0, 0, 0, 0.98);
-            z-index: 9999;
-            display: flex;
-            flex-direction: column;
-            transition: right 0.25s ease;
-        }
-        .drawer-panel.active {
-            right: 0;
-        }
-        .drawer-header {
-            background: #09090f;
-            border-bottom: 1px solid var(--border);
-            padding: 14px 18px 10px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-        .drawer-close-btn {
-            background: #11111a;
-            border: 1px solid var(--border);
-            color: var(--text-secondary);
-            width: 28px;
-            height: 28px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            font-family: 'JetBrains Mono', monospace;
-        }
-        .drawer-close-btn:hover {
-            color: #ffffff;
-            border-color: var(--border-hover);
-            background: #1b1b28;
-        }
-        .drawer-navbar {
-            display: flex;
-            background: #020204;
-            border: 1px solid var(--border);
-            padding: 2px;
-            gap: 2px;
-        }
-        .drawer-tab-btn {
-            flex: 1;
-            padding: 7px 12px;
-            background: transparent;
-            border: 1px solid transparent;
-            font-size: 11px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            cursor: pointer;
-            text-align: center;
-            font-family: 'JetBrains Mono', monospace;
-            text-transform: uppercase;
-        }
-        .drawer-tab-btn.active {
-            background: #161622;
-            color: #ffffff;
-            border-color: var(--border-hover);
-        }
-        .drawer-body {
-            flex: 1;
-            overflow-y: auto;
-            background: #050508;
-        }
-
-        /* Modal Styles */
-        .modal-backdrop {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: rgba(0, 0, 0, 0.88);
-            z-index: 10000;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-        .modal-backdrop.active {
-            display: flex;
-        }
-        .modal-panel {
-            background: #07070b;
-            border: 1px solid var(--border-hover);
-            width: 520px;
-            max-width: 95vw;
-            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.98);
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-        .modal-header {
-            padding: 14px 18px;
-            background: #0a0a10;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .modal-body {
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
-        }
-        .modal-footer {
-            padding: 12px 18px;
-            background: #0a0a10;
-            border-top: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            gap: 10px;
-        }
-
-        .form-row {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 12px;
-        }
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-        .form-label {
-            font-size: 10.5px;
-            font-weight: 700;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            font-family: 'JetBrains Mono', monospace;
-        }
-        .form-input {
-            background: #020204;
-            border: 1px solid var(--border);
-            color: #ffffff;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 12px;
-            padding: 8px 12px;
-            transition: all 0.12s ease;
-        }
-        .form-input:focus {
-            outline: none;
-            border-color: var(--cyan);
-        }
-
-        .autopilot-ribbon {
-            background: #04120e;
-            border: 1px solid var(--emerald-border);
-            padding: 10px 16px;
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .index-hub-card {
-            background: #07070a;
-            border: 1px solid var(--border);
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-
         @media (max-width: 1024px) {
             .summary-grid { grid-template-columns: repeat(2, 1fr); }
-            .grid-2 { grid-template-columns: 1fr; }
-        }
-        @media (max-width: 640px) {
-            .summary-grid { grid-template-columns: 1fr; }
+            .grid-2, .form-row { grid-template-columns: 1fr; }
+            .navbar { flex-wrap: wrap; }
         }
     </style>
 </head>
 <body>
 
-    <!-- Header Navigation -->
+    <!-- Header Navigation with Page Tabs -->
     <nav class="navbar">
         <div class="nav-brand">
-            <!-- Enlarged Brand Title without Version Badge -->
             <span class="brand-logo">
                 <span class="brand-icon">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
@@ -826,379 +714,434 @@
             </span>
         </div>
 
-        <div class="nav-tools">
-            <!-- Database Connection Button -->
-            <button class="btn btn-default btn-sm" onclick="openDbConfigModal()" id="btn-db-target" title="Veritabanı bağlantı ayarlarını yapılandır">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--cyan)"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
-                <span id="nav-db-text">⚙️ DB: localhost/vortex_db</span>
+        <!-- Main Page Tabs Navigation -->
+        <div class="nav-tabs">
+            <button class="nav-tab-btn active tab-connect" onclick="switchPage('tab-connect')" id="tabbtn-connect">
+                <span>🔌 1. SUNUCU BAĞLANTISI</span>
             </button>
+            <button class="nav-tab-btn tab-editor" onclick="switchPage('tab-editor')" id="tabbtn-editor">
+                <span>⚡ 2. SQL EDİTÖRÜ</span>
+            </button>
+            <button class="nav-tab-btn tab-queries" onclick="switchPage('tab-queries')" id="tabbtn-queries">
+                <span>📊 3. CANLI SORGULAR & İNDEKS YÖNETİMİ</span>
+            </button>
+            <button class="nav-tab-btn tab-mgmt" onclick="switchPage('tab-mgmt')" id="tabbtn-mgmt">
+                <span>🛡️ 4. YÖNETİM & TELEMETRİ</span>
+            </button>
+        </div>
 
-            <!-- Mode Selector (Mod A vs Mod B) -->
-            <div class="segmented-control" id="mode-control" title="Çalışma Modu Seçimi">
-                <button class="segment-btn active mode-adv" id="mode-btn-advisor" onclick="switchMode('advisor')">
-                    <span>👤 DANIŞMAN</span>
-                </button>
-                <button class="segment-btn" id="mode-btn-autonomous" onclick="switchMode('autonomous')">
-                    <span>🤖 OTOPİLOT</span>
-                </button>
-            </div>
-
-            <!-- Traffic Source Selector -->
-            <div class="segmented-control" id="source-control" title="Trafik Kaynağı">
-                <button class="segment-btn active" id="src-btn-sim" onclick="switchSource('simulation')">
-                    <span>🧪 SİMÜLASYON</span>
-                </button>
-                <button class="segment-btn" id="src-btn-live" onclick="switchSource('live_dmv')">
-                    <span>🔴 CANLI DMV</span>
-                </button>
-            </div>
-
-            <!-- Real-Time Auto Sync Tag -->
-            <div class="live-sync-tag" title="Veritabanı otomatik olarak arka planda izlenir">
-                <span class="pulse-indicator"></span>
-                <span>CANLI İZLEME (3s)</span>
+        <div class="nav-tools">
+            <!-- Active Server Info Box -->
+            <div class="status-box" style="background:#050508; border-color:var(--border-hover);" title="Aktif Sunucu">
+                <span id="nav-server-text">⚙️ localhost:1433 / vortex_db</span>
             </div>
 
             <!-- Green / Red Database Health Status Box -->
             <div id="health-badge" class="status-box disconnected">
                 <span class="status-dot"></span>
-                <span id="health-status-text">KONTROL EDİLİYOR...</span>
+                <span id="health-status-text">OFFLINE</span>
             </div>
 
-            <!-- Drawer Trigger in Navbar -->
-            <button class="btn btn-default btn-sm" onclick="openIndexDrawer('applied')">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--emerald)"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline></svg>
-                <span>İNDEKS ÇEKMECESİ</span>
-            </button>
-
-            <!-- Manual Refresh Button -->
-            <button class="btn btn-default btn-sm" onclick="loadAll(true)" id="btn-refresh" title="Manuel Anlık Yenileme">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
-                <span>YENİLE</span>
-            </button>
+            <!-- Real-Time Auto Sync Tag -->
+            <div class="live-sync-tag" title="Arka planda canlı telemetri izleme aktif">
+                <span class="pulse-indicator"></span>
+                <span>CANLI (3s)</span>
+            </div>
         </div>
     </nav>
 
-    <!-- Database Connection Modal -->
-    <div id="db-config-modal" class="modal-backdrop" onclick="closeDbConfigModal(event)">
-        <div class="modal-panel" onclick="event.stopPropagation()">
-            <div class="modal-header">
-                <div style="display:flex; align-items:center; gap:8px; font-weight:700; font-size:12px; color:#ffffff; font-family:'JetBrains Mono',monospace; text-transform:uppercase;">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--cyan)"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
-                    <span>HEDEF SQL SERVER BAĞLANTI AYARLARI</span>
-                </div>
-                <button class="drawer-close-btn" onclick="closeDbConfigModal(null)">✕</button>
-            </div>
-            <div class="modal-body">
-                <div style="font-size:11px; color:var(--text-secondary); line-height:1.4;">
-                    VortexDBA motorunun bağlanacağı Microsoft SQL Server erişim parametrelerini yapılandırın:
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">Host / IP Adresi</label>
-                        <input type="text" id="cfg-host" class="form-input" placeholder="localhost veya 127.0.0.1" value="localhost">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Port</label>
-                        <input type="number" id="cfg-port" class="form-input" placeholder="1433" value="1433">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Veritabanı Adı (Database Name)</label>
-                    <input type="text" id="cfg-dbname" class="form-input" placeholder="vortex_db" value="vortex_db">
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">Kullanıcı Adı (User)</label>
-                        <input type="text" id="cfg-user" class="form-input" placeholder="sa" value="sa">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Şifre (Password)</label>
-                        <input type="password" id="cfg-password" class="form-input" placeholder="••••••••" value="VortexPassword123!">
-                    </div>
-                </div>
-
-                <div id="db-test-result" style="display:none; padding:10px 12px; font-size:11.5px; font-family:'JetBrains Mono',monospace;"></div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-default btn-sm" onclick="testDbConnection()" id="btn-test-db">
-                    <span>⚡ BAĞLANTIYI TEST ET</span>
-                </button>
-                <button class="btn btn-success btn-sm" onclick="saveDbConnection()" id="btn-save-db">
-                    <span>💾 KAYDET & BAĞLAN</span>
-                </button>
-            </div>
-        </div>
-    </div>
-
     <div class="container">
 
-        <!-- Autopilot Banner (Visible in Mode B) -->
-        <div id="autopilot-banner" class="autopilot-ribbon" style="display:none;">
-            <div style="display:flex; align-items:center; gap:10px;">
-                <span class="status-dot" style="background:var(--emerald);"></span>
-                <span style="font-size:11.5px; font-weight:700; color:var(--emerald); font-family:'JetBrains Mono',monospace;">🤖 OTOPİLOT MODU (MOD B) AKTİF:</span>
-                <span style="font-size:11.5px; color:var(--text-secondary);">SQL Server 7/24 arka planda taranır. Eksik indeksler ONLINE=ON ile otomatik uygulanır ve gerileme halinde anında rollback yapılır.</span>
-            </div>
-            <button class="btn btn-default btn-xs" onclick="switchMode('advisor')">Danışman Moduna Geç</button>
-        </div>
-
-        <!-- Engine Operations Control Bar -->
-        <div class="control-panel">
-            <div class="control-label">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg>
-                MOTOR OPERASYONLARI
-            </div>
-            <div class="button-group">
-                <button class="btn btn-default" onclick="actionSimulateLoad()" id="btn-load">
-                    <span>1. YAVAŞ TRAFİK SİMÜLE ET</span>
-                </button>
-                <button class="btn btn-success" onclick="actionRemediate(false)" id="btn-remediate">
-                    <span>2. İNDEKSLERİ OTOMATİK UYGULA</span>
-                </button>
-                <button class="btn btn-warning" onclick="actionRunBenchmark()" id="btn-bench">
-                    <span>3. CANLI BENCHMARK TESTİ</span>
-                </button>
-                <button class="btn btn-default btn-sm" onclick="actionResetIndexesOnly()" id="btn-reset-idx" title="Yalnızca SQL Server'daki özel indeksleri kaldırır">
-                    <span>4. İNDEKSLERİ SIFIRLA</span>
-                </button>
-                <button class="btn btn-danger btn-sm" onclick="actionFullFactoryReset()" id="btn-reset-all" title="Tüm özel indeksleri, benchmark ölçümlerini ve dinamik süreleri tamamen sıfırlar">
-                    <span>5. 💥 FABRİKA AYARLARINA DÖN</span>
-                </button>
-            </div>
-        </div>
-
-        <!-- ÖZET (SUMMARY METRICS) SECTION -->
-        <div class="summary-header">
-            <div class="summary-title">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--cyan)"><rect x="3" y="3" width="18" height="18" rx="0"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
-                <span>SİSTEM ÖZETİ & METRİKLER</span>
-            </div>
-            <div style="font-size:10.5px; color:var(--text-muted); font-family:'JetBrains Mono',monospace;">
-                GERÇEK ZAMANLI TELEMETRİ
-            </div>
-        </div>
-
-        <div class="summary-grid">
-            <!-- 1. Özel İndeksler -->
-            <div class="summary-card" onclick="openIndexDrawer('applied')" style="cursor:pointer;" title="Özel İndeksler Çekmecesini Görüntüle">
-                <div class="summary-card-label">
-                    <span>ÖZEL İNDEKSLER</span>
-                    <span style="font-size:9.5px; color:var(--emerald);">[ÇEKMECE ↗]</span>
-                </div>
-                <div class="summary-card-value" id="summary-custom-indexes" style="color:var(--emerald);">-</div>
-                <div class="summary-card-sub" id="summary-custom-sub">Aktif Nonclustered DDL</div>
-            </div>
-
-            <!-- 2. Ortalama Hızlanma -->
-            <div class="summary-card">
-                <div class="summary-card-label">
-                    <span>ORTALAMA HIZLANMA</span>
-                    <span style="font-size:9.5px; color:var(--cyan);">[KAZANÇ]</span>
-                </div>
-                <div class="summary-card-value" id="summary-avg-speedup" style="color:var(--cyan);">-</div>
-                <div class="summary-card-sub" id="summary-speedup-sub">Sorgu Süresi İyileşme Oranı</div>
-            </div>
-
-            <!-- 3. Kritik Darboğaz -->
-            <div class="summary-card">
-                <div class="summary-card-label">
-                    <span>KRİTİK DARBOĞAZ</span>
-                    <span style="font-size:9.5px; color:var(--amber);">[TABLE SCAN]</span>
-                </div>
-                <div class="summary-card-value" id="summary-bottlenecks" style="color:var(--amber);">-</div>
-                <div class="summary-card-sub" id="summary-bottleneck-sub">> 50ms süren / indekssiz sorgu</div>
-            </div>
-
-            <!-- 4. Güvenlik Durumu -->
-            <div class="summary-card">
-                <div class="summary-card-label">
-                    <span>GÜVENLİK DURUMU</span>
-                    <span style="font-size:9.5px; color:var(--emerald);">[DEVRE KESİCİ]</span>
-                </div>
-                <div class="summary-card-value" id="summary-safety" style="color:var(--emerald);">GÜVENLİ</div>
-                <div class="summary-card-sub" id="summary-safety-sub">Online DDL / Max 10 İndeks Sınırı</div>
-            </div>
-        </div>
-
-        <!-- Terminal Console -->
-        <div class="terminal-box">
-            <div class="terminal-topbar">
-                <div class="terminal-title">
-                    <span style="color:#ef4444">■</span>
-                    <span style="color:#f59e0b">■</span>
-                    <span style="color:#10b981">■</span>
-                    <span style="margin-left:6px;">STREAM TELEMETRY LOGS</span>
-                </div>
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <span id="terminal-status" class="terminal-status-tag">■ HAZIR</span>
-                    <button class="btn btn-default btn-xs" onclick="clearTerminal()">Temizle</button>
-                </div>
-            </div>
-            <div id="terminal-body" class="terminal-content"><span style="color:#525266;">[Hazır] SQL Server optimizasyon ve DDL akışları burada anlık gösterilir...</span></div>
-        </div>
-
-        <!-- TEMEL SÜTUNLAR HALİNDE DÜZENLENMİŞ SORGU MATRİSİ TABLOSU -->
-        <div class="card">
-            <div class="card-header">
-                <div class="card-title">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--cyan)"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
-                    <span>SORGU PERFORMANS & İNDEKS KARŞILAŞTIRMA MATRİSİ</span>
-                </div>
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <div style="display:flex; background:var(--bg-input); border:1px solid var(--border); padding:2px;">
-                        <button class="tab-btn active" onclick="setMatrixFilter('all')" id="mf-all">TÜMÜ (15)</button>
-                        <button class="tab-btn" onclick="setMatrixFilter('optimized')" id="mf-opt">İNDEKSLİ</button>
-                        <button class="tab-btn" onclick="setMatrixFilter('pending')" id="mf-pend">İNDEKS BEKLEYEN</button>
+        <!-- ============================================================= -->
+        <!-- SEKME 1: SUNUCU BAĞLANTISI (Doğrudan Sayfa İçinde) -->
+        <!-- ============================================================= -->
+        <div id="tab-connect" class="tab-page active">
+            <div class="grid-2">
+                <!-- Sol Panel: Bağlantı Formu -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--cyan)"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+                            <span>HEDEF SQL SERVER BAĞLANTI PARAMETRELERİ</span>
+                        </div>
+                        <span class="badge badge-neutral">TDS Port 1433</span>
                     </div>
-                    <select id="matrix-sort" onchange="renderMatrixTable()" style="background:var(--bg-input); color:var(--text-secondary); border:1px solid var(--border); padding:4px 8px; font-size:11px; font-family:'JetBrains Mono',monospace;">
-                        <option value="slowest">EN YAVAŞTAN</option>
-                        <option value="speedup">EN ÇOK HIZLANANLAR</option>
-                        <option value="fastest">EN HIZLIDAN</option>
-                    </select>
-                </div>
-            </div>
-            <div class="card-body">
-                <div id="performance-matrix" class="empty-text"><span class="spinner"></span> Veriler yükleniyor...</div>
-            </div>
-        </div>
+                    <div class="card-body">
+                        <p style="font-size:11.5px; color:var(--text-secondary); margin-bottom:16px;">
+                            VortexDBA otonom optimizasyon motorunun bağlanacağı Microsoft SQL Server bağlantı parametrelerini girin:
+                        </p>
 
-        <!-- İNDEKS YÖNETİM MERKEZİ (ÖZEL & ATIL İNDEKSLER) -->
-        <div class="card">
-            <div class="card-header">
-                <div class="card-title">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--emerald)"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline></svg>
-                    <span>İNDEKS YÖNETİM MERKEZİ</span>
-                </div>
-                
-                <div style="display:flex; background:var(--bg-input); border:1px solid var(--border); padding:2px; gap:2px;">
-                    <button class="tab-btn active" onclick="setIndexHubView('split')" id="ih-split">
-                        ◫ YAN YANA
-                    </button>
-                    <button class="tab-btn" onclick="setIndexHubView('applied')" id="ih-applied">
-                        ✅ ÖZEL İNDEKSLER (AKTİF)
-                    </button>
-                    <button class="tab-btn" onclick="setIndexHubView('unused')" id="ih-unused">
-                        ⚠️ ATIL İNDEKSLER
-                    </button>
-                </div>
-            </div>
-            
-            <div class="card-body" style="padding: 12px;">
-                <div id="index-hub-container" class="grid-2" style="gap: 12px; margin-bottom: 0;">
-                    <!-- Sol Sütun: SQL Server'daki Aktif Özel İndeksler -->
-                    <div id="col-applied" class="index-hub-card">
-                        <div class="card-header" style="background:#07070c; padding:8px 12px; border-bottom:1px solid var(--border);">
-                            <div class="card-title" style="font-size:11px;">
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--emerald)"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                <span>SQL SERVER AKTİF ÖZEL İNDEKSLER</span>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Host / IP Adresi</label>
+                                <input type="text" id="cfg-host" class="form-input" placeholder="localhost veya 127.0.0.1" value="localhost">
                             </div>
-                            <span class="badge badge-success">Live Nonclustered</span>
-                        </div>
-                        <div class="card-body" id="applied-indexes">
-                            <div class="empty-text"><span class="spinner"></span> Yükleniyor...</div>
-                        </div>
-                    </div>
-
-                    <!-- Sağ Sütun: Kullanılmayan / Ezilen İndeksler -->
-                    <div id="col-unused" class="index-hub-card">
-                        <div class="card-header" style="background:#07070c; padding:8px 12px; border-bottom:1px solid var(--border);">
-                            <div class="card-title" style="font-size:11px;">
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--rose)"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                <span>ATIL / EZİLEN İNDEKSLER (0 TARAMA)</span>
+                            <div class="form-group">
+                                <label class="form-label">Port</label>
+                                <input type="number" id="cfg-port" class="form-input" placeholder="1433" value="1433">
                             </div>
-                            <span class="badge badge-danger">Temizlik Gerekli</span>
                         </div>
-                        <div class="card-body" id="unused-indexes">
-                            <div class="empty-text"><span class="spinner"></span> Yükleniyor...</div>
+
+                        <div class="form-group">
+                            <label class="form-label">Veritabanı Adı (Database Name)</label>
+                            <input type="text" id="cfg-dbname" class="form-input" placeholder="vortex_db" value="vortex_db">
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Kullanıcı Adı (User)</label>
+                                <input type="text" id="cfg-user" class="form-input" placeholder="sa" value="sa">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Şifre (Password)</label>
+                                <input type="password" id="cfg-password" class="form-input" placeholder="••••••••" value="VortexPassword123!">
+                            </div>
+                        </div>
+
+                        <!-- Hızlı Şablonlar -->
+                        <div style="margin-bottom:16px;">
+                            <label class="form-label" style="margin-bottom:6px; display:block;">HIZLI BAĞLANTI ŞABLONLARI:</label>
+                            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                                <button class="btn btn-default btn-xs" onclick="setConnectionPreset('localhost', 1433, 'vortex_db', 'sa', 'VortexPassword123!')">
+                                    Yerel Docker MSSQL (localhost:1433)
+                                </button>
+                                <button class="btn btn-default btn-xs" onclick="setConnectionPreset('127.0.0.1', 1433, 'master', 'sa', 'VortexPassword123!')">
+                                    Master DB (127.0.0.1:1433)
+                                </button>
+                            </div>
+                        </div>
+
+                        <div style="display:flex; gap:10px; margin-top:20px;">
+                            <button class="btn btn-default" onclick="testDbConnection()" id="btn-test-db">
+                                <span>⚡ BAĞLANTIYI TEST ET</span>
+                            </button>
+                            <button class="btn btn-success" onclick="saveDbConnection()" id="btn-save-db">
+                                <span>💾 KAYDET & SUNUCUYA BAĞLAN</span>
+                            </button>
+                        </div>
+
+                        <div id="db-test-result" style="display:none; margin-top:14px; padding:12px 14px; font-size:11.5px; font-family:'JetBrains Mono',monospace; border:1px solid var(--border);"></div>
+                    </div>
+                </div>
+
+                <!-- Sağ Panel: Sunucu Durumu & Hızlı Geçiş -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--emerald)"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                            <span>CANLI SUNUCU DURUMU & TABLOLAR</span>
+                        </div>
+                        <span id="conn-health-tag" class="badge badge-danger">Bağlantı Yok</span>
+                    </div>
+                    <div class="card-body">
+                        <div id="conn-summary-box" style="margin-bottom:16px;">
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                                <div style="background:#020204; border:1px solid var(--border); padding:12px;">
+                                    <div style="font-size:10.5px; color:var(--text-muted); text-transform:uppercase;">SUNUCU ADRESİ</div>
+                                    <div id="cs-server-addr" style="font-size:13px; font-weight:700; color:#ffffff; font-family:'JetBrains Mono',monospace; margin-top:4px;">localhost:1433</div>
+                                </div>
+                                <div style="background:#020204; border:1px solid var(--border); padding:12px;">
+                                    <div style="font-size:10.5px; color:var(--text-muted); text-transform:uppercase;">HEDEF VERİTABANI</div>
+                                    <div id="cs-dbname" style="font-size:13px; font-weight:700; color:var(--cyan); font-family:'JetBrains Mono',monospace; margin-top:4px;">vortex_db</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom:14px;">
+                            <label class="form-label" style="margin-bottom:6px; display:block;">VERİTABANINDAKİ TABLOLAR & SATIR SAYILARI:</label>
+                            <div id="conn-tables-list" style="border:1px solid var(--border); background:#020204;">
+                                <div class="empty-text">Tablo listesi için sunucuya bağlanın.</div>
+                            </div>
+                        </div>
+
+                        <div style="display:flex; gap:10px; margin-top:16px;">
+                            <button class="btn btn-primary" onclick="switchPage('tab-editor')">
+                                <span>⚡ SQL Editörüne Geç ➔</span>
+                            </button>
+                            <button class="btn btn-default" onclick="switchPage('tab-queries')">
+                                <span>📊 Canlı Sorguları İncele ➔</span>
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- 3. Tablo İstatistikleri & Karar Geçmişi -->
-        <div class="grid-2">
-            <!-- Table Stats -->
+        <!-- ============================================================= -->
+        <!-- SEKME 2: SQL EDİTÖRÜ (Sorgu Yazma, Çalıştırma ve Sonuç Tablosu) -->
+        <!-- ============================================================= -->
+        <div id="tab-editor" class="tab-page">
             <div class="card">
                 <div class="card-header">
                     <div class="card-title">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--blue)"><rect x="3" y="3" width="18" height="18" rx="0"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
-                        <span>TABLO İSTATİSTİKLERİ & OKUMA DAĞILIMI</span>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--blue)"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+                        <span>İNTERAKTİF T-SQL EDİTÖRÜ & CANLI İNDEKS ANALİZİ</span>
                     </div>
-                    <span class="badge badge-neutral">dm_db_index_operational_stats</span>
+                    <div style="display:flex; gap:8px;">
+                        <button class="btn btn-default btn-xs" onclick="clearSqlEditor()">Temizle</button>
+                        <button class="btn btn-primary btn-sm" onclick="executeUserSql()" id="btn-run-sql">
+                            <span>▶ SORGUYU ÇALIŞTIR (Ctrl+Enter)</span>
+                        </button>
+                    </div>
                 </div>
-                <div class="card-body" id="table-stats">
-                    <div class="empty-text"><span class="spinner"></span> Yükleniyor...</div>
+
+                <div class="card-body" style="padding:0;">
+                    <!-- Editor Toolbar with Quick Sample Queries -->
+                    <div class="sql-editor-toolbar">
+                        <span style="font-size:10.5px; color:var(--text-muted); font-weight:700; text-transform:uppercase;">HIZLI TEST SORGULARI:</span>
+                        <div class="sample-pills">
+                            <button class="sample-pill-btn" onclick="setEditorSql(`SELECT TOP 100 * FROM orders WHERE status = 'completed' AND total_amount > 1000;`)">
+                                Sipariş Durum Filtresi (Yavaş)
+                            </button>
+                            <button class="sample-pill-btn" onclick="setEditorSql(`SELECT TOP 100 * FROM customers WHERE email LIKE '%@gmail.com';`)">
+                                E-Posta LIKE Pattern
+                            </button>
+                            <button class="sample-pill-btn" onclick="setEditorSql(`SELECT c.city, COUNT(o.id) AS order_count, SUM(o.total_amount) AS total_spent FROM customers c JOIN orders o ON c.id = o.customer_id GROUP BY c.city;`)">
+                                Şehir Bazlı JOIN & Harcama
+                            </button>
+                            <button class="sample-pill-btn" onclick="setEditorSql(`SELECT TOP 50 * FROM orders ORDER BY order_date DESC;`)">
+                                Son 50 Sipariş (ORDER BY)
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Code Area -->
+                    <div class="sql-editor-container">
+                        <textarea id="sql-editor-input" class="sql-textarea" spellcheck="false" placeholder="T-SQL sorgunuzu buraya yazın (Örn: SELECT TOP 100 * FROM orders WHERE status = 'completed' AND total_amount > 1000)...">SELECT TOP 100 * FROM orders WHERE status = 'completed' AND total_amount > 1000;</textarea>
+                    </div>
+
+                    <!-- Execution Stats Strip -->
+                    <div class="exec-strip">
+                        <div>⏱️ YÜRÜTME SÜRESİ: <strong id="exec-time" style="color:#ffffff;">- ms</strong></div>
+                        <div>📋 DÖNEN SATIR: <strong id="exec-rows" style="color:#ffffff;">-</strong></div>
+                        <div>📊 SÜTUN SAYISI: <strong id="exec-cols" style="color:#ffffff;">-</strong></div>
+                        <div style="margin-left:auto; color:var(--text-muted);">SQL Server 2022 TDS</div>
+                    </div>
+
+                    <!-- Dynamic Index Recommendation from IndexAdvisor -->
+                    <div id="editor-rec-box" style="display:none; padding: 0 16px 16px;">
+                        <div class="recommendation-banner">
+                            <div>
+                                <div style="font-size:11px; font-weight:700; color:var(--cyan); font-family:'JetBrains Mono',monospace;">
+                                    ⚡ DİNAMİK İNDEKS ÖNERİSİ (IndexAdvisor):
+                                </div>
+                                <div id="editor-rec-reason" style="font-size:11px; color:var(--text-secondary); margin-top:3px;">
+                                    Bu sorgu için eksik indeks tespit edildi.
+                                </div>
+                                <code id="editor-rec-sql" style="display:block; margin-top:5px; color:#6ee7b7; font-size:11px; font-family:'JetBrains Mono',monospace;"></code>
+                            </div>
+                            <button class="btn btn-success btn-sm" id="btn-apply-editor-rec" onclick="applyEditorRecommendation()">
+                                <span>⚡ İndeksi Oluştur & Test Et</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Query Result Table / Error Output -->
+                    <div style="padding: 16px;">
+                        <div style="font-size:11px; font-weight:700; color:var(--text-secondary); margin-bottom:8px; font-family:'JetBrains Mono',monospace; text-transform:uppercase;">
+                            SORGU SONUÇLARI (SONUÇ TABLOSU):
+                        </div>
+                        <div id="sql-result-container" class="table-container">
+                            <div class="empty-text">Henüz sorgu çalıştırılmadı. 'Sorguyu Çalıştır' butonuna basarak sonuçları görüntüleyin.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================================= -->
+        <!-- SEKME 3: CANLI SORGULAR & İNDEKS YÖNETİMİ (Benchmark & Farklar) -->
+        <!-- ============================================================= -->
+        <div id="tab-queries" class="tab-page">
+            <!-- Engine Actions Strip -->
+            <div class="card" style="margin-bottom:14px;">
+                <div class="card-header" style="padding:10px 16px;">
+                    <div class="card-title">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg>
+                        <span>MOTOR OPERASYONLARI</span>
+                    </div>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        <button class="btn btn-default btn-xs" onclick="actionSimulateLoad()" id="btn-sim-load">
+                            1. YAVAŞ TRAFİK SİMÜLE ET
+                        </button>
+                        <button class="btn btn-success btn-xs" onclick="actionRemediateAll()" id="btn-rem-all">
+                            2. TÜM İNDEKSLERİ OTOMATİK UYGULA
+                        </button>
+                        <button class="btn btn-warning btn-xs" onclick="actionBenchmarkAll()" id="btn-bench-all">
+                            3. TÜM SORGULARI BENCHMARK ET
+                        </button>
+                        <button class="btn btn-danger btn-xs" onclick="actionResetAllIndexes()" id="btn-reset-idx">
+                            💥 İNDEKSLERİ SIFIRLA
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <!-- Agent Decisions Log -->
+            <!-- Query Performance & Benchmark Matrix Table -->
             <div class="card">
                 <div class="card-header">
                     <div class="card-title">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--amber)"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                        <span>OTONOM KARAR GEÇMİŞİ (AUDIT TRAIL)</span>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--emerald)"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+                        <span>ANLIK YAKALANAN SORGULAR, İNDEKSLER VE BENCHMARK ÖLÇÜMLERİ</span>
                     </div>
-                    <span class="badge badge-neutral">State Store</span>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <div style="display:flex; background:var(--bg-input); border:1px solid var(--border); padding:2px;">
+                            <button class="tab-btn active" onclick="setQueryFilter('all')" id="qf-all">TÜMÜ</button>
+                            <button class="tab-btn" onclick="setQueryFilter('optimized')" id="qf-opt">İNDEKSLİ</button>
+                            <button class="tab-btn" onclick="setQueryFilter('pending')" id="qf-pend">İNDEKS BEKLEYEN</button>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body" id="decisions">
-                    <div class="empty-text"><span class="spinner"></span> Yükleniyor...</div>
+                <div class="card-body" style="padding:0;">
+                    <div id="live-queries-table" class="table-container" style="max-height:none; border:none;">
+                        <div class="empty-text"><span class="spinner"></span> Canlı sorgular yükleniyor...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Side-by-Side Applied vs Unused Index Management Hub -->
+            <div class="grid-2">
+                <!-- Aktif Özel İndeksler -->
+                <div class="card">
+                    <div class="card-header" style="background:#07070c;">
+                        <div class="card-title" style="font-size:11px;">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--emerald)"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            <span>SQL SERVER AKTİF ÖZEL İNDEKSLER (NONCLUSTERED)</span>
+                        </div>
+                        <span class="badge badge-success">Live DDL</span>
+                    </div>
+                    <div class="card-body" id="tab-applied-indexes" style="padding:0;">
+                        <div class="empty-text"><span class="spinner"></span> Yükleniyor...</div>
+                    </div>
+                </div>
+
+                <!-- Atıl / Ezilen İndeksler -->
+                <div class="card">
+                    <div class="card-header" style="background:#07070c;">
+                        <div class="card-title" style="font-size:11px;">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--rose)"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                            <span>ATIL / EZİLEN İNDEKSLER (0 TARAMA)</span>
+                        </div>
+                        <span class="badge badge-danger">Gereksiz İndeks</span>
+                    </div>
+                    <div class="card-body" id="tab-unused-indexes" style="padding:0;">
+                        <div class="empty-text"><span class="spinner"></span> Yükleniyor...</div>
+                    </div>
                 </div>
             </div>
         </div>
 
-    </div>
-
-    <!-- App Drawer Backdrop -->
-    <div id="drawer-backdrop" class="drawer-backdrop" onclick="closeIndexDrawer()"></div>
-
-    <!-- App Drawer Panel -->
-    <div id="drawer-panel" class="drawer-panel">
-        <div class="drawer-header">
-            <div style="display:flex; align-items:center; justify-content:space-between; width:100%;">
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--emerald)"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline></svg>
-                    <span style="font-size:13px; font-weight:800; color:#ffffff; font-family:'JetBrains Mono',monospace; text-transform:uppercase;">İNDEKS YÖNETİM ÇEKMECESİ</span>
+        <!-- ============================================================= -->
+        <!-- SEKME 4: YÖNETİM & TELEMETRİ (Özet Raporu, Kararlar ve Loglar) -->
+        <!-- ============================================================= -->
+        <div id="tab-mgmt" class="tab-page">
+            <!-- Summary Metric Tiles -->
+            <div class="summary-grid">
+                <!-- 1. Özel İndeksler -->
+                <div class="summary-card">
+                    <div class="summary-card-label">
+                        <span>UYGULANAN ÖZEL İNDEKSLER</span>
+                        <span style="color:var(--emerald);">[AKTİF]</span>
+                    </div>
+                    <div class="summary-card-value" id="mgmt-custom-indexes" style="color:var(--emerald);">-</div>
+                    <div class="summary-card-sub" id="mgmt-custom-sub">SQL Server Nonclustered DDL</div>
                 </div>
-                <button onclick="closeIndexDrawer()" class="drawer-close-btn" title="Kapat (Esc)">✕</button>
+
+                <!-- 2. Yakalanan Sorgular -->
+                <div class="summary-card">
+                    <div class="summary-card-label">
+                        <span>YAKALANAN SORGULAR</span>
+                        <span style="color:var(--cyan);">[TELEMETRİ]</span>
+                    </div>
+                    <div class="summary-card-value" id="mgmt-captured-queries" style="color:var(--cyan);">-</div>
+                    <div class="summary-card-sub">DMV + SQL Editörü Analizi</div>
+                </div>
+
+                <!-- 3. Ortalama Hızlanma -->
+                <div class="summary-card">
+                    <div class="summary-card-label">
+                        <span>GENEL ORTALAMA HIZ KAZANCI</span>
+                        <span style="color:var(--emerald);">[PERFORMANS]</span>
+                    </div>
+                    <div class="summary-card-value" id="mgmt-avg-speedup" style="color:var(--emerald);">-</div>
+                    <div class="summary-card-sub">Sorgu Başına Düşen Ortalama Kat</div>
+                </div>
+
+                <!-- 4. Motor Durumu -->
+                <div class="summary-card">
+                    <div class="summary-card-label">
+                        <span>OTONOM MOTOR DURUMU</span>
+                        <span style="color:var(--cyan);">[7/24]</span>
+                    </div>
+                    <div class="summary-card-value" id="mgmt-engine-status" style="color:var(--cyan); font-size:16px;">7/24 AKTİF</div>
+                    <div class="summary-card-sub">Canlı DMV İzleme & Circuit Breaker</div>
+                </div>
             </div>
 
-            <!-- Drawer Sub-Navbar -->
-            <div class="drawer-navbar">
-                <button class="drawer-tab-btn active" onclick="switchDrawerTab('applied')" id="dtab-applied">
-                    ✅ ÖZEL İNDEKSLER (AKTİF)
-                </button>
-                <button class="drawer-tab-btn" onclick="switchDrawerTab('unused')" id="dtab-unused">
-                    ⚠️ ATIL / EZİLEN İNDEKSLER
-                </button>
+            <!-- Son İndeks Uygulaması & Güvenlik Bilgisi -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--amber)"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                        <span>EN SON YAPILAN İNDEKS İŞLEMİ & GÜVENLİK SINIRLARI</span>
+                    </div>
+                    <span class="badge badge-success">Online DDL (Lock Free)</span>
+                </div>
+                <div class="card-body">
+                    <div class="grid-2">
+                        <div style="background:#020204; border:1px solid var(--border); padding:14px;">
+                            <div style="font-size:10.5px; color:var(--text-muted); font-weight:700; text-transform:uppercase;">EN SON İNDEKS UYGULAMASI:</div>
+                            <div id="mgmt-last-action" style="font-size:12px; font-weight:700; color:#ffffff; margin-top:6px; font-family:'JetBrains Mono',monospace;">Henüz indeks uygulanmadı.</div>
+                            <div id="mgmt-last-time" style="font-size:11px; color:var(--text-secondary); margin-top:4px;">-</div>
+                        </div>
+
+                        <div style="background:#020204; border:1px solid var(--border); padding:14px;">
+                            <div style="font-size:10.5px; color:var(--text-muted); font-weight:700; text-transform:uppercase;">GÜVENLİK KORUMALARI (SAFETY GUARDS):</div>
+                            <div style="font-size:11.5px; color:#cbd5e1; margin-top:6px; line-height:1.6; font-family:'JetBrains Mono',monospace;">
+                                <div>✔ Maksimum Özel İndeks Sınırı: <strong>10 İndeks</strong></div>
+                                <div>✔ Online İndeksleme: <strong>WITH (ONLINE = ON)</strong></div>
+                                <div>✔ Devre Kesici (Rollback): <strong>%15 Gerilemede Otomatik İptal</strong></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Decisions Audit Trail & Terminal Logs -->
+            <div class="grid-2">
+                <!-- Decisions Log -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--cyan)"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                            <span>OTONOM KARAR GEÇMİŞİ (AUDIT TRAIL)</span>
+                        </div>
+                        <span class="badge badge-neutral">State Store</span>
+                    </div>
+                    <div class="card-body" id="mgmt-decisions-table" style="padding:0;">
+                        <div class="empty-text"><span class="spinner"></span> Yükleniyor...</div>
+                    </div>
+                </div>
+
+                <!-- Stream Logs Console -->
+                <div class="terminal-box" style="margin-bottom:0;">
+                    <div class="terminal-topbar">
+                        <div class="terminal-title">
+                            <span style="color:#ef4444">■</span>
+                            <span style="color:#f59e0b">■</span>
+                            <span style="color:#10b981">■</span>
+                            <span style="margin-left:6px;">STREAM TELEMETRY LOGS</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span id="terminal-status" class="terminal-status-tag">■ HAZIR</span>
+                            <button class="btn btn-default btn-xs" onclick="clearTerminal()">Temizle</button>
+                        </div>
+                    </div>
+                    <div id="terminal-body" class="terminal-content"><span style="color:#525266;">[Hazır] Motor optimizasyon ve DDL logları burada gösterilir...</span></div>
+                </div>
             </div>
         </div>
 
-        <div class="drawer-body">
-            <!-- Tab 1: Özel İndeksler -->
-            <div id="dview-applied" class="drawer-view">
-                <div style="padding:10px 16px; background:#020204; border-bottom:1px solid var(--border); font-size:11px; color:var(--text-secondary); font-family:'JetBrains Mono',monospace;">
-                    SQL Server üzerindeki özel DDL indeksleri ve DMV tarama kullanım sayaçları:
-                </div>
-                <div id="drawer-applied-indexes" style="padding:0;">
-                    <div class="empty-text"><span class="spinner"></span> Yükleniyor...</div>
-                </div>
-            </div>
-
-            <!-- Tab 2: Atıl / Ezilen İndeksler -->
-            <div id="dview-unused" class="drawer-view" style="display:none;">
-                <div style="padding:10px 16px; background:#020204; border-bottom:1px solid var(--border); font-size:11px; color:var(--text-secondary); font-family:'JetBrains Mono',monospace;">
-                    Kompozit indeksler tarafından ezilen veya hiç kullanılmayan atıl indeksler:
-                </div>
-                <div id="drawer-unused-indexes" style="padding:0;">
-                    <div class="empty-text"><span class="spinner"></span> Yükleniyor...</div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- Toast Notification -->
@@ -1206,6 +1149,10 @@
 
     <script>
         const API = '';
+        let currentTab = 'tab-connect';
+        let liveQueriesData = [];
+        let queryFilter = 'all';
+        let activeEditorRec = null;
 
         function showToast(msg, isError = false) {
             const t = document.getElementById('toast');
@@ -1264,174 +1211,276 @@
             return `${Math.floor(hrs / 24)} gün önce`;
         }
 
-        /* --- Performance Matrix Filter --- */
-        let matrixData = [];
-        let matrixFilter = 'all';
+        /* --- Tab Page Switching --- */
+        function switchPage(tabId) {
+            currentTab = tabId;
+            document.querySelectorAll('.tab-page').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-tab-btn').forEach(el => el.classList.remove('active'));
 
-        function setMatrixFilter(filter) {
-            matrixFilter = filter;
-            document.getElementById('mf-all').className = filter === 'all' ? 'tab-btn active' : 'tab-btn';
-            document.getElementById('mf-opt').className = filter === 'optimized' ? 'tab-btn active' : 'tab-btn';
-            document.getElementById('mf-pend').className = filter === 'pending' ? 'tab-btn active' : 'tab-btn';
-            renderMatrixTable();
-        }
+            const targetPage = document.getElementById(tabId);
+            if (targetPage) targetPage.classList.add('active');
 
-        /* --- Index Hub Tab Switcher --- */
-        let currentHubView = 'split';
-        function setIndexHubView(view) {
-            currentHubView = view;
-            const container = document.getElementById('index-hub-container');
-            const colApplied = document.getElementById('col-applied');
-            const colUnused = document.getElementById('col-unused');
-            
-            document.getElementById('ih-split').className = view === 'split' ? 'tab-btn active' : 'tab-btn';
-            document.getElementById('ih-applied').className = view === 'applied' ? 'tab-btn active' : 'tab-btn';
-            document.getElementById('ih-unused').className = view === 'unused' ? 'tab-btn active' : 'tab-btn';
-
-            if (view === 'split') {
-                container.className = 'grid-2';
-                colApplied.style.display = 'flex';
-                colUnused.style.display = 'flex';
-            } else if (view === 'applied') {
-                container.className = 'grid-1';
-                colApplied.style.display = 'flex';
-                colUnused.style.display = 'none';
-            } else if (view === 'unused') {
-                container.className = 'grid-1';
-                colApplied.style.display = 'none';
-                colUnused.style.display = 'flex';
+            if (tabId === 'tab-connect') document.getElementById('tabbtn-connect').classList.add('active');
+            else if (tabId === 'tab-editor') document.getElementById('tabbtn-editor').classList.add('active');
+            else if (tabId === 'tab-queries') {
+                document.getElementById('tabbtn-queries').classList.add('active');
+                loadLiveQueries();
+            }
+            else if (tabId === 'tab-mgmt') {
+                document.getElementById('tabbtn-mgmt').classList.add('active');
+                loadManagementSummary();
             }
         }
 
-        /* --- App Drawer Methods --- */
-        function openIndexDrawer(tab = 'applied') {
-            switchDrawerTab(tab);
-            const backdrop = document.getElementById('drawer-backdrop');
-            const panel = document.getElementById('drawer-panel');
-            if (backdrop) backdrop.classList.add('active');
-            if (panel) panel.classList.add('active');
-            document.body.style.overflow = 'hidden';
+        /* --- Tab 1: Database Connection --- */
+        function setConnectionPreset(host, port, dbname, user, password) {
+            document.getElementById('cfg-host').value = host;
+            document.getElementById('cfg-port').value = port;
+            document.getElementById('cfg-dbname').value = dbname;
+            document.getElementById('cfg-user').value = user;
+            document.getElementById('cfg-password').value = password;
+            showToast('Şablon parametreleri dolduruldu');
         }
 
-        function closeIndexDrawer() {
-            const backdrop = document.getElementById('drawer-backdrop');
-            const panel = document.getElementById('drawer-panel');
-            if (backdrop) backdrop.classList.remove('active');
-            if (panel) panel.classList.remove('active');
-            document.body.style.overflow = '';
-        }
+        async function testDbConnection() {
+            const btn = document.getElementById('btn-test-db');
+            const resBox = document.getElementById('db-test-result');
+            if (btn) btn.disabled = true;
+            if (resBox) {
+                resBox.style.display = 'block';
+                resBox.style.background = '#0d0d14';
+                resBox.style.color = 'var(--cyan)';
+                resBox.innerHTML = '<span class="spinner"></span> Sunucuya bağlanılıyor ve TDS el sıkışması test ediliyor...';
+            }
 
-        function switchDrawerTab(tab) {
-            const tabApplied = document.getElementById('dtab-applied');
-            const tabUnused = document.getElementById('dtab-unused');
-            const viewApplied = document.getElementById('dview-applied');
-            const viewUnused = document.getElementById('dview-unused');
+            const payload = {
+                host: document.getElementById('cfg-host').value,
+                port: parseInt(document.getElementById('cfg-port').value) || 1433,
+                dbname: document.getElementById('cfg-dbname').value,
+                user: document.getElementById('cfg-user').value,
+                password: document.getElementById('cfg-password').value,
+            };
 
-            if (tab === 'applied') {
-                if (tabApplied) tabApplied.className = 'drawer-tab-btn active';
-                if (tabUnused) tabUnused.className = 'drawer-tab-btn';
-                if (viewApplied) viewApplied.style.display = 'block';
-                if (viewUnused) viewUnused.style.display = 'none';
+            const res = await postJSON('/api/config/db-test', payload);
+            if (btn) btn.disabled = false;
+
+            if (res && res.success) {
+                resBox.style.background = 'var(--emerald-bg)';
+                resBox.style.borderColor = 'var(--emerald-border)';
+                resBox.style.color = '#6ee7b7';
+                resBox.innerHTML = `✔ BAĞLANTI BAŞARILI!<br><span style="color:#ffffff; font-size:11px;">${res.server_version}</span><br><span style="color:var(--text-secondary); font-size:10.5px;">Hedef Veritabanı: [${res.database}]</span>`;
+                showToast('SQL Server bağlantısı doğrulandı!');
             } else {
-                if (tabApplied) tabApplied.className = 'drawer-tab-btn';
-                if (tabUnused) tabUnused.className = 'drawer-tab-btn active';
-                if (viewApplied) viewApplied.style.display = 'none';
-                if (viewUnused) viewUnused.style.display = 'block';
+                resBox.style.background = 'var(--rose-bg)';
+                resBox.style.borderColor = 'var(--rose-border)';
+                resBox.style.color = '#fda4af';
+                resBox.innerHTML = `❌ BAĞLANTI HATASI:<br><span style="font-size:10.5px;">${res?.error || 'Sunucuya ulaşılamadı'}</span>`;
             }
         }
 
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                closeIndexDrawer();
+        async function saveDbConnection() {
+            const btn = document.getElementById('btn-save-db');
+            const resBox = document.getElementById('db-test-result');
+            if (btn) btn.disabled = true;
+
+            const payload = {
+                host: document.getElementById('cfg-host').value,
+                port: parseInt(document.getElementById('cfg-port').value) || 1433,
+                dbname: document.getElementById('cfg-dbname').value,
+                user: document.getElementById('cfg-user').value,
+                password: document.getElementById('cfg-password').value,
+            };
+
+            const res = await postJSON('/api/config/db-save', payload);
+            if (btn) btn.disabled = false;
+
+            if (res && res.success) {
+                showToast('Veritabanı bağlantısı kaydedildi ve bağlandı!');
+                await loadHealth();
+                await loadConfigStatus();
+                await loadStats();
+            } else {
+                if (resBox) {
+                    resBox.style.display = 'block';
+                    resBox.style.background = 'var(--rose-bg)';
+                    resBox.style.borderColor = 'var(--rose-border)';
+                    resBox.style.color = '#fda4af';
+                    resBox.innerHTML = `❌ Kayıt Başarısız: ${res?.error || 'Hata'}`;
+                }
+            }
+        }
+
+        async function loadConfigStatus() {
+            const d = await fetchJSON('/api/config/status');
+            if (!d) return;
+
+            if (d.database) {
+                document.getElementById('nav-server-text').textContent = `⚙️ ${d.database.host}:${d.database.port} / ${d.database.dbname}`;
+                document.getElementById('cs-server-addr').textContent = `${d.database.host}:${d.database.port}`;
+                document.getElementById('cs-dbname').textContent = d.database.dbname;
+            }
+        }
+
+        /* --- Tab 2: SQL Editor --- */
+        function setEditorSql(sql) {
+            document.getElementById('sql-editor-input').value = sql;
+            executeUserSql();
+        }
+
+        function clearSqlEditor() {
+            document.getElementById('sql-editor-input').value = '';
+            document.getElementById('sql-result-container').innerHTML = '<div class="empty-text">Editör temizlendi. Yeni sorgu yazabilirsiniz.</div>';
+            document.getElementById('editor-rec-box').style.display = 'none';
+            document.getElementById('exec-time').textContent = '- ms';
+            document.getElementById('exec-rows').textContent = '-';
+            document.getElementById('exec-cols').textContent = '-';
+        }
+
+        document.getElementById('sql-editor-input').addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                executeUserSql();
+            } else if (e.key === 'F5') {
+                e.preventDefault();
+                executeUserSql();
             }
         });
 
-        /* --- Performance Matrix & Summary Metrics --- */
-        async function loadPerformanceMatrix() {
-            const d = await fetchJSON('/api/performance-matrix');
-            if (!d || !d.matrix) return;
-            matrixData = d.matrix;
-
-            const totalCount = matrixData.length;
-            const optItems = matrixData.filter(m => m.has_index && m.current_ms !== null);
-            const optCount = matrixData.filter(m => m.has_index).length;
-            const pendCount = matrixData.filter(m => !m.has_index).length;
-
-            // Compute Average Speedup for Özet Section
-            const speedupSum = optItems.reduce((acc, curr) => acc + (curr.multiplier || 1), 0);
-            const avgSpeedup = optItems.length > 0 ? (speedupSum / optItems.length).toFixed(1) : null;
-            const speedupPctSum = optItems.reduce((acc, curr) => acc + (curr.speedup_pct || 0), 0);
-            const avgPct = optItems.length > 0 ? (speedupPctSum / optItems.length).toFixed(0) : null;
-
-            const avgSpeedupEl = document.getElementById('summary-avg-speedup');
-            const avgSubEl = document.getElementById('summary-speedup-sub');
-            if (avgSpeedupEl) {
-                if (avgSpeedup && Number(avgSpeedup) > 1) {
-                    avgSpeedupEl.textContent = `${avgSpeedup}x (+%${avgPct})`;
-                    avgSpeedupEl.style.color = 'var(--cyan)';
-                    if (avgSubEl) avgSubEl.textContent = `${optItems.length} İndeksli Sorguda Ortalama Kazanç`;
-                } else {
-                    avgSpeedupEl.textContent = '— (1.0x)';
-                    avgSpeedupEl.style.color = 'var(--text-muted)';
-                    if (avgSubEl) avgSubEl.textContent = 'Ölçüm Bekleniyor';
-                }
-            }
-
-            // Compute Critical Bottlenecks (> 50ms or unindexed)
-            const slowOrUnindexed = matrixData.filter(m => !m.has_index || (m.current_ms && m.current_ms > 50)).length;
-            const bottleneckEl = document.getElementById('summary-bottlenecks');
-            const bottleneckSub = document.getElementById('summary-bottleneck-sub');
-            if (bottleneckEl) {
-                bottleneckEl.textContent = `${slowOrUnindexed} / ${totalCount}`;
-                bottleneckEl.style.color = slowOrUnindexed > 0 ? 'var(--amber)' : 'var(--emerald)';
-                if (bottleneckSub) bottleneckSub.textContent = slowOrUnindexed > 0 ? 'Table Scan / İndeks Eksik' : 'Tüm Sorgular Optimize';
-            }
-
-            // Update tab badge counters
-            const mfAll = document.getElementById('mf-all');
-            if (mfAll) mfAll.textContent = `TÜMÜ (${totalCount})`;
-
-            const mfOpt = document.getElementById('mf-opt');
-            if (mfOpt) mfOpt.textContent = `İNDEKSLİ (${optCount})`;
-
-            const mfPend = document.getElementById('mf-pend');
-            if (mfPend) mfPend.textContent = `İNDEKS BEKLEYEN (${pendCount})`;
-
-            renderMatrixTable();
-        }
-
-        /* --- Clean Tabular Columns for Performance Matrix --- */
-        function renderMatrixTable() {
-            if (!matrixData || !matrixData.length) {
-                document.getElementById('performance-matrix').innerHTML = '<div class="empty-text">Performans verisi bulunamadı.</div>';
+        async function executeUserSql() {
+            const sql = document.getElementById('sql-editor-input').value.trim();
+            if (!sql) {
+                showToast('Lütfen geçerli bir SQL sorgusu yazın', true);
                 return;
             }
 
-            const sortBy = document.getElementById('matrix-sort')?.value || 'slowest';
-            let list = [...matrixData];
+            const btn = document.getElementById('btn-run-sql');
+            const resultBox = document.getElementById('sql-result-container');
+            const recBox = document.getElementById('editor-rec-box');
 
-            if (matrixFilter === 'optimized') {
-                list = list.filter(item => item.has_index || item.speedup_pct > 0);
-            } else if (matrixFilter === 'pending') {
-                list = list.filter(item => !item.has_index);
+            if (btn) btn.disabled = true;
+            resultBox.innerHTML = '<div class="empty-text"><span class="spinner"></span> Sorgu SQL Server üzerinde çalıştırılıyor...</div>';
+
+            const res = await postJSON('/api/sql/execute', { query: sql });
+            if (btn) btn.disabled = false;
+
+            if (!res) {
+                resultBox.innerHTML = '<div class="empty-text" style="color:var(--rose);">Sunucu yanıt vermedi.</div>';
+                return;
             }
 
-            if (sortBy === 'slowest') {
-                list.sort((a, b) => (b.baseline_ms || 0) - (a.baseline_ms || 0));
-            } else if (sortBy === 'speedup') {
-                list.sort((a, b) => (b.multiplier || 0) - (a.multiplier || 0));
-            } else if (sortBy === 'fastest') {
-                list.sort((a, b) => (a.current_ms || 9999) - (b.current_ms || 9999));
+            // Update stats
+            document.getElementById('exec-time').textContent = `${res.elapsed_ms || 0} ms`;
+            document.getElementById('exec-rows').textContent = `${res.row_count !== undefined ? res.row_count : 0} satır`;
+            document.getElementById('exec-cols').textContent = `${res.columns ? res.columns.length : 0} sütun`;
+
+            if (res.success) {
+                // Recommendation
+                if (res.recommendation && res.recommendation.create_sql) {
+                    activeEditorRec = res.recommendation;
+                    activeEditorRec.query_sql = sql;
+                    recBox.style.display = 'block';
+                    document.getElementById('editor-rec-reason').textContent = res.recommendation.reason || 'Sorgu performansını artıracak indeks bulundu:';
+                    document.getElementById('editor-rec-sql').textContent = res.recommendation.create_sql;
+                } else {
+                    recBox.style.display = 'none';
+                    activeEditorRec = null;
+                }
+
+                // Render Table
+                if (res.columns && res.columns.length > 0 && res.rows) {
+                    let html = '<table><thead><tr>';
+                    res.columns.forEach(col => {
+                        html += `<th>${col}</th>`;
+                    });
+                    html += '</tr></thead><tbody>';
+
+                    res.rows.forEach(row => {
+                        html += '<tr>';
+                        res.columns.forEach(col => {
+                            const val = row[col];
+                            html += `<td style="font-family:'JetBrains Mono',monospace;">${val !== null && val !== undefined ? String(val) : '<span style="color:var(--text-muted)">NULL</span>'}</td>`;
+                        });
+                        html += '</tr>';
+                    });
+                    html += '</tbody></table>';
+                    resultBox.innerHTML = html;
+                } else {
+                    resultBox.innerHTML = `<div class="empty-text" style="color:var(--emerald);">✔ Sorgu başarıyla yürütüldü. (Etkilenen Satır: ${res.row_count || 0})</div>`;
+                }
+                showToast(`Sorgu tamamlandı (${res.elapsed_ms} ms)`);
+            } else {
+                recBox.style.display = 'none';
+                resultBox.innerHTML = `<div style="padding:16px; color:var(--rose); font-family:'JetBrains Mono',monospace; font-size:12px; line-height:1.5;">❌ SQL ÇALIŞTIRMA HATASI:<br><pre style="margin-top:8px; white-space:pre-wrap;">${res.error}</pre></div>`;
+                showToast('Sorgu hatası', true);
+            }
+        }
+
+        async function applyEditorRecommendation() {
+            if (!activeEditorRec) return;
+            const btn = document.getElementById('btn-apply-editor-rec');
+            if (btn) btn.disabled = true;
+
+            showToast('İndeks SQL Server üzerinde oluşturuluyor...');
+            const res = await postJSON('/api/indexes/apply-custom', {
+                index_name: activeEditorRec.index_name,
+                table_name: activeEditorRec.table,
+                columns: activeEditorRec.columns,
+                create_sql: activeEditorRec.create_sql,
+                query_sql: activeEditorRec.query_sql
+            });
+
+            if (btn) btn.disabled = false;
+
+            if (res && res.success) {
+                showToast('İndeks başarıyla oluşturuldu! Sorgu tekrar çalıştırılıyor...');
+                document.getElementById('editor-rec-box').style.display = 'none';
+                await executeUserSql();
+                await loadLiveQueries();
+            } else {
+                showToast(`İndeks hatası: ${res?.error || 'Oluşturulamadı'}`, true);
+            }
+        }
+
+        /* --- Tab 3: Live Queries & Index Benchmark --- */
+        function setQueryFilter(filter) {
+            queryFilter = filter;
+            document.getElementById('qf-all').className = filter === 'all' ? 'tab-btn active' : 'tab-btn';
+            document.getElementById('qf-opt').className = filter === 'optimized' ? 'tab-btn active' : 'tab-btn';
+            document.getElementById('qf-pend').className = filter === 'pending' ? 'tab-btn active' : 'tab-btn';
+            renderLiveQueriesTable();
+        }
+
+        async function loadLiveQueries() {
+            const d = await fetchJSON('/api/queries/live-benchmark');
+            if (!d || !d.queries) return;
+            liveQueriesData = d.queries;
+            renderLiveQueriesTable();
+            await loadAppliedIndexes();
+            await loadUnusedIndexes();
+        }
+
+        function renderLiveQueriesTable() {
+            if (!liveQueriesData || !liveQueriesData.length) {
+                document.getElementById('live-queries-table').innerHTML = '<div class="empty-text">Canlı sorgu bulunamadı.</div>';
+                return;
+            }
+
+            let list = [...liveQueriesData];
+            if (queryFilter === 'optimized') {
+                list = list.filter(q => q.has_index || q.speedup_pct > 0);
+            } else if (queryFilter === 'pending') {
+                list = list.filter(q => !q.has_index);
             }
 
             let html = `<table>
                 <thead>
                     <tr>
-                        <th style="width:24%;">SİSTEM SORGUSU & TABLO</th>
-                        <th style="width:36%;">SQL SORGUSU & UYGULANAN/ÖNERİLEN İNDEKS DDL</th>
-                        <th style="width:13%;">İNDEKS ÖNCESİ</th>
-                        <th style="width:13%;">İNDEKS SONRASI</th>
-                        <th style="width:14%;">HIZLANMA ORANI</th>
+                        <th style="width:22%;">SİSTEM SORGUSU & TABLO</th>
+                        <th style="width:34%;">SQL SORGUSU & İNDEKS DDL</th>
+                        <th style="width:12%;">İNDEKSSİZ (ÖNCEKİ)</th>
+                        <th style="width:12%;">İNDEKSLİ (ŞU ANKİ)</th>
+                        <th style="width:10%;">HIZLANMA</th>
+                        <th style="width:10%;">İŞLEM</th>
                     </tr>
                 </thead>
                 <tbody>`;
@@ -1451,229 +1500,166 @@
 
                 if (!item.has_index) {
                     speedCell = `<span class="badge badge-neutral font-mono">— (0 İndeks)</span>`;
-                    speedupCell = `<span style="color:var(--text-muted); font-size:11px; font-family:'JetBrains Mono',monospace;">İndeks Bekliyor</span>`;
+                    speedupCell = `<span style="color:var(--text-muted); font-size:10.5px; font-family:'JetBrains Mono',monospace;">Bekliyor</span>`;
                 } else if (item.current_ms === null || item.current_ms === undefined) {
                     speedCell = `<span class="badge badge-warning font-mono">Ölçüm Bekliyor</span>`;
-                    speedupCell = `<span style="color:var(--text-muted); font-size:11px; font-family:'JetBrains Mono',monospace;">Benchmark Gerekli</span>`;
+                    speedupCell = `<span style="color:var(--text-muted); font-size:10.5px; font-family:'JetBrains Mono',monospace;">Benchmark</span>`;
                 } else if (item.speedup_pct !== null && item.speedup_pct < 0) {
                     speedCell = `<div class="speed-box speed-slow">${item.current_ms} ms</div>`;
                     speedupCell = `
-                        <div style="display:flex; align-items:center; gap:6px;">
+                        <div style="display:flex; align-items:center; gap:4px;">
                             <span class="multiplier-tag" style="background:var(--rose-bg); color:var(--rose); border-color:var(--rose-border);">${item.multiplier}x</span>
-                            <span style="color:var(--rose); font-size:11px; font-weight:700; font-family:'JetBrains Mono',monospace;">-%${Math.abs(item.speedup_pct)}</span>
+                            <span style="color:var(--rose); font-size:10.5px; font-weight:700;">-%${Math.abs(item.speedup_pct)}</span>
                         </div>
                     `;
                 } else {
                     const speedClass = item.current_ms < 15 ? 'speed-fast' : (item.current_ms < 60 ? 'speed-mid' : 'speed-slow');
                     speedCell = `<div class="speed-box ${speedClass}">${item.current_ms} ms</div>`;
                     speedupCell = `
-                        <div style="display:flex; align-items:center; gap:6px;">
+                        <div style="display:flex; align-items:center; gap:4px;">
                             <span class="multiplier-tag">${item.multiplier}x</span>
-                            <span style="color:var(--emerald); font-size:11px; font-weight:700; font-family:'JetBrains Mono',monospace;">+${item.speedup_pct ? '%' + item.speedup_pct : '%0'}</span>
-                        </div>
-                    `;
-                }
-
-                let indexSqlBlock = '';
-                if (item.has_index && item.applied_index_sqls && item.applied_index_sqls.length) {
-                    indexSqlBlock = `
-                        <div style="font-size:10px; font-weight:700; color:var(--emerald); margin-top:6px; letter-spacing:0.04em; font-family:'JetBrains Mono',monospace;">
-                            ⚡ AKTİF ÖZEL İNDEKS (SQL SERVER):
-                        </div>
-                        ${item.applied_index_sqls.map(asql => `
-                            <div class="sql-snippet" style="border-color:var(--emerald-border);">
-                                <span class="sql-text" style="color:#6ee7b7;">${asql}</span>
-                                <button class="copy-btn" onclick="copySql('${asql.replace(/'/g, "\'")}')">Kopyala</button>
-                            </div>
-                        `).join('')}
-                    `;
-                } else if (item.recommended_sql) {
-                    indexSqlBlock = `
-                        <div style="font-size:10px; font-weight:700; color:var(--amber); margin-top:6px; letter-spacing:0.04em; font-family:'JetBrains Mono',monospace;">
-                            ⚡ ÖNERİLEN DİNAMİK İNDEKS (IndexAdvisor):
-                        </div>
-                        <div class="sql-snippet" style="border-color:var(--amber-border);">
-                            <span class="sql-text" style="color:#fde68a;">${item.recommended_sql}</span>
-                            <button class="copy-btn" onclick="copySql('${item.recommended_sql.replace(/'/g, "\'")}')">Kopyala</button>
-                        </div>
-                    `;
-                } else {
-                    indexSqlBlock = `
-                        <div style="font-size:10.5px; color:var(--text-muted); margin-top:5px; font-family:'JetBrains Mono',monospace;">
-                            İndeks Önerisi: Yavaş trafik simülasyonu ile üretilecektir.
+                            <span style="color:var(--emerald); font-size:10.5px; font-weight:700;">+${item.speedup_pct ? '%' + item.speedup_pct : '%0'}</span>
                         </div>
                     `;
                 }
 
                 let baselineCell = '';
                 if (item.baseline_ms === null || item.baseline_ms === undefined) {
-                    baselineCell = `<span class="badge badge-neutral font-mono">— (Ölçüm Bekliyor)</span>`;
+                    baselineCell = `<span class="badge badge-neutral font-mono">— (Ölçülmedi)</span>`;
                 } else {
                     baselineCell = `<div class="speed-box speed-slow">${item.baseline_ms} ms</div>`;
+                }
+
+                let actionBtn = '';
+                if (!item.has_index && item.recommended_sql) {
+                    actionBtn = `
+                        <button class="btn btn-success btn-xs" onclick="applySingleIndex('${item.id}')">
+                            ⚡ İndeks Kur
+                        </button>
+                    `;
+                } else if (item.has_index) {
+                    actionBtn = `
+                        <div style="display:flex; flex-direction:column; gap:4px;">
+                            <button class="btn btn-warning btn-xs" onclick="benchmarkSingleQuery('${item.id}')">
+                                🚀 Ölç
+                            </button>
+                            <button class="btn btn-danger btn-xs" onclick="dropSingleIndex('${item.active_indexes[0]}', '${item.table}')">
+                                🗑️ Sil
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    actionBtn = `
+                        <button class="btn btn-default btn-xs" onclick="benchmarkSingleQuery('${item.id}')">
+                            🚀 Ölç
+                        </button>
+                    `;
+                }
+
+                let ddlText = '';
+                if (item.has_index && item.active_indexes && item.active_indexes.length) {
+                    ddlText = `
+                        <div style="font-size:10px; font-weight:700; color:var(--emerald); margin-top:5px; font-family:'JetBrains Mono',monospace;">
+                            ⚡ AKTİF İNDEKS: <span style="color:#ffffff;">${item.active_indexes[0]}</span>
+                        </div>
+                    `;
+                } else if (item.recommended_sql) {
+                    ddlText = `
+                        <div class="sql-snippet" style="border-color:var(--amber-border); margin-top:4px;">
+                            <span class="sql-text" style="color:#fde68a;">${item.recommended_sql}</span>
+                            <button class="copy-btn" onclick="copySql('${item.recommended_sql.replace(/'/g, "\\'")}')">Kopyala</button>
+                        </div>
+                    `;
                 }
 
                 html += `
                     <tr>
                         <td>
-                            <div style="font-weight:700; color:var(--text-primary); font-size:12px; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
-                                <span>${item.title}</span>
-                            </div>
-                            <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                            <div style="font-weight:700; color:var(--text-primary); font-size:12px; margin-bottom:4px;">${item.title}</div>
+                            <div style="display:flex; align-items:center; gap:6px; margin-bottom:3px;">
                                 ${statusBadge}
                                 <span style="font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--text-secondary);">Tablo: <strong>${item.table}</strong></span>
                             </div>
-                            <div style="font-size:11px; color:var(--text-muted);">
-                                ${item.description || ''}
+                            <div style="font-size:10.5px; color:var(--text-muted);">${item.description || ''}</div>
+                        </td>
+                        <td>
+                            <div style="background:#020204; padding:5px 8px; border:1px solid var(--border); position:relative;">
+                                <pre style="margin:0; font-family:'JetBrains Mono',monospace; font-size:10.5px; color:#cbd5e1; white-space:pre-wrap; word-break:break-all; line-height:1.3;">${item.query_sql}</pre>
+                                <button class="copy-btn" style="position:absolute; top:4px; right:6px;" onclick="copySql('${item.query_sql.replace(/'/g, "\\'").replace(/\n/g, "\\n")}')">Kopyala</button>
                             </div>
+                            ${ddlText}
                         </td>
-                        <td>
-                            <!-- SQL Query Block -->
-                            <div style="background:#020204; padding:6px 8px; border:1px solid var(--border); position:relative;">
-                                <pre style="margin:0; font-family:'JetBrains Mono',monospace; font-size:10.5px; color:#cbd5e1; white-space:pre-wrap; word-break:break-all; line-height:1.35;">${item.query_sql}</pre>
-                                <button class="copy-btn" style="position:absolute; top:4px; right:6px;" onclick="copySql('${item.query_sql.replace(/'/g, "\'").replace(/
-/g, "\n")}')">Kopyala</button>
-                            </div>
-
-                            <!-- Applied or Recommended Index DDL Block -->
-                            ${indexSqlBlock}
-                        </td>
-                        <td>
-                            ${baselineCell}
-                        </td>
-                        <td>
-                            ${speedCell}
-                        </td>
-                        <td>
-                            ${speedupCell}
-                        </td>
+                        <td>${baselineCell}</td>
+                        <td>${speedCell}</td>
+                        <td>${speedupCell}</td>
+                        <td>${actionBtn}</td>
                     </tr>
                 `;
             });
 
             html += `</tbody></table>`;
-            document.getElementById('performance-matrix').innerHTML = html;
+            document.getElementById('live-queries-table').innerHTML = html;
         }
 
-        /* --- Health Check & Dynamic Connection Indicator --- */
-        async function loadHealth() {
-            const d = await fetchJSON('/health');
-            const el = document.getElementById('health-badge');
-            const txt = document.getElementById('health-status-text');
-            
-            if (d && (d.connected === true || d.status === 'healthy')) {
-                el.className = 'status-box connected';
-                txt.textContent = `ONLINE | :${d.port || 1433}`;
+        async function applySingleIndex(queryId) {
+            const item = liveQueriesData.find(q => q.id === queryId);
+            if (!item || !item.recommended_sql) return;
+
+            showToast(`[${item.recommended_name}] indeksi oluşturuluyor...`);
+            const res = await postJSON('/api/indexes/apply-custom', {
+                index_name: item.recommended_name,
+                table_name: item.table,
+                create_sql: item.recommended_sql,
+                query_sql: item.query_sql
+            });
+
+            if (res && res.success) {
+                showToast('İndeks kuruldu! Performans kazancı ölçülüyor...');
+                await benchmarkSingleQuery(queryId);
+                await loadLiveQueries();
             } else {
-                el.className = 'status-box disconnected';
-                txt.textContent = 'OFFLINE | BAĞLANTI YOK';
+                showToast(`İndeks oluşturulamadı: ${res?.error || 'Hata'}`, true);
             }
         }
 
-        /* --- Stats and Summary Updates --- */
-        async function loadStats() {
-            const d = await fetchJSON('/api/stats');
-            if (!d) return;
+        async function benchmarkSingleQuery(queryId) {
+            const item = liveQueriesData.find(q => q.id === queryId);
+            if (!item) return;
 
-            // Table Stats
-            if (d.tables?.length) {
-                let html = '<table><thead><tr><th>Tablo Adı</th><th>Satır Sayısı</th><th>Table Scan (Yavaş)</th><th>Index Seek/Scan (Hızlı)</th><th>Oran</th></tr></thead><tbody>';
-                d.tables.forEach(t => {
-                    const sum = t.seq_scans + t.idx_scans;
-                    const pct = sum > 0 ? ((t.idx_scans / sum) * 100).toFixed(1) : 100;
-                    let badge = '<span class="badge badge-success">%100 İndeks</span>';
-                    if (pct < 50) badge = '<span class="badge badge-danger">Kritik Scan</span>';
-                    else if (pct < 80) badge = '<span class="badge badge-warning">Orta</span>';
+            showToast(`[${item.title}] 3 kez yürütülerek benchmark yapılıyor...`);
+            const res = await postJSON('/api/queries/benchmark-run', {
+                id: queryId,
+                query_sql: item.query_sql
+            });
 
-                    html += `<tr>
-                        <td><strong style="color:#ffffff; font-family:'JetBrains Mono',monospace;">${t.name}</strong></td>
-                        <td class="font-mono">${fmt(t.live_tuples)}</td>
-                        <td class="font-mono" style="color:${t.seq_scans > 0 ? 'var(--rose)' : 'var(--text-muted)'}">${fmt(t.seq_scans)}</td>
-                        <td class="font-mono" style="color:var(--emerald)">${fmt(t.idx_scans)}</td>
-                        <td>${badge}</td>
-                    </tr>`;
-                });
-                html += '</tbody></table>';
-                document.getElementById('table-stats').innerHTML = html;
+            if (res && res.success) {
+                showToast(`Benchmark Tamamlandı: ${res.measured_ms} ms (Kazanç: ${res.multiplier}x / +%${res.speedup_pct})`);
+                await loadLiveQueries();
             } else {
-                document.getElementById('table-stats').innerHTML = '<div class="empty-text">Tablo verisi bulunamadı.</div>';
+                showToast(`Benchmark hatası: ${res?.error || 'Hata'}`, true);
             }
         }
 
-        /* --- Unused Indexes --- */
-        async function loadUnusedIndexes() {
-            const d = await fetchJSON('/api/unused-indexes');
-            if (!d) return;
-
-            if (d.unused_indexes?.length) {
-                let html = '<table><thead><tr><th>İndeks & Tablo</th><th>Atıl Kalma Nedeni & Drop SQL</th><th>İşlem</th></tr></thead><tbody>';
-                d.unused_indexes.forEach(idx => {
-                    const dropSql = `DROP INDEX [${idx.name}] ON [${idx.table}];`;
-                    let supersededHtml = '';
-                    if (idx.superseding_index) {
-                        supersededHtml = `
-                            <div style="font-size:11px; color:var(--amber); font-weight:600; margin-bottom:3px; display:flex; align-items:center; gap:6px; font-family:'JetBrains Mono',monospace;">
-                                <span>⚠️ Ezilme Nedeni:</span>
-                                <code style="color:#6ee7b7; background:var(--bg-elevated); padding:1px 6px; border:1px solid var(--border); font-size:10.5px;">${idx.superseding_index}</code>
-                            </div>
-                        `;
-                    } else {
-                        supersededHtml = `<div style="font-size:11px; color:var(--amber); font-weight:600; margin-bottom:3px; font-family:'JetBrains Mono',monospace;">⚠️ ${idx.category || 'Atıl İndeks'}</div>`;
-                    }
-
-                    html += `<tr>
-                        <td>
-                            <code style="color:var(--rose); font-weight:700; font-size:11.5px;">${idx.name}</code>
-                            <div style="font-size:10.5px; color:var(--text-muted); margin-top:2px; font-family:'JetBrains Mono',monospace;">Tablo: <strong>${idx.table}</strong></div>
-                        </td>
-                        <td>
-                            ${supersededHtml}
-                            <div style="font-size:10.5px; color:var(--text-secondary); line-height:1.3;">${idx.reason || 'Kullanılmıyor'}</div>
-                            <div class="sql-snippet" style="margin-top:4px;">
-                                <span class="sql-text" style="color:#fda4af;">${dropSql}</span>
-                                <button class="copy-btn" onclick="copySql('${dropSql}')">Kopyala</button>
-                            </div>
-                        </td>
-                        <td>
-                            <button class="btn btn-danger btn-xs" onclick="actionDropIndex('${idx.name}', '${idx.table}')">
-                                Sil (Drop)
-                            </button>
-                        </td>
-                    </tr>`;
-                });
-                html += '</tbody></table>';
-                document.getElementById('unused-indexes').innerHTML = html;
-                const dUnused = document.getElementById('drawer-unused-indexes');
-                if (dUnused) dUnused.innerHTML = html;
+        async function dropSingleIndex(indexName, tableName) {
+            if (!confirm(`[${indexName}] indeksi SQL Server'dan kaldırılacak. Onaylıyor musunuz?`)) return;
+            const res = await postJSON('/api/indexes/drop-custom', { index_name: indexName, table_name: tableName });
+            if (res && res.success) {
+                showToast(`[${indexName}] indeksi silindi`);
+                await loadLiveQueries();
             } else {
-                const emptyMsg = '<div class="empty-text" style="color:var(--emerald);">✔ Harika! Atıl veya gereksiz indeks tespit edilmedi.</div>';
-                document.getElementById('unused-indexes').innerHTML = emptyMsg;
-                const dUnused = document.getElementById('drawer-unused-indexes');
-                if (dUnused) dUnused.innerHTML = emptyMsg;
+                showToast(`Silme hatası: ${res?.error || 'Hata'}`, true);
             }
         }
 
-        /* --- Applied Custom Indexes --- */
+        /* --- Applied & Unused Indexes --- */
         async function loadAppliedIndexes() {
             const d = await fetchJSON('/api/indexes');
             if (!d) return;
 
             const customList = d.custom_indexes || [];
-            const defaultList = d.default_indexes || [];
-
-            // Update Özet Section (Summary: Özel İndeksler)
-            const summaryIdxEl = document.getElementById('summary-custom-indexes');
-            const summaryIdxSub = document.getElementById('summary-custom-sub');
-            if (summaryIdxEl) {
-                summaryIdxEl.textContent = `${customList.length} Aktif İndeks`;
-                summaryIdxEl.style.color = customList.length > 0 ? 'var(--emerald)' : 'var(--text-muted)';
-                if (summaryIdxSub) {
-                    summaryIdxSub.textContent = customList.length > 0 ? `${customList.length} adet özel DDL çalışıyor` : 'Henüz özel indeks eklenmedi';
-                }
-            }
-
             let html = '';
             if (customList.length) {
-                html += '<table><thead><tr><th>Özel İndeks (VortexDBA) & DDL</th><th>Tablo</th><th>Kullanım (DMV)</th><th>İşlem</th></tr></thead><tbody>';
+                html += '<table><thead><tr><th>Özel İndeks Adı & DDL</th><th>Tablo</th><th>Kullanım</th><th>İşlem</th></tr></thead><tbody>';
                 customList.forEach(idx => {
                     const createSql = idx.create_sql || `CREATE NONCLUSTERED INDEX [${idx.name}] ON [${idx.table}] (${idx.columns ? idx.columns.join(', ') : ''});`;
                     html += `<tr>
@@ -1684,12 +1670,10 @@
                                 <button class="copy-btn" onclick="copySql('${createSql}')">Kopyala</button>
                             </div>
                         </td>
-                        <td><strong style="color:#ffffff; font-family:'JetBrains Mono',monospace;">${idx.table}</strong></td>
+                        <td><strong style="color:#ffffff;">${idx.table}</strong></td>
+                        <td><span class="badge ${idx.status_class}">${idx.status_label}</span></td>
                         <td>
-                            <span class="badge ${idx.status_class}">${idx.status_label}</span>
-                        </td>
-                        <td>
-                            <button class="btn btn-danger btn-xs" onclick="actionDropIndex('${idx.name}', '${idx.table}')">
+                            <button class="btn btn-danger btn-xs" onclick="dropSingleIndex('${idx.name}', '${idx.table}')">
                                 Sil
                             </button>
                         </td>
@@ -1697,43 +1681,74 @@
                 });
                 html += '</tbody></table>';
             } else {
-                html += '<div class="empty-text">Henüz VortexDBA tarafından eklenmiş özel bir indeks bulunmuyor.</div>';
+                html += '<div class="empty-text">Henüz özel bir indeks bulunmuyor.</div>';
             }
 
-            if (defaultList.length) {
-                html += `
-                    <div style="background:#040407; border-top:1px solid var(--border); padding:8px 12px; margin-top:4px;">
-                        <div style="font-size:10px; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:4px; font-family:'JetBrains Mono',monospace;">
-                            📋 ŞEMA VARSAYILAN İNDEKSLERİ (01_schema.sql):
-                        </div>
-                        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                            ${defaultList.map(idx => `
-                                <div style="font-size:10.5px; font-family:'JetBrains Mono',monospace; color:var(--text-secondary); background:var(--bg-elevated); padding:3px 8px; border:1px solid var(--border);">
-                                    <span>${idx.name}</span> on <code>${idx.table}</code>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                `;
-            }
-
-            document.getElementById('applied-indexes').innerHTML = html;
-            const dApplied = document.getElementById('drawer-applied-indexes');
-            if (dApplied) dApplied.innerHTML = html;
+            const el = document.getElementById('tab-applied-indexes');
+            if (el) el.innerHTML = html;
         }
 
-        /* --- Decisions Log --- */
+        async function loadUnusedIndexes() {
+            const d = await fetchJSON('/api/unused-indexes');
+            if (!d) return;
+
+            let html = '';
+            if (d.unused_indexes?.length) {
+                html += '<table><thead><tr><th>İndeks & Tablo</th><th>Neden</th><th>İşlem</th></tr></thead><tbody>';
+                d.unused_indexes.forEach(idx => {
+                    html += `<tr>
+                        <td>
+                            <code style="color:var(--rose); font-weight:700;">${idx.name}</code>
+                            <div style="font-size:10.5px; color:var(--text-muted);">Tablo: ${idx.table}</div>
+                        </td>
+                        <td style="font-size:11px; color:var(--text-secondary);">${idx.reason || 'Kullanılmıyor'}</td>
+                        <td>
+                            <button class="btn btn-danger btn-xs" onclick="dropSingleIndex('${idx.name}', '${idx.table}')">
+                                Sil
+                            </button>
+                        </td>
+                    </tr>`;
+                });
+                html += '</tbody></table>';
+            } else {
+                html += '<div class="empty-text" style="color:var(--emerald);">✔ Atıl indeks tespit edilmedi.</div>';
+            }
+
+            const el = document.getElementById('tab-unused-indexes');
+            if (el) el.innerHTML = html;
+        }
+
+        /* --- Tab 4: Management & Telemetry --- */
+        async function loadManagementSummary() {
+            const d = await fetchJSON('/api/management/summary');
+            if (!d) return;
+
+            document.getElementById('mgmt-custom-indexes').textContent = `${d.custom_index_count || 0} Aktif`;
+            document.getElementById('mgmt-custom-sub').textContent = `${d.custom_index_count || 0} adet DDL çalışıyor`;
+
+            document.getElementById('mgmt-captured-queries').textContent = `${d.total_captured_queries || 0} Sorgu`;
+
+            document.getElementById('mgmt-avg-speedup').textContent = `${d.avg_speedup_multiplier || 1.0}x (+%${d.avg_speedup_pct || 0})`;
+
+            document.getElementById('mgmt-engine-status').textContent = d.autonomous_status || '7/24 AKTİF';
+
+            document.getElementById('mgmt-last-action').textContent = d.last_index_applied_name || 'Henüz işlem yapılmadı.';
+            document.getElementById('mgmt-last-time').textContent = d.last_index_applied_at ? timeAgo(d.last_index_applied_at) : '-';
+
+            await loadDecisions();
+        }
+
         async function loadDecisions() {
             const d = await fetchJSON('/api/decisions');
             if (!d) return;
 
             if (d.decisions?.length) {
-                let html = '<table><thead><tr><th>İşlem Türü</th><th>Ayrıntı</th><th>Zaman</th></tr></thead><tbody>';
-                d.decisions.slice(0, 7).forEach(dec => {
+                let html = '<table><thead><tr><th>İşlem</th><th>Ayrıntı</th><th>Zaman</th></tr></thead><tbody>';
+                d.decisions.slice(0, 8).forEach(dec => {
                     let badge = '<span class="badge badge-neutral">' + dec.type + '</span>';
                     if (dec.type.includes('rollback')) badge = '<span class="badge badge-danger">Rollback</span>';
                     if (dec.type.includes('applied') || dec.type.includes('manual_drop') || dec.type.includes('reset_all')) badge = '<span class="badge badge-success">Uygulandı</span>';
-                    if (dec.type.includes('skip')) badge = '<span class="badge badge-warning">Güvenlik Sınırı</span>';
+                    if (dec.type.includes('skip')) badge = '<span class="badge badge-warning">Güvenlik</span>';
 
                     html += `<tr>
                         <td>${badge}</td>
@@ -1742,13 +1757,13 @@
                     </tr>`;
                 });
                 html += '</tbody></table>';
-                document.getElementById('decisions').innerHTML = html;
+                document.getElementById('mgmt-decisions-table').innerHTML = html;
             } else {
-                document.getElementById('decisions').innerHTML = '<div class="empty-text">Henüz kayıtlı karar bulunmuyor.</div>';
+                document.getElementById('mgmt-decisions-table').innerHTML = '<div class="empty-text">Henüz kayıtlı karar bulunmuyor.</div>';
             }
         }
 
-        /* --- Terminal Actions & Streaming --- */
+        /* --- Global Actions & Terminal Streaming --- */
         function clearTerminal() {
             document.getElementById('terminal-body').innerHTML = '<span style="color:#525266;">[Konsol temizlendi. Yeni komut bekleniyor...]</span>\n';
             document.getElementById('terminal-status').innerHTML = '<span style="color:var(--emerald)">■ HAZIR</span>';
@@ -1801,208 +1816,87 @@
                 statusEl.innerHTML = '<span style="color:var(--rose)">■ HATA</span>';
             } finally {
                 if (btn) btn.disabled = false;
-                await loadAll();
+                await loadLiveQueries();
+                await loadManagementSummary();
             }
         }
 
         async function actionSimulateLoad() {
-            await runStreamingAction('/api/stream/simulate-load', null, 'btn-load');
+            await runStreamingAction('/api/stream/simulate-load', null, 'btn-sim-load');
         }
 
-        async function actionRemediate(dryRun) {
-            await runStreamingAction('/api/stream/remediate', { dry_run: dryRun }, 'btn-remediate');
+        async function actionRemediateAll() {
+            await runStreamingAction('/api/stream/remediate', { dry_run: false }, 'btn-rem-all');
         }
 
-        async function actionRunBenchmark() {
-            await runStreamingAction('/api/stream/run-benchmark', null, 'btn-bench');
+        async function actionBenchmarkAll() {
+            await runStreamingAction('/api/stream/run-benchmark', null, 'btn-bench-all');
         }
 
-        async function actionResetIndexesOnly() {
-            if (!confirm('SQL Server üzerindeki tüm özel optimizasyon indeksleri kaldırılacak. Onaylıyor musunuz?')) return;
-            setMatrixFilter('all');
+        async function actionResetAllIndexes() {
+            if (!confirm('DİKKAT: SQL Server üzerindeki tüm özel optimizasyon indeksleri kaldırılacak. Onaylıyor musunuz?')) return;
             await runStreamingAction('/api/stream/reset-indexes', null, 'btn-reset-idx');
         }
 
-        async function actionFullFactoryReset() {
-            if (!confirm('DİKKAT: Tüm özel indeksler, benchmark ölçümleri, karar geçmişi ve süreler tamamen silinip fabrika ayarlarına sıfırlanacak. Onaylıyor musunuz?')) return;
-            setMatrixFilter('all');
-            await runStreamingAction('/api/stream/reset-all', null, 'btn-reset-all');
-        }
+        /* --- Health & Stats --- */
+        async function loadHealth() {
+            const d = await fetchJSON('/health');
+            const badge = document.getElementById('health-badge');
+            const txt = document.getElementById('health-status-text');
+            const connHealthTag = document.getElementById('conn-health-tag');
 
-        async function actionDropIndex(indexName, tableName) {
-            if (!confirm(`[${indexName}] indeksi SQL Server'dan kaldırılacak. Onaylıyor musunuz?`)) return;
-            await runStreamingAction('/api/stream/drop-index', { index_name: indexName, table_name: tableName });
-        }
-
-        /* --- Config & Connection Management --- */
-        async function loadConfigStatus() {
-            const d = await fetchJSON('/api/config/status');
-            if (!d) return;
-
-            const dbText = document.getElementById('nav-db-text');
-            if (dbText && d.database) {
-                dbText.textContent = `⚙️ DB: ${d.database.host}:${d.database.port}/${d.database.dbname}`;
-            }
-
-            if (d.database) {
-                const hostEl = document.getElementById('cfg-host');
-                const portEl = document.getElementById('cfg-port');
-                const dbnameEl = document.getElementById('cfg-dbname');
-                const userEl = document.getElementById('cfg-user');
-                if (hostEl && !hostEl.matches(':focus')) hostEl.value = d.database.host || 'localhost';
-                if (portEl && !portEl.matches(':focus')) portEl.value = d.database.port || 1433;
-                if (dbnameEl && !dbnameEl.matches(':focus')) dbnameEl.value = d.database.dbname || 'vortex_db';
-                if (userEl && !userEl.matches(':focus')) userEl.value = d.database.user || 'sa';
-            }
-
-            // Mode Selector
-            const btnAdv = document.getElementById('mode-btn-advisor');
-            const btnAuto = document.getElementById('mode-btn-autonomous');
-            const autoBanner = document.getElementById('autopilot-banner');
-
-            if (d.operating_mode === 'autonomous') {
-                if (btnAdv) btnAdv.className = 'segment-btn';
-                if (btnAuto) btnAuto.className = 'segment-btn active mode-auto';
-                if (autoBanner) autoBanner.style.display = 'flex';
+            if (d && (d.connected === true || d.status === 'healthy')) {
+                badge.className = 'status-box connected';
+                txt.textContent = `ONLINE | :${d.port || 1433}`;
+                if (connHealthTag) {
+                    connHealthTag.className = 'badge badge-success';
+                    connHealthTag.textContent = 'Bağlantı Aktif (SQL Server)';
+                }
             } else {
-                if (btnAdv) btnAdv.className = 'segment-btn active mode-adv';
-                if (btnAuto) btnAuto.className = 'segment-btn';
-                if (autoBanner) autoBanner.style.display = 'none';
-            }
-
-            // Traffic Source
-            const btnSim = document.getElementById('src-btn-sim');
-            const btnLive = document.getElementById('src-btn-live');
-
-            if (d.traffic_source === 'live_dmv') {
-                if (btnSim) btnSim.className = 'segment-btn';
-                if (btnLive) btnLive.className = 'segment-btn active';
-            } else {
-                if (btnSim) btnSim.className = 'segment-btn active';
-                if (btnLive) btnLive.className = 'segment-btn';
-            }
-        }
-
-        function openDbConfigModal() {
-            const modal = document.getElementById('db-config-modal');
-            const resBox = document.getElementById('db-test-result');
-            if (resBox) resBox.style.display = 'none';
-            if (modal) modal.classList.add('active');
-        }
-
-        function closeDbConfigModal(e) {
-            if (e && e.target && e.target.id !== 'db-config-modal') return;
-            const modal = document.getElementById('db-config-modal');
-            if (modal) modal.classList.remove('active');
-        }
-
-        async function testDbConnection() {
-            const btn = document.getElementById('btn-test-db');
-            const resBox = document.getElementById('db-test-result');
-            if (btn) btn.disabled = true;
-            if (resBox) {
-                resBox.style.display = 'block';
-                resBox.style.background = '#0d0d14';
-                resBox.style.border = '1px solid var(--border)';
-                resBox.style.color = 'var(--cyan)';
-                resBox.innerHTML = '<span class="spinner"></span> Bağlantı test ediliyor...';
-            }
-
-            const payload = {
-                host: document.getElementById('cfg-host').value,
-                port: parseInt(document.getElementById('cfg-port').value) || 1433,
-                dbname: document.getElementById('cfg-dbname').value,
-                user: document.getElementById('cfg-user').value,
-                password: document.getElementById('cfg-password').value,
-            };
-
-            const res = await postJSON('/api/config/db-test', payload);
-            if (btn) btn.disabled = false;
-
-            if (res && res.success) {
-                resBox.style.background = 'var(--emerald-bg)';
-                resBox.style.border = '1px solid var(--emerald-border)';
-                resBox.style.color = '#6ee7b7';
-                resBox.innerHTML = `✔ BAĞLANTI BAŞARILI!<br><span style="color:#ffffff; font-size:10.5px;">${res.server_version}</span><br><span style="color:var(--text-secondary); font-size:10.5px;">Hedef Veritabanı: [${res.database}]</span>`;
-                showToast('SQL Server bağlantısı başarılı!');
-            } else {
-                resBox.style.background = 'var(--rose-bg)';
-                resBox.style.border = '1px solid var(--rose-border)';
-                resBox.style.color = '#fda4af';
-                resBox.innerHTML = `❌ BAĞLANTI HATASI:<br><span style="font-size:10.5px;">${res?.error || 'Bilinmeyen bağlantı hatası'}</span>`;
-            }
-        }
-
-        async function saveDbConnection() {
-            const btn = document.getElementById('btn-save-db');
-            const resBox = document.getElementById('db-test-result');
-            if (btn) btn.disabled = true;
-
-            const payload = {
-                host: document.getElementById('cfg-host').value,
-                port: parseInt(document.getElementById('cfg-port').value) || 1433,
-                dbname: document.getElementById('cfg-dbname').value,
-                user: document.getElementById('cfg-user').value,
-                password: document.getElementById('cfg-password').value,
-            };
-
-            const res = await postJSON('/api/config/db-save', payload);
-            if (btn) btn.disabled = false;
-
-            if (res && res.success) {
-                showToast('Veritabanı bağlantısı güncellendi!');
-                closeDbConfigModal(null);
-                await loadAll(true);
-            } else {
-                if (resBox) {
-                    resBox.style.display = 'block';
-                    resBox.style.background = 'var(--rose-bg)';
-                    resBox.style.border = '1px solid var(--rose-border)';
-                    resBox.style.color = '#fda4af';
-                    resBox.innerHTML = `❌ Kayıt Başarısız: ${res?.error || 'Hata'}`;
+                badge.className = 'status-box disconnected';
+                txt.textContent = 'OFFLINE | BAĞLANTI YOK';
+                if (connHealthTag) {
+                    connHealthTag.className = 'badge badge-danger';
+                    connHealthTag.textContent = 'Bağlantı Yok / Sunucu Kapalı';
                 }
             }
         }
 
-        async function switchMode(mode) {
-            const res = await postJSON('/api/config/set-mode', { mode: mode });
-            if (res && res.success) {
-                showToast(mode === 'autonomous' ? '🤖 Mod B (Otopilot) Aktif Edildi' : '👤 Mod A (Danışman) Aktif Edildi');
-                await loadConfigStatus();
+        async function loadStats() {
+            const d = await fetchJSON('/api/stats');
+            if (!d) return;
+
+            if (d.tables?.length) {
+                let html = '<table><thead><tr><th>Tablo Adı</th><th>Satır Sayısı</th><th>Table Scan</th><th>Index Seek</th></tr></thead><tbody>';
+                d.tables.forEach(t => {
+                    html += `<tr>
+                        <td><strong style="color:#ffffff;">${t.name}</strong></td>
+                        <td class="font-mono">${fmt(t.live_tuples)}</td>
+                        <td class="font-mono" style="color:${t.seq_scans > 0 ? 'var(--rose)' : 'var(--text-muted)'}">${fmt(t.seq_scans)}</td>
+                        <td class="font-mono" style="color:var(--emerald)">${fmt(t.idx_scans)}</td>
+                    </tr>`;
+                });
+                html += '</tbody></table>';
+                document.getElementById('conn-tables-list').innerHTML = html;
             }
         }
 
-        async function switchSource(source) {
-            const res = await postJSON('/api/config/set-source', { source: source });
-            if (res && res.success) {
-                showToast(source === 'live_dmv' ? '🔴 Canlı SQL Server DMV Trafiğine Geçildi' : '🧪 Sentetik Simülasyon Trafiğine Geçildi');
-                await loadConfigStatus();
-                await loadPerformanceMatrix();
+        // Global Periodic Polling
+        async function syncAll() {
+            await loadHealth();
+            await loadConfigStatus();
+            if (currentTab === 'tab-connect') {
+                await loadStats();
+            } else if (currentTab === 'tab-queries') {
+                await loadLiveQueries();
+            } else if (currentTab === 'tab-mgmt') {
+                await loadManagementSummary();
             }
         }
 
-        /* --- Master Load Function (Automated Polling) --- */
-        async function loadAll(manual = false) {
-            if (manual) showToast('Veriler senkronize ediliyor...');
-            await Promise.all([
-                loadHealth(),
-                loadConfigStatus(),
-                loadPerformanceMatrix(),
-                loadStats(),
-                loadUnusedIndexes(),
-                loadAppliedIndexes(),
-                loadDecisions()
-            ]);
-            if (manual) showToast('Paneller güncellendi');
-        }
-
-        // Initial Load
-        loadAll();
-
-        // Automatic Live Polling without waiting for user refresh click (Every 3 seconds)
-        setInterval(() => {
-            loadAll(false);
-        }, 3000);
+        // Initialize on load
+        syncAll();
+        setInterval(syncAll, 3000);
     </script>
 </body>
 </html>

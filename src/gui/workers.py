@@ -105,6 +105,10 @@ class RemediateWorker(QThread):
     log_signal = pyqtSignal(str)
     finished_signal = pyqtSignal(bool, str)
 
+    def __init__(self, dry_run: bool = False):
+        super().__init__()
+        self.dry_run = dry_run
+
     def run(self):
         start_time = datetime.now()
         self.log_signal.emit(f"⚡ [OTOMATİK İNDEKSLENME BAŞLATILDI] {start_time.strftime('%H:%M:%S')}\n"
@@ -122,20 +126,19 @@ class RemediateWorker(QThread):
             return
 
         try:
-            cfg = get_config()
-            source = getattr(cfg, "traffic_source", "simulation")
-
+            from src.state_store import get_captured_queries
             from src.index_advisor import recommend_index_for_query
             from src.pg_stats_reader import get_top_queries_by_time
 
             applied_count = 0
             applied_names = set()
 
-            if source == "live_dmv":
+            captured = get_captured_queries()
+            if captured:
+                queries_to_index = [q["query_sql"] for q in captured]
+            else:
                 stats = get_top_queries_by_time(limit=15)
                 queries_to_index = [s.query for s in stats if s.query]
-            else:
-                queries_to_index = [q["query"] for q in SLOW_QUERIES]
 
             recs = []
             for sql in queries_to_index:
@@ -203,20 +206,21 @@ class BenchmarkWorker(QThread):
             if self.queries:
                 queries = self.queries
             else:
-                cfg = get_config()
-                source = getattr(cfg, "traffic_source", "simulation")
-                if source == "live_dmv":
+                from src.state_store import get_captured_queries
+                captured = get_captured_queries()
+                if captured:
+                    queries = [{"name": q["query_name"], "query": q["query_sql"], "params": None} for q in captured]
+                else:
                     from src.pg_stats_reader import get_top_queries_by_time
                     stats = get_top_queries_by_time(limit=15)
                     queries = [{"name": f"live_{s.queryid}", "query": s.query, "params": None} for s in stats if s.query]
-                else:
-                    queries = [{"name": q["name"], "query": q["query"], "params": q.get("params")} for q in SLOW_QUERIES]
 
             if not queries:
                 msg = "ℹ [BİLGİ] Benchmark edilecek sorgu bulunamadı (Tabloda aktif sorgu yok).\n"
                 self.log_signal.emit(msg)
                 self.finished_signal.emit(True, msg)
                 return
+
 
             self.log_signal.emit(f"📋 Tablodaki {len(queries)} adet aktif sorgu test ediliyor...\n")
             results = run_benchmark_suite(queries, runs=3)
