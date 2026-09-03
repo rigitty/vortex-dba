@@ -360,10 +360,25 @@ def poll_and_capture_live_dmv_queries() -> list[dict]:
             if is_rerun:
                 title += " (Tekrar Çalıştırma)"
 
-            add_captured_query(title, raw_sql, target_table, mean_ms, query_name=f"q_dmv_{q_num:02d}", applied_index=applied_idx_name)
+            q_name = f"q_dmv_{q_num:02d}"
+            add_captured_query(title, raw_sql, target_table, mean_ms, query_name=q_name, applied_index=applied_idx_name)
+            if applied_idx_name:
+                try:
+                    from state_store import record_benchmark
+                    record_benchmark(q_name, mean_ms, mean_ms, "dmv_indexed")
+                except Exception:
+                    pass
+            else:
+                try:
+                    from state_store import record_baseline
+                    record_baseline(q_name, mean_ms)
+                except Exception:
+                    pass
+
             update_dmv_tracker(q_hash, calls, last_exec)
             tracker[q_hash] = (calls, last_exec)
             new_captured.append({"title": title, "query_sql": raw_sql, "target_table": target_table, "initial_ms": mean_ms})
+
 
 
 

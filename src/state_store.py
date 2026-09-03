@@ -204,18 +204,19 @@ def get_latest_baseline(query_name: str) -> float | None:
 
 
 def get_latest_benchmark(query_name: str) -> float | None:
-    """Get the most recent real benchmark measurement (excluding baseline/editor_run)."""
+    """Get the most recent real benchmark measurement (excluding unindexed baseline)."""
     conn = _get_connection()
     try:
         row = conn.execute(
             """SELECT mean_ms FROM benchmark_history
-               WHERE query_name = ? AND index_snapshot NOT IN ('baseline', 'editor_run')
+               WHERE query_name = ? AND index_snapshot != 'baseline'
                ORDER BY id DESC LIMIT 1""",
             (query_name,)
         ).fetchone()
         return row["mean_ms"] if row else None
     finally:
         conn.close()
+
 
 
 

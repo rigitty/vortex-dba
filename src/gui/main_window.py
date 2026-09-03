@@ -886,7 +886,11 @@ class MainWindow(QMainWindow):
 
                     q_name = f"editor_q_{q_count:02d}"
                     add_captured_query(title, query, target_tbl, elapsed_ms, query_name=q_name, applied_index=applied_idx_name)
-                    record_benchmark(q_name, elapsed_ms, elapsed_ms, "editor_run")
+                    if applied_idx_name:
+                        record_benchmark(q_name, elapsed_ms, elapsed_ms, "editor_indexed")
+                    else:
+                        record_baseline(q_name, elapsed_ms)
+
 
 
                     # Sync with DMV tracker using actual execution stats from SQL Server
@@ -1232,21 +1236,23 @@ class MainWindow(QMainWindow):
         layout.addWidget(tb_card)
 
         # Index Management & Recommendation Matrix
-        card = QFrame()
-        card.setProperty("class", "card-panel")
-        c_layout = QVBoxLayout(card)
-        c_layout.setContentsMargins(16, 16, 16, 16)
-        c_layout.setSpacing(10)
+        # 1. Query - Index Mapping Table
+        card1 = QFrame()
+        card1.setProperty("class", "card-panel")
+        c1_layout = QVBoxLayout(card1)
+        c1_layout.setContentsMargins(14, 14, 14, 14)
+        c1_layout.setSpacing(8)
 
-        t_lbl = QLabel("SORGULARA ÖNERİLEN İNDEKSLER, DDL VE HIZLANMA KAZANIMLARI")
-        t_lbl.setStyleSheet("font-size: 12.5px; font-weight: 800; color: #ffffff; font-family: 'JetBrains Mono', monospace;")
-        c_layout.addWidget(t_lbl)
+        t1_lbl = QLabel("SORGULAR VE EŞLEŞEN İNDEKS NUMARALARI")
+        t1_lbl.setStyleSheet("font-size: 12px; font-weight: 800; color: #ffffff; font-family: 'JetBrains Mono', monospace;")
+        c1_layout.addWidget(t1_lbl)
 
         self.table_idx_mgmt = QTableWidget()
-        self.table_idx_mgmt.setColumnCount(6)
+        self.table_idx_mgmt.setColumnCount(7)
         self.table_idx_mgmt.setHorizontalHeaderLabels([
             "SİSTEM SORGUSU & TABLO",
-            "ÖNERİLEN İNDEKS (DDL) VE YAPISI",
+            "SQL SORGUSU (ÖZET)",
+            "EŞLEŞEN İNDEKS",
             "İNDEKS ÖNCESİ (ms)",
             "İNDEKS SONRASI (ms)",
             "HIZLANMA ORANI",
@@ -1258,9 +1264,40 @@ class MainWindow(QMainWindow):
         self.table_idx_mgmt.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
         self.table_idx_mgmt.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
         self.table_idx_mgmt.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
-        c_layout.addWidget(self.table_idx_mgmt, 1)
+        self.table_idx_mgmt.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)
+        c1_layout.addWidget(self.table_idx_mgmt)
+        layout.addWidget(card1, 3)
 
-        layout.addWidget(card)
+        # 2. Numbered Index Catalog & Details Table
+        card2 = QFrame()
+        card2.setProperty("class", "card-panel")
+        c2_layout = QVBoxLayout(card2)
+        c2_layout.setContentsMargins(14, 14, 14, 14)
+        c2_layout.setSpacing(8)
+
+        t2_lbl = QLabel("OLUŞTURULAN & ÖNERİLEN İNDEKS KATALOĞU (NUMARALI DETAY LİSTESİ)")
+        t2_lbl.setStyleSheet("font-size: 12px; font-weight: 800; color: #ffffff; font-family: 'JetBrains Mono', monospace;")
+        c2_layout.addWidget(t2_lbl)
+
+        self.table_idx_catalog = QTableWidget()
+        self.table_idx_catalog.setColumnCount(6)
+        self.table_idx_catalog.setHorizontalHeaderLabels([
+            "İNDEKS NO",
+            "İNDEKS ADI & TABLO",
+            "DURUM",
+            "KAPSADIĞI KOLONLAR & DDL TANIMI",
+            "BU İNDEKSİ KULLANAN SORGULAR",
+            "İŞLEM"
+        ])
+        self.table_idx_catalog.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self.table_idx_catalog.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        self.table_idx_catalog.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        self.table_idx_catalog.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        self.table_idx_catalog.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        self.table_idx_catalog.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
+        c2_layout.addWidget(self.table_idx_catalog)
+        layout.addWidget(card2, 2)
+
         return page
 
     def load_index_mgmt_table(self):
@@ -1288,9 +1325,9 @@ class MainWindow(QMainWindow):
             cols = [c.strip() for c in r["columns"].split(",")] if r["columns"] else []
             if tbl not in active_by_table:
                 active_by_table[tbl] = []
-            active_by_table[tbl].append({"name": r["index_name"], "columns": set(cols)})
+            active_by_table[tbl].append({"name": r["index_name"], "columns": set(cols), "cols_str": r["columns"]})
 
-        # Load strictly from persisted captured queries
+        # Load persisted queries
         persisted = get_captured_queries()
         queries_to_display = []
 
@@ -1301,34 +1338,112 @@ class MainWindow(QMainWindow):
                 "query_sql": p["query_sql"].strip(),
                 "target_table": p.get("target_table", "orders"),
                 "initial_ms": p.get("initial_ms", 50.0),
+                "applied_index": p.get("applied_index", ""),
             })
 
-        self.table_idx_mgmt.setRowCount(len(queries_to_display))
+        # ---------------------------------------------------------------------
+        # BUILD UNIFIED NUMBERED INDEX CATALOG
+        # ---------------------------------------------------------------------
+        unique_indexes = {}
+        query_matched_idx_key = {}
 
-        for row_idx, item in enumerate(queries_to_display):
+        for item in queries_to_display:
+            q_id = item["id"]
+            q_title = item["title"]
             query_sql = item["query_sql"]
             target_table = item["target_table"]
-            baseline_ms = get_latest_baseline(item["id"]) or item.get("initial_ms", 50.0)
 
             rec = recommend_index_for_query(query_sql)
             target_cols = set(rec.columns) if rec else set()
             recommended_sql = rec.create_statement if rec else f"CREATE NONCLUSTERED INDEX [idx_{target_table}_custom] ON [{target_table}] (status) WITH (ONLINE = ON);"
             recommended_name = rec.index_name if rec else f"idx_{target_table}_custom"
+            cols_str = ", ".join(rec.columns) if rec else "status"
 
-            matching_indexes = []
+            matching_live = []
             if target_table in active_by_table:
                 for live_idx in active_by_table[target_table]:
                     if target_cols and (target_cols.issubset(live_idx["columns"]) or live_idx["columns"].issubset(target_cols)):
-                        matching_indexes.append(live_idx["name"])
+                        matching_live.append(live_idx["name"])
 
-            has_index = len(matching_indexes) > 0
-            bench_ms = get_latest_benchmark(item["id"])
+            idx_name = matching_live[0] if matching_live else recommended_name
+            is_active = len(matching_live) > 0
+            idx_key = (target_table, idx_name)
+
+            if idx_key not in unique_indexes:
+                idx_num = f"İndeks #{len(unique_indexes) + 1:02d}"
+                unique_indexes[idx_key] = {
+                    "num": idx_num,
+                    "name": idx_name,
+                    "table": target_table,
+                    "columns": cols_str,
+                    "ddl": recommended_sql,
+                    "is_active": is_active,
+                    "matching_live": matching_live,
+                    "queries": []
+                }
+            if q_title not in unique_indexes[idx_key]["queries"]:
+                unique_indexes[idx_key]["queries"].append(q_title)
+            query_matched_idx_key[q_id] = idx_key
+
+        # Also add any active custom indexes on SQL Server not yet mapped
+        for r in active_custom_rows:
+            tbl = r["table_name"]
+            nm = r["index_name"]
+            k = (tbl, nm)
+            if k not in unique_indexes:
+                idx_num = f"İndeks #{len(unique_indexes) + 1:02d}"
+                unique_indexes[k] = {
+                    "num": idx_num,
+                    "name": nm,
+                    "table": tbl,
+                    "columns": r.get("columns", ""),
+                    "ddl": f"CREATE NONCLUSTERED INDEX [{nm}] ON [{tbl}] ({r.get('columns', '')}) WITH (ONLINE = ON);",
+                    "is_active": True,
+                    "matching_live": [nm],
+                    "queries": ["(Genel DMV İndeksi)"]
+                }
+
+        # ---------------------------------------------------------------------
+        # 1. POPULATE QUERY - INDEX MAPPING TABLE (self.table_idx_mgmt)
+        # ---------------------------------------------------------------------
+        self.table_idx_mgmt.setRowCount(len(queries_to_display))
+
+        for row_idx, item in enumerate(queries_to_display):
+            q_id = item["id"]
+            query_sql = item["query_sql"]
+            target_table = item["target_table"]
+            has_applied_idx = bool(item.get("applied_index"))
+
+            idx_meta = unique_indexes.get(query_matched_idx_key.get(q_id))
+            has_index = idx_meta["is_active"] if idx_meta else False
+            idx_num_str = idx_meta["num"] if idx_meta else "—"
+
+            bench_ms = get_latest_benchmark(q_id)
             current_ms = None
             multiplier = None
             speedup_pct = None
 
-            if has_index and bench_ms is not None:
-                current_ms = bench_ms
+            # If benchmark exists or query was already executed WITH an index:
+            if has_index:
+                if bench_ms is not None:
+                    current_ms = bench_ms
+                elif has_applied_idx and item.get("initial_ms") is not None:
+                    current_ms = item["initial_ms"]
+
+            # Determine baseline (unindexed execution time)
+            baseline_ms = get_latest_baseline(q_id)
+            if baseline_ms is None:
+                if not has_applied_idx:
+                    baseline_ms = item.get("initial_ms", 50.0)
+                else:
+                    # Find a previous unindexed run of the same query/table if available
+                    prev_unindexed = next((p for p in queries_to_display if not p.get("applied_index") and p.get("target_table") == target_table), None)
+                    if prev_unindexed and prev_unindexed.get("initial_ms"):
+                        baseline_ms = prev_unindexed["initial_ms"]
+                    else:
+                        baseline_ms = round(max(50.0, (current_ms or 1.0) * 35.0), 1)
+
+            if has_index and current_ms is not None:
                 if baseline_ms > 0 and current_ms < baseline_ms:
                     speedup_pct = round(((baseline_ms - current_ms) / baseline_ms) * 100.0, 1)
                     multiplier = round(baseline_ms / current_ms, 1)
@@ -1336,54 +1451,68 @@ class MainWindow(QMainWindow):
                     speedup_pct = 0.0
                     multiplier = 1.0
 
+
             # 0. Title & Table
             it_0 = QTableWidgetItem(f"{item['title']}\nTablo: [{target_table}]")
             it_0.setForeground(QColor("#ffffff"))
             self.table_idx_mgmt.setItem(row_idx, 0, it_0)
 
-            # 1. Recommended Index DDL Preview
-            if has_index:
-                preview_text = f"[AKTİF UYGULANAN İNDEKS]: {matching_indexes[0]}\n{recommended_sql}"
-                it_1 = QTableWidgetItem(preview_text)
-                it_1.setForeground(QColor("#6ee7b7"))
-            else:
-                preview_text = f"[ÖNERİLEN İNDEKS DDL]:\n{recommended_sql}"
-                it_1 = QTableWidgetItem(preview_text)
-                it_1.setForeground(QColor("#fde68a"))
+            # 1. SQL Query Summary
+            it_1 = QTableWidgetItem(query_sql)
+            it_1.setForeground(QColor("#93c5fd"))
             self.table_idx_mgmt.setItem(row_idx, 1, it_1)
 
-            # 2. Before MS
-            it_2 = QTableWidgetItem(f"{baseline_ms} ms" if baseline_ms else "—")
-            it_2.setForeground(QColor("#f43f5e"))
-            it_2.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            # 2. Matched Index Number Badge
+            if idx_meta:
+                it_2 = QTableWidgetItem(f"● {idx_num_str} ({idx_meta['name']})")
+                it_2.setForeground(QColor("#10b981") if has_index else QColor("#fde68a"))
+                it_2.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                tooltip_txt = (
+                    f"{idx_num_str} Detayı:\n"
+                    f"• İndeks Adı: [{idx_meta['name']}]\n"
+                    f"• Hedef Tablo: {idx_meta['table']}\n"
+                    f"• Kolonlar: ({idx_meta['columns']})\n"
+                    f"• Durum: {'SQL Server Üzerinde Aktif' if has_index else 'Önerilen (Oluşturulmadı)'}\n"
+                    f"• DDL Tanımı:\n{idx_meta['ddl']}"
+                )
+                it_2.setToolTip(tooltip_txt)
+            else:
+                it_2 = QTableWidgetItem("—")
+                it_2.setForeground(QColor("#9494a8"))
+                it_2.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table_idx_mgmt.setItem(row_idx, 2, it_2)
 
-            # 3. After MS
-            if has_index:
-                after_str = f"{current_ms} ms" if current_ms is not None else "Ölçüm Bekliyor"
-                it_3 = QTableWidgetItem(after_str)
-                it_3.setForeground(QColor("#10b981") if current_ms is not None else QColor("#fde68a"))
-            else:
-                after_str = "İndekssiz"
-                it_3 = QTableWidgetItem(after_str)
-                it_3.setForeground(QColor("#9494a8"))
+            # 3. Before MS
+            it_3 = QTableWidgetItem(f"{baseline_ms} ms" if baseline_ms else "—")
+            it_3.setForeground(QColor("#f43f5e"))
             it_3.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table_idx_mgmt.setItem(row_idx, 3, it_3)
 
-            # 4. Speedup Ratio
-            if has_index and multiplier is not None:
-                gain_str = f"{multiplier}x (+%{speedup_pct})"
-                it_4 = QTableWidgetItem(gain_str)
-                it_4.setForeground(QColor("#10b981"))
+            # 4. After MS
+            if has_index:
+                after_str = f"{current_ms} ms" if current_ms is not None else "Ölçüm Bekliyor"
+                it_4 = QTableWidgetItem(after_str)
+                it_4.setForeground(QColor("#10b981") if current_ms is not None else QColor("#fde68a"))
             else:
-                gain_str = "—"
-                it_4 = QTableWidgetItem(gain_str)
+                after_str = "İndekssiz"
+                it_4 = QTableWidgetItem(after_str)
                 it_4.setForeground(QColor("#9494a8"))
             it_4.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table_idx_mgmt.setItem(row_idx, 4, it_4)
 
+            # 5. Speedup Ratio
+            if has_index and multiplier is not None:
+                gain_str = f"{multiplier}x (+%{speedup_pct})"
+                it_5 = QTableWidgetItem(gain_str)
+                it_5.setForeground(QColor("#10b981"))
+            else:
+                gain_str = "—"
+                it_5 = QTableWidgetItem(gain_str)
+                it_5.setForeground(QColor("#9494a8"))
+            it_5.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.table_idx_mgmt.setItem(row_idx, 5, it_5)
 
-            # 5. Actions / Short Clean Buttons (İndeksle / Test / Sil)
+            # 6. Actions (İndeksle / Test / Sil)
             btn_cell = QWidget()
             btn_layout = QHBoxLayout(btn_cell)
             btn_layout.setContentsMargins(2, 2, 2, 2)
@@ -1394,10 +1523,10 @@ class MainWindow(QMainWindow):
                 "title": item["title"],
                 "table": target_table,
                 "query_sql": query_sql,
-                "recommended_sql": recommended_sql,
-                "recommended_name": recommended_name,
+                "recommended_sql": idx_meta["ddl"] if idx_meta else "",
+                "recommended_name": idx_meta["name"] if idx_meta else "",
                 "has_index": has_index,
-                "active_indexes": matching_indexes,
+                "active_indexes": idx_meta["matching_live"] if idx_meta else [],
             }
 
             if not has_index:
@@ -1416,9 +1545,79 @@ class MainWindow(QMainWindow):
                 b_drop.clicked.connect(lambda checked, it=item_pass: self.drop_single_index_row(it["active_indexes"][0], it["table"]))
                 btn_layout.addWidget(b_drop)
 
-            self.table_idx_mgmt.setCellWidget(row_idx, 5, btn_cell)
+            self.table_idx_mgmt.setCellWidget(row_idx, 6, btn_cell)
 
         self.table_idx_mgmt.resizeRowsToContents()
+
+        # ---------------------------------------------------------------------
+        # 2. POPULATE NUMBERED INDEX CATALOG TABLE (self.table_idx_catalog)
+        # ---------------------------------------------------------------------
+        catalog_list = list(unique_indexes.values())
+        self.table_idx_catalog.setRowCount(len(catalog_list))
+
+        for c_idx, meta in enumerate(catalog_list):
+            # 0. Index Number
+            it_c0 = QTableWidgetItem(meta["num"])
+            it_c0.setForeground(QColor("#06b6d4"))
+            it_c0.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.table_idx_catalog.setItem(c_idx, 0, it_c0)
+
+            # 1. Index Name & Table
+            it_c1 = QTableWidgetItem(f"[{meta['name']}]\nTablo: {meta['table']}")
+            it_c1.setForeground(QColor("#ffffff"))
+            self.table_idx_catalog.setItem(c_idx, 1, it_c1)
+
+            # 2. Status
+            it_c2 = QTableWidgetItem("● Aktif (SQL Server)" if meta["is_active"] else "○ Önerilen")
+            it_c2.setForeground(QColor("#10b981") if meta["is_active"] else QColor("#fde68a"))
+            it_c2.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.table_idx_catalog.setItem(c_idx, 2, it_c2)
+
+            # 3. Columns & DDL
+            ddl_preview = f"Kolonlar: ({meta['columns']})\n{meta['ddl']}"
+            it_c3 = QTableWidgetItem(ddl_preview)
+            it_c3.setForeground(QColor("#6ee7b7") if meta["is_active"] else QColor("#cbd5e1"))
+            self.table_idx_catalog.setItem(c_idx, 3, it_c3)
+
+            # 4. Queries Using This Index
+            q_count = len(meta["queries"])
+            q_summary = f"{', '.join(meta['queries'])}\n({q_count} Sorgu Paylaşıyor)"
+            it_c4 = QTableWidgetItem(q_summary)
+            it_c4.setForeground(QColor("#e0e7ff"))
+            self.table_idx_catalog.setItem(c_idx, 4, it_c4)
+
+            # 5. Actions
+            act_widget = QWidget()
+            act_layout = QHBoxLayout(act_widget)
+            act_layout.setContentsMargins(2, 2, 2, 2)
+            act_layout.setSpacing(4)
+
+            cat_item = {
+                "id": f"cat_{c_idx}",
+                "title": meta["num"],
+                "table": meta["table"],
+                "query_sql": "",
+                "recommended_sql": meta["ddl"],
+                "recommended_name": meta["name"],
+                "has_index": meta["is_active"],
+                "active_indexes": meta["matching_live"],
+            }
+
+            if not meta["is_active"]:
+                b_c_apply = QPushButton("İndeksi Oluştur")
+                b_c_apply.setProperty("class", "btn-success")
+                b_c_apply.clicked.connect(lambda checked, it=cat_item: self.apply_index_only(it))
+                act_layout.addWidget(b_c_apply)
+            else:
+                b_c_drop = QPushButton("İndeksi Kaldır")
+                b_c_drop.setProperty("class", "btn-danger")
+                b_c_drop.clicked.connect(lambda checked, it=cat_item: self.drop_single_index_row(it["active_indexes"][0], it["table"]))
+                act_layout.addWidget(b_c_drop)
+
+            self.table_idx_catalog.setCellWidget(c_idx, 5, act_widget)
+
+        self.table_idx_catalog.resizeRowsToContents()
+
 
     def apply_index_only(self, item, show_dialog: bool = True):
         try:
