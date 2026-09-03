@@ -287,19 +287,38 @@ class ResetWorker(QThread):
                                  f"🗑 SQL Server üzerindeki özel optimizasyon indeksleri kaldırılıyor...\n")
 
         try:
-            active_indexes = get_active_indexes()
+            # Query SQL Server directly for all custom non-PK/non-unique indexes
+            DEFAULT_INDEXES = {"idx_orders_customer_id", "idx_customers_email"}
+            q_find = """
+                SELECT t.name AS table_name, i.name AS index_name
+                FROM sys.indexes i
+                JOIN sys.tables t ON t.object_id = i.object_id
+                WHERE t.is_ms_shipped = 0 AND i.name IS NOT NULL
+                  AND i.is_primary_key = 0 AND i.is_unique_constraint = 0
+            """
+            live_indexes = execute_query(q_find) or []
+            custom_to_drop = [r for r in live_indexes if r["index_name"] not in DEFAULT_INDEXES]
+
             drop_count = 0
-            for idx in active_indexes:
-                index_name = idx.index_name
-                table_name = idx.table_name
+            for r in custom_to_drop:
+                index_name = r["index_name"]
+                table_name = r["table_name"]
                 drop_sql = f"IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = '{index_name}') DROP INDEX [{index_name}] ON [{table_name}];"
                 try:
-                    execute_query(drop_sql)
+                    execute_query(drop_sql, autocommit=True)
                     record_index_rolled_back(index_name)
                     drop_count += 1
-                    self.log_signal.emit(f"   ✔ Kaldırıldı: {index_name} on {table_name}\n")
+                    self.log_signal.emit(f"   ✔ Kaldırıldı: [{index_name}] on [{table_name}]\n")
                 except Exception as e:
-                    self.log_signal.emit(f"   ❌ Kaldırılamadı {index_name}: {e}\n")
+                    self.log_signal.emit(f"   ❌ Kaldırılamadı [{index_name}]: {e}\n")
+
+            # Always clear plan cache and drop clean buffers for accurate cold timing
+            try:
+                execute_query("DBCC FREEPROCCACHE;", autocommit=True)
+                execute_query("DBCC DROPCLEANBUFFERS;", autocommit=True)
+                self.log_signal.emit("   ✔ SQL Server Plan Önbelleği ve Buffer Pool (RAM) temizlendi.\n")
+            except Exception:
+                pass
 
             if self.full_reset:
                 try:
@@ -307,22 +326,16 @@ class ResetWorker(QThread):
                     clear_all_state()
                 except Exception:
                     pass
-
-                try:
-                    execute_query("DBCC FREEPROCCACHE;", autocommit=True)
-                    self.log_signal.emit("   ✔ SQL Server Plan Önbelleği (sys.dm_exec_query_stats) temizlendi.\n")
-                except Exception:
-                    pass
                 self.log_signal.emit("   ✔ Durum deposu ve tüm baseline süreleri sıfırlandı.\n")
 
-
-            summary = f"✔ [SIFIRLAMA TAMAMLANDI] Toplam {drop_count} özel indeks temizlendi.\n"
+            summary = f"✔ [SIFIRLAMA TAMAMLANDI] Toplam {drop_count} özel indeks SQL Server'dan tamamen silindi.\n"
             self.log_signal.emit(summary)
             self.finished_signal.emit(True, summary)
         except Exception as e:
             err_msg = f"❌ [SIFIRLAMA HATASI]: {e}\n"
             self.log_signal.emit(err_msg)
             self.finished_signal.emit(False, err_msg)
+
 
 
 class DbPingWorker(QThread):

@@ -43,6 +43,7 @@ try:
     from src.state_store import (
         get_active_indexes,
         get_latest_baseline,
+        get_latest_benchmark,
         record_applied_index,
         record_decision,
         record_benchmark,
@@ -78,6 +79,7 @@ except ImportError:
     from state_store import (
         get_active_indexes,
         get_latest_baseline,
+        get_latest_benchmark,
         record_applied_index,
         record_decision,
         record_benchmark,
@@ -91,6 +93,7 @@ except ImportError:
         get_dmv_watermark,
         set_dmv_watermark,
     )
+
     from query_discovery import poll_and_capture_live_dmv_queries, generate_descriptive_title
     from index_advisor import recommend_index_for_query
     from pg_stats_reader import get_table_stats
@@ -756,20 +759,20 @@ class MainWindow(QMainWindow):
         s_lbl.setStyleSheet("font-size: 10.5px; color: #9494a8; font-weight: 700;")
         samples_box.addWidget(s_lbl)
 
-        btn_s1 = QPushButton("Sipariş Durum Filtresi (Yavaş)")
-        btn_s1.clicked.connect(lambda: self.set_editor_query("SELECT TOP 100 * FROM orders WHERE status = 'completed' AND total_amount > 1000;"))
+        btn_s1 = QPushButton("Sipariş Ciro Raporu (Ağır Full Scan)")
+        btn_s1.clicked.connect(lambda: self.set_editor_query("SELECT status, COUNT(*) AS siparis_sayisi, SUM(total_amount) AS toplam_ciro FROM orders WHERE status = 'completed' GROUP BY status;"))
         samples_box.addWidget(btn_s1)
 
-        btn_s2 = QPushButton("E-Posta LIKE Arama")
-        btn_s2.clicked.connect(lambda: self.set_editor_query("SELECT TOP 100 * FROM customers WHERE email LIKE '%@gmail.com';"))
+        btn_s2 = QPushButton("Tarih Sıralı Siparişler (Sort + Scan)")
+        btn_s2.clicked.connect(lambda: self.set_editor_query("SELECT TOP 50 id, customer_id, order_date, total_amount, status FROM orders WHERE status = 'completed' ORDER BY order_date DESC;"))
         samples_box.addWidget(btn_s2)
 
-        btn_s3 = QPushButton("Şehir Bazlı Harcama JOIN")
-        btn_s3.clicked.connect(lambda: self.set_editor_query("SELECT c.city, COUNT(o.id) AS order_count, SUM(o.total_amount) AS total_spent FROM customers c JOIN orders o ON c.id = o.customer_id GROUP BY c.city;"))
+        btn_s3 = QPushButton("Şehir Bazlı Harcama (JOIN Scan)")
+        btn_s3.clicked.connect(lambda: self.set_editor_query("SELECT c.city, COUNT(o.id) AS order_count, SUM(o.total_amount) AS total_spent FROM customers c JOIN orders o ON c.id = o.customer_id WHERE o.status = 'completed' GROUP BY c.city;"))
         samples_box.addWidget(btn_s3)
 
-        btn_s4 = QPushButton("Son 50 Sipariş (ORDER BY)")
-        btn_s4.clicked.connect(lambda: self.set_editor_query("SELECT TOP 50 * FROM orders ORDER BY order_date DESC;"))
+        btn_s4 = QPushButton("E-Posta LIKE Arama")
+        btn_s4.clicked.connect(lambda: self.set_editor_query("SELECT id, first_name, last_name, email, city FROM customers WHERE email LIKE '%@gmail.com' AND city = 'Istanbul';"))
         samples_box.addWidget(btn_s4)
 
         samples_box.addStretch()
@@ -778,8 +781,9 @@ class MainWindow(QMainWindow):
         # Code Input Editor
         self.sql_editor_input = QPlainTextEdit()
         self.sql_editor_input.setFixedHeight(150)
-        self.sql_editor_input.setPlainText("SELECT TOP 100 * FROM orders WHERE status = 'completed' AND total_amount > 1000;")
+        self.sql_editor_input.setPlainText("SELECT status, COUNT(*) AS siparis_sayisi, SUM(total_amount) AS toplam_ciro FROM orders WHERE status = 'completed' GROUP BY status;")
         c_layout.addWidget(self.sql_editor_input)
+
 
         # Execution Stats Strip
         self.lbl_exec_stats = QLabel("YÜRÜTME SÜRESİ: - ms   |   DÖNEN SATIR: -   |   SÜTUN SAYISI: -")
@@ -862,21 +866,28 @@ class MainWindow(QMainWindow):
                     target_tbl = "orders" if "orders" in query.lower() else ("customers" if "customers" in query.lower() else "user_table")
                     q_count = len(get_captured_queries()) + 1
                     
-                    # Check if index exists on table
-                    has_custom_idx = False
+                    # Check if matching custom index was active at moment of execution
+                    applied_idx_name = ""
                     try:
                         active_idx = get_active_indexes()
-                        has_custom_idx = any(idx.table_name == target_tbl for idx in active_idx)
+                        rec_check = recommend_index_for_query(query)
+                        target_cols = set(rec_check.columns) if rec_check else set()
+                        for idx in active_idx:
+                            if idx.table_name == target_tbl:
+                                if not target_cols or target_cols.issubset(set(idx.columns)) or set(idx.columns).issubset(target_cols):
+                                    applied_idx_name = idx.index_name
+                                    break
                     except Exception:
                         pass
 
                     title = generate_descriptive_title(query, target_tbl, q_count)
-                    if has_custom_idx:
+                    if applied_idx_name:
                         title += " (İndeksli Test)"
 
                     q_name = f"editor_q_{q_count:02d}"
-                    add_captured_query(title, query, target_tbl, elapsed_ms, query_name=q_name)
+                    add_captured_query(title, query, target_tbl, elapsed_ms, query_name=q_name, applied_index=applied_idx_name)
                     record_benchmark(q_name, elapsed_ms, elapsed_ms, "editor_run")
+
 
                     # Sync with DMV tracker using actual execution stats from SQL Server
                     try:
@@ -940,11 +951,13 @@ class MainWindow(QMainWindow):
 
             record_applied_index(rec.index_name, rec.table, rec.columns, rec.create_statement, "SQL Editörü isteği")
             record_decision("applied_index", f"Oluşturuldu: [{rec.index_name}] ON [{rec.table}]")
-            QMessageBox.information(self, "İndeks Oluşturuldu", f"[{rec.index_name}] başarıyla SQL Server üzerinde oluşturuldu! Sorgu tekrar çalıştırılıyor...")
+            QMessageBox.information(self, "İndeks Oluşturuldu", f"[{rec.index_name}] başarıyla SQL Server üzerinde oluşturuldu!")
             self.rec_frame.setVisible(False)
-            self.execute_user_sql()
+            self.load_index_mgmt_table()
+            self.refresh_mgmt_page()
         except Exception as e:
             QMessageBox.critical(self, "İndeks Oluşturma Hatası", str(e))
+
 
     # -------------------------------------------------------------------------
     # PAGE 2: SORGULAR (Clean Query List with Refresh, Select & Delete)
@@ -991,11 +1004,12 @@ class MainWindow(QMainWindow):
 
         # Table of Queries Only
         self.table_queries_only = QTableWidget()
-        self.table_queries_only.setColumnCount(5)
+        self.table_queries_only.setColumnCount(6)
         self.table_queries_only.setHorizontalHeaderLabels([
             "SEÇ",
             "SORGU ADI & TABLO",
             "SQL SORGUSU",
+            "İNDEKS DURUMU",
             "YAZILMA / YAKALANMA ZAMANI",
             "SÜRE (ms)"
         ])
@@ -1004,6 +1018,7 @@ class MainWindow(QMainWindow):
         self.table_queries_only.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         self.table_queries_only.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
         self.table_queries_only.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        self.table_queries_only.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
         c_layout.addWidget(self.table_queries_only, 1)
 
         layout.addWidget(card)
@@ -1022,11 +1037,45 @@ class MainWindow(QMainWindow):
         self.refresh_mgmt_page()
 
     def load_queries_only_table(self):
+        # Fetch active custom indexes in SQL Server
+        DEFAULT_SCHEMA_INDEXES = {"idx_orders_customer_id", "idx_customers_email"}
+        q_idx = """
+            SELECT 
+                t.name AS table_name,
+                i.name AS index_name,
+                STRING_AGG(c.name, ', ') WITHIN GROUP (ORDER BY ic.key_ordinal) AS columns
+            FROM sys.indexes i
+            JOIN sys.tables t ON t.object_id = i.object_id
+            JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
+            JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+            WHERE t.is_ms_shipped = 0 AND i.name IS NOT NULL 
+              AND i.is_primary_key = 0 AND i.is_unique_constraint = 0 AND ic.is_included_column = 0
+            GROUP BY t.name, i.name
+        """
+        all_active_rows = execute_query(q_idx) or [] if self.is_connected else []
+        active_custom_rows = [r for r in all_active_rows if r["index_name"] not in DEFAULT_SCHEMA_INDEXES]
+
+        active_by_table = {}
+        for r in active_custom_rows:
+            tbl = r["table_name"]
+            cols = [c.strip() for c in r["columns"].split(",")] if r["columns"] else []
+            if tbl not in active_by_table:
+                active_by_table[tbl] = []
+            active_by_table[tbl].append({"name": r["index_name"], "columns": set(cols), "cols_str": r["columns"]})
+
+        applied_db_records = {}
+        try:
+            applied_db_records = {idx.index_name: idx for idx in get_active_indexes()}
+        except Exception:
+            pass
+
         queries = get_captured_queries()
         self.table_queries_only.setRowCount(len(queries))
 
         for row_idx, q in enumerate(queries):
             qid = q["id"]
+            query_sql = q.get("query_sql", "")
+            target_tbl = q.get("target_table", "orders")
 
             # 0. Checkbox
             chk_widget = QWidget()
@@ -1040,31 +1089,67 @@ class MainWindow(QMainWindow):
             self.table_queries_only.setCellWidget(row_idx, 0, chk_widget)
 
             # 1. Title & Table
-            t_str = f"{q.get('title', 'Sorgu')}\nTablo: [{q.get('target_table', 'orders')}]"
+            t_str = f"{q.get('title', 'Sorgu')}\nTablo: [{target_tbl}]"
             it_1 = QTableWidgetItem(t_str)
             it_1.setForeground(QColor("#ffffff"))
             self.table_queries_only.setItem(row_idx, 1, it_1)
 
             # 2. SQL
-            it_2 = QTableWidgetItem(q.get("query_sql", ""))
+            it_2 = QTableWidgetItem(query_sql)
             it_2.setForeground(QColor("#93c5fd"))
             self.table_queries_only.setItem(row_idx, 2, it_2)
 
-            # 3. Timestamp
-            it_3 = QTableWidgetItem(q.get("created_at", "-"))
-            it_3.setForeground(QColor("#06b6d4"))
-            it_3.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.table_queries_only.setItem(row_idx, 3, it_3)
+            # 3. Index Status with Hover Tooltip
+            rec = recommend_index_for_query(query_sql)
+            target_cols = set(rec.columns) if rec else set()
 
-            # 4. Duration
-            ms_val = q.get("initial_ms")
-            ms_str = f"{ms_val} ms" if ms_val is not None else "—"
-            it_4 = QTableWidgetItem(ms_str)
-            it_4.setForeground(QColor("#f43f5e") if (ms_val and ms_val > 20) else QColor("#cbd5e1"))
+            # 3. Index Status (Preserves execution time snapshot - NEVER changes retroactively)
+            applied_idx = q.get("applied_index", "")
+            if applied_idx:
+                live = applied_db_records.get(applied_idx)
+                ddl = live.create_sql if live else f"CREATE NONCLUSTERED INDEX [{applied_idx}] ON [{target_tbl}] ...;"
+                cols_str = ", ".join(live.columns) if live else "Kolon Bilgisi"
+                tooltip_text = (
+                    f"UYGULANAN İNDEKS DETAYI:\n"
+                    f"----------------------------------------\n"
+                    f"• İndeks Adı : [{applied_idx}]\n"
+                    f"• Hedef Tablo: {target_tbl}\n"
+                    f"• Kolonlar   : ({cols_str})\n"
+                    f"• Durum      : SQL Server Üzerinde Aktif (Online)\n"
+                    f"• DDL Tanımı :\n{ddl}"
+                )
+
+                it_idx = QTableWidgetItem("[İNDEKS UYGULANDI]")
+                it_idx.setForeground(QColor("#10b981"))
+                it_idx.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                it_idx.setToolTip(tooltip_text)
+            else:
+                rec = recommend_index_for_query(query_sql)
+                rec_hint = f"\n\nÖnerilen İndeks: {rec.index_name} ON ({', '.join(rec.columns)})" if rec else ""
+                it_idx = QTableWidgetItem("[İndekssiz]")
+                it_idx.setForeground(QColor("#9494a8"))
+                it_idx.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                it_idx.setToolTip(f"Bu sorgu çalıştırıldığı sırada indekssiz olarak yürütülmüştür.{rec_hint}")
+            
+            self.table_queries_only.setItem(row_idx, 3, it_idx)
+
+            # 4. Timestamp
+            it_4 = QTableWidgetItem(q.get("created_at", "-"))
+            it_4.setForeground(QColor("#06b6d4"))
             it_4.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table_queries_only.setItem(row_idx, 4, it_4)
 
+            # 5. Duration
+            ms_val = q.get("initial_ms")
+            ms_str = f"{ms_val} ms" if ms_val is not None else "—"
+            it_5 = QTableWidgetItem(ms_str)
+            it_5.setForeground(QColor("#f43f5e") if (ms_val and ms_val > 20) else QColor("#cbd5e1"))
+            it_5.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.table_queries_only.setItem(row_idx, 5, it_5)
+
         self.table_queries_only.resizeRowsToContents()
+
+
 
     def on_query_check_changed(self, q_id: int, state: int):
         if state == Qt.CheckState.Checked.value:
@@ -1237,13 +1322,13 @@ class MainWindow(QMainWindow):
                         matching_indexes.append(live_idx["name"])
 
             has_index = len(matching_indexes) > 0
+            bench_ms = get_latest_benchmark(item["id"])
             current_ms = None
             multiplier = None
             speedup_pct = None
 
-            if has_index:
-                scale = 0.03 if ("join" in query_sql.lower() or "group" in query_sql.lower()) else 0.025
-                current_ms = round(max(0.8, baseline_ms * scale), 2)
+            if has_index and bench_ms is not None:
+                current_ms = bench_ms
                 if baseline_ms > 0 and current_ms < baseline_ms:
                     speedup_pct = round(((baseline_ms - current_ms) / baseline_ms) * 100.0, 1)
                     multiplier = round(baseline_ms / current_ms, 1)
@@ -1275,9 +1360,9 @@ class MainWindow(QMainWindow):
 
             # 3. After MS
             if has_index:
-                after_str = f"{current_ms} ms" if current_ms else "Ölçüm Bekliyor"
+                after_str = f"{current_ms} ms" if current_ms is not None else "Ölçüm Bekliyor"
                 it_3 = QTableWidgetItem(after_str)
-                it_3.setForeground(QColor("#10b981"))
+                it_3.setForeground(QColor("#10b981") if current_ms is not None else QColor("#fde68a"))
             else:
                 after_str = "İndekssiz"
                 it_3 = QTableWidgetItem(after_str)
@@ -1286,16 +1371,17 @@ class MainWindow(QMainWindow):
             self.table_idx_mgmt.setItem(row_idx, 3, it_3)
 
             # 4. Speedup Ratio
-            if has_index and multiplier:
+            if has_index and multiplier is not None:
                 gain_str = f"{multiplier}x (+%{speedup_pct})"
                 it_4 = QTableWidgetItem(gain_str)
                 it_4.setForeground(QColor("#10b981"))
             else:
-                gain_str = "0x (Bekliyor)"
+                gain_str = "—"
                 it_4 = QTableWidgetItem(gain_str)
                 it_4.setForeground(QColor("#9494a8"))
             it_4.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table_idx_mgmt.setItem(row_idx, 4, it_4)
+
 
             # 5. Actions / Short Clean Buttons (İndeksle / Test / Sil)
             btn_cell = QWidget()
@@ -1317,7 +1403,7 @@ class MainWindow(QMainWindow):
             if not has_index:
                 b_apply = QPushButton("İndeksle")
                 b_apply.setProperty("class", "btn-success")
-                b_apply.clicked.connect(lambda checked, it=item_pass: self.apply_and_test_index(it))
+                b_apply.clicked.connect(lambda checked, it=item_pass: self.apply_index_only(it))
                 btn_layout.addWidget(b_apply)
             else:
                 b_test = QPushButton("Test")
@@ -1334,7 +1420,7 @@ class MainWindow(QMainWindow):
 
         self.table_idx_mgmt.resizeRowsToContents()
 
-    def apply_and_test_index(self, item):
+    def apply_index_only(self, item, show_dialog: bool = True):
         try:
             conn = get_connection(autocommit=True)
             with conn.cursor() as cur:
@@ -1344,27 +1430,28 @@ class MainWindow(QMainWindow):
             record_applied_index(item["recommended_name"], item["table"], [], item["recommended_sql"], "İndeks Yönetimi sekmesi")
             record_decision("applied_index", f"Oluşturuldu: [{item['recommended_name']}] ON [{item['table']}]")
 
-            # Immediate benchmark
-            self.benchmark_single_index_query(item, show_dialog=False)
-
-            QMessageBox.information(self, "İndeks Oluşturuldu & Test Edildi", f"[{item['recommended_name']}] başarıyla SQL Server'da oluşturuldu ve canlı performans kazancı ölçüldü!")
+            if show_dialog:
+                QMessageBox.information(self, "İndeks Oluşturuldu", f"[{item['recommended_name']}] başarıyla SQL Server üzerinde oluşturuldu!\nPerformans kazancını test etmek için yanındaki [Test] butonuna basabilirsiniz.")
             self.load_index_mgmt_table()
             self.refresh_mgmt_page()
         except Exception as e:
-            QMessageBox.critical(self, "Hata", str(e))
+            if show_dialog:
+                QMessageBox.critical(self, "Hata", str(e))
+
 
     def benchmark_single_index_query(self, item, show_dialog=True):
         query_sql = item["query_sql"]
+        bench_sql = f"-- VORTEX_INTERNAL_BENCHMARK\n{query_sql}"
         times = []
         try:
             conn = get_connection(autocommit=True)
             with conn.cursor() as cur:
-                cur.execute(query_sql)
+                cur.execute(bench_sql)
                 if cur.description:
                     cur.fetchall()
                 for _ in range(3):
                     t0 = time.perf_counter()
-                    cur.execute(query_sql)
+                    cur.execute(bench_sql)
                     if cur.description:
                         cur.fetchall()
                     t1 = time.perf_counter()
@@ -1383,6 +1470,7 @@ class MainWindow(QMainWindow):
             if show_dialog:
                 QMessageBox.critical(self, "Benchmark Hatası", str(e))
 
+
     def drop_single_index_row(self, idx_name, table_name):
         ret = QMessageBox.question(self, "İndeksi Sil", f"[{idx_name}] indeksi SQL Server'dan kaldırılacak. Onaylıyor musunuz?")
         if ret != QMessageBox.StandardButton.Yes:
@@ -1391,18 +1479,23 @@ class MainWindow(QMainWindow):
         try:
             conn = get_connection(autocommit=True)
             with conn.cursor() as cur:
-                cur.execute(f"DROP INDEX IF EXISTS [{idx_name}] ON [{table_name}]")
+                cur.execute(f"IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = '{idx_name}') DROP INDEX [{idx_name}] ON [{table_name}]")
                 try:
                     cur.execute("DBCC FREEPROCCACHE")
+                    cur.execute("DBCC DROPCLEANBUFFERS")
                 except Exception:
                     pass
             conn.close()
 
+            from src.state_store import record_index_rolled_back
+            record_index_rolled_back(idx_name)
             record_decision("manual_drop", f"Silindi: [{idx_name}] on [{table_name}]")
             self.load_index_mgmt_table()
             self.refresh_mgmt_page()
+            QMessageBox.information(self, "İndeks Silindi", f"[{idx_name}] başarıyla SQL Server'dan silindi ve RAM önbelleği temizlendi.")
         except Exception as e:
             QMessageBox.critical(self, "Silme Hatası", str(e))
+
 
     # -------------------------------------------------------------------------
     # PAGE 4: YÖNETİM & TELEMETRİ (Active Auto-updating Telemetry, Engine Toggle & Clear Audit)

@@ -73,6 +73,7 @@ def _ensure_tables(conn: sqlite3.Connection) -> None:
             query_sql TEXT NOT NULL,
             target_table TEXT NOT NULL,
             initial_ms REAL,
+            applied_index TEXT DEFAULT '',
             created_at TEXT NOT NULL
         );
 
@@ -97,7 +98,12 @@ def _ensure_tables(conn: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_agent_decisions_type
             ON agent_decisions(decision_type);
     """)
+    try:
+        conn.execute("ALTER TABLE captured_queries ADD COLUMN applied_index TEXT DEFAULT ''")
+    except Exception:
+        pass
     conn.commit()
+
 
 
 
@@ -195,6 +201,22 @@ def get_latest_baseline(query_name: str) -> float | None:
         return row["mean_ms"] if row else None
     finally:
         conn.close()
+
+
+def get_latest_benchmark(query_name: str) -> float | None:
+    """Get the most recent real benchmark measurement (excluding baseline/editor_run)."""
+    conn = _get_connection()
+    try:
+        row = conn.execute(
+            """SELECT mean_ms FROM benchmark_history
+               WHERE query_name = ? AND index_snapshot NOT IN ('baseline', 'editor_run')
+               ORDER BY id DESC LIMIT 1""",
+            (query_name,)
+        ).fetchone()
+        return row["mean_ms"] if row else None
+    finally:
+        conn.close()
+
 
 
 def record_decision(decision_type: str, details: str) -> None:
@@ -404,22 +426,23 @@ def set_dmv_watermark(ts: str = "") -> None:
         conn.close()
 
 
-def add_captured_query(title: str, query_sql: str, target_table: str = "orders", initial_ms: float = 0.0, query_name: str = "") -> int:
-    """Add a new captured query with timestamp."""
+def add_captured_query(title: str, query_sql: str, target_table: str = "orders", initial_ms: float = 0.0, query_name: str = "", applied_index: str = "") -> int:
+    """Add a new captured query with timestamp and snapshot of applied index."""
     conn = _get_connection()
     try:
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         if not query_name:
             query_name = f"query_{abs(hash(query_sql)) % 100000}"
         cur = conn.execute(
-            """INSERT INTO captured_queries (query_name, title, query_sql, target_table, initial_ms, created_at)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (query_name, title, query_sql.strip(), target_table, initial_ms, now_str)
+            """INSERT INTO captured_queries (query_name, title, query_sql, target_table, initial_ms, applied_index, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (query_name, title, query_sql.strip(), target_table, initial_ms, applied_index, now_str)
         )
         conn.commit()
         return cur.lastrowid
     finally:
         conn.close()
+
 
 
 def delete_captured_queries(ids: list[int]) -> None:

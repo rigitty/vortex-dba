@@ -224,7 +224,8 @@ def is_real_user_query(sql: str) -> bool:
         "sys.dm_", "sp_", "dbcc", "information_schema", "showplan",
         "create index", "drop index", "db_id()", "ledger_type",
         "autocommit", "select @@", "set transaction", "set nocount",
-        "alter table", "create table", "select count_big(*)", "fn_"
+        "alter table", "create table", "select count_big(*)", "fn_",
+        "vortex_internal_benchmark", "benchmark"
     ]
     if any(noise in s for noise in system_noise):
         return False
@@ -294,9 +295,11 @@ def poll_and_capture_live_dmv_queries() -> list[dict]:
               AND st.text NOT LIKE '%CREATE INDEX%'
               AND st.text NOT LIKE '%DROP INDEX%'
               AND st.text NOT LIKE '%INFORMATION_SCHEMA%'
+              AND st.text NOT LIKE '%VORTEX_INTERNAL_BENCHMARK%'
               AND CONVERT(VARCHAR(19), qs.last_execution_time, 120) >= '{watermark}'
             ORDER BY qs.last_execution_time DESC
         """
+
         conn = get_connection(autocommit=True)
         try:
             with conn.cursor(as_dict=True) as cur:
@@ -306,6 +309,7 @@ def poll_and_capture_live_dmv_queries() -> list[dict]:
             conn.close()
 
         existing = get_captured_queries()
+        existing_sqls = {" ".join(q["query_sql"].strip().lower().split()) for q in existing}
         tracker = get_dmv_tracker()
         new_captured = []
 
@@ -326,19 +330,42 @@ def poll_and_capture_live_dmv_queries() -> list[dict]:
                 if calls <= prev_calls and last_exec == prev_exec:
                     continue  # No new execution since last poll
                 is_rerun = True
+            elif clean_check in existing_sqls:
+                # Query was already added by SQL editor; register in tracker without duplicating
+                update_dmv_tracker(q_hash, calls, last_exec)
+                tracker[q_hash] = (calls, last_exec)
+                continue
 
             target_table = "orders" if "orders" in clean_check else ("customers" if "customers" in clean_check else "user_table")
             mean_ms = round(float(r.get("mean_exec_time") or 0.0), 2)
             
+            # Check active custom indexes in SQL Server at moment of capture
+            applied_idx_name = ""
+            try:
+                from state_store import get_active_indexes
+                from index_advisor import recommend_index_for_query
+                active_idxs = get_active_indexes()
+                rec_check = recommend_index_for_query(raw_sql)
+                target_cols = set(rec_check.columns) if rec_check else set()
+                for idx in active_idxs:
+                    if idx.table_name == target_table:
+                        if not target_cols or target_cols.issubset(set(idx.columns)) or set(idx.columns).issubset(target_cols):
+                            applied_idx_name = idx.index_name
+                            break
+            except Exception:
+                pass
+
             q_num = len(existing) + len(new_captured) + 1
             title = generate_descriptive_title(raw_sql, target_table, q_num)
             if is_rerun:
                 title += " (Tekrar Çalıştırma)"
 
-            add_captured_query(title, raw_sql, target_table, mean_ms, query_name=f"q_dmv_{q_num:02d}")
+            add_captured_query(title, raw_sql, target_table, mean_ms, query_name=f"q_dmv_{q_num:02d}", applied_index=applied_idx_name)
             update_dmv_tracker(q_hash, calls, last_exec)
             tracker[q_hash] = (calls, last_exec)
             new_captured.append({"title": title, "query_sql": raw_sql, "target_table": target_table, "initial_ms": mean_ms})
+
+
 
         return new_captured
     except Exception:

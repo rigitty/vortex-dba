@@ -44,13 +44,14 @@ def run_benchmark(name: str, query: str, params: tuple | None = None,
     """Run a query multiple times and collect timing statistics."""
     durations = []
     row_count = 0
+    bench_sql = f"-- VORTEX_INTERNAL_BENCHMARK\n{query}" if not query.strip().startswith("--") else query
 
     for _ in range(runs):
         conn = get_connection(autocommit=True)
         try:
             with conn.cursor(as_dict=True) as cur:
                 start = time.perf_counter()
-                cur.execute(query, params)
+                cur.execute(bench_sql, params)
                 rows = cur.fetchall()
                 elapsed_ms = (time.perf_counter() - start) * 1000
 
@@ -58,6 +59,7 @@ def run_benchmark(name: str, query: str, params: tuple | None = None,
                 row_count = len(rows)
         finally:
             conn.close()
+
 
     return BenchmarkResult(
         name=name,
