@@ -1,17 +1,28 @@
-#!/usr/bin/env python3
-"""VortexDBA - 100% Native PyQt6 Desktop Application Launcher."""
-
+import os
 import sys
 from pathlib import Path
 
-# Add src to sys.path
-SRC_DIR = Path(__file__).parent / "src"
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
+# Add src and root to sys.path
+if getattr(sys, "frozen", False):
+    BASE_DIR = Path(sys._MEIPASS)
+    EXE_DIR = Path(sys.executable).parent.resolve()
+else:
+    BASE_DIR = Path(__file__).parent.resolve()
+    EXE_DIR = BASE_DIR
+
+SRC_DIR = BASE_DIR / "src"
+
+for p in [str(SRC_DIR), str(BASE_DIR), str(EXE_DIR)]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtGui import QIcon
-from gui.main_window import MainWindow
+
+try:
+    from gui.main_window import MainWindow
+except ImportError:
+    from src.gui.main_window import MainWindow
 
 
 def main():
@@ -30,12 +41,20 @@ def main():
 
     app.setQuitOnLastWindowClosed(False)
 
-    logo_path = Path(__file__).parent / "logo.svg"
+    logo_path = BASE_DIR / "logo.svg"
+    if not logo_path.exists():
+        logo_path = EXE_DIR / "logo.svg"
+    if not logo_path.exists():
+        logo_path = Path.cwd() / "logo.svg"
+
     if logo_path.exists():
         app.setWindowIcon(QIcon(str(logo_path)))
 
     from PyQt6.QtCore import QPropertyAnimation, QEasingCurve
-    from gui.widgets.splash_screen import SplashScreen
+    try:
+        from gui.widgets.splash_screen import SplashScreen
+    except ImportError:
+        from src.gui.widgets.splash_screen import SplashScreen
 
     window = MainWindow()
 

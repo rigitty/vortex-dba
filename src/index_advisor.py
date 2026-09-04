@@ -376,6 +376,11 @@ def recommend_index_for_query(query_sql: str) -> IndexRecommendation | None:
     else:
         primary_tbl = max(all_target_tables, key=lambda t: len(table_equality_cols.get(t, [])) * 2 + len(table_range_cols.get(t, [])) + len(table_order_cols.get(t, [])))
 
+    # Reject system tables/views
+    system_tables_blacklist = {"sys", "system", "tables", "indexes", "columns", "databases", "filetable", "dmv", "information_schema"}
+    if primary_tbl in system_tables_blacklist or primary_tbl.startswith("sys") or primary_tbl.startswith("filetable"):
+        return None
+
     keys: list[str] = []
     for c in table_equality_cols.get(primary_tbl, []):
         if c not in keys:

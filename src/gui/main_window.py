@@ -2639,14 +2639,18 @@ class MainWindow(QMainWindow):
                 tbl = q.get("target_table", "orders")
                 init_ms = float(q.get("initial_ms") or 50.0)
                 rec = recommend_index_for_query(raw_sql)
-                if not rec:
+                if not rec or rec.table in ("sys", "system", "user_table") or rec.table.startswith("sys") or rec.index_name.startswith("idx_sys_"):
                     continue
 
-                idx_key = (tbl, rec.index_name)
+                actual_table = rec.table or tbl
+                if actual_table in ("sys", "system", "user_table") or actual_table.startswith("sys"):
+                    continue
+
+                idx_key = (actual_table, rec.index_name)
                 if idx_key not in candidate_scores:
                     candidate_scores[idx_key] = {
                         "name": rec.index_name,
-                        "table": tbl,
+                        "table": actual_table,
                         "ddl": rec.create_statement,
                         "columns": rec.columns,
                         "score": 0.0,

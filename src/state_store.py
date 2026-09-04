@@ -7,13 +7,19 @@ in a SQLite database for tracking and deduplication.
 import json
 import sqlite3
 from dataclasses import dataclass, asdict
+import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
 from config import get_config
 
+if getattr(sys, "frozen", False):
+    _data_dir = Path(sys.executable).parent / "data"
+else:
+    _data_dir = Path(__file__).parent.parent / "data"
 
-DB_PATH = Path(__file__).parent.parent / "data" / "vortex_state.db"
+_data_dir.mkdir(parents=True, exist_ok=True)
+DB_PATH = _data_dir / "vortex_state.db"
 
 
 @dataclass

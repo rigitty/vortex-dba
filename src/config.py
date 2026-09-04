@@ -8,10 +8,20 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import sys
 import yaml
 
-
-CONFIG_PATH = Path(__file__).parent.parent / "config.yaml"
+if getattr(sys, "frozen", False):
+    _base_dir = Path(sys.executable).parent
+    _mei_dir = Path(getattr(sys, "_MEIPASS", ""))
+    if (_base_dir / "config.yaml").exists():
+        CONFIG_PATH = _base_dir / "config.yaml"
+    elif (_mei_dir / "config.yaml").exists():
+        CONFIG_PATH = _mei_dir / "config.yaml"
+    else:
+        CONFIG_PATH = _base_dir / "config.yaml"
+else:
+    CONFIG_PATH = Path(__file__).parent.parent / "config.yaml"
 
 
 @dataclass

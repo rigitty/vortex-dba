@@ -219,15 +219,17 @@ def format_discovered_queries(queries: list[DiscoveredQuery]) -> str:
 def is_real_user_query(sql: str) -> bool:
     """Check if SQL statement is a user application query and not internal SQL Server noise."""
     s = sql.strip().lower()
+    clean_s = s.replace("[", "").replace("]", "")
     system_noise = [
         "sys.", "@intervals", "@plans", "@bestplan", "plan_persist",
         "sys.dm_", "sp_", "dbcc", "information_schema", "showplan",
         "create index", "drop index", "db_id()", "ledger_type",
         "autocommit", "select @@", "set transaction", "set nocount",
         "alter table", "create table", "select count_big(*)", "fn_",
-        "vortex_internal_benchmark", "benchmark"
+        "vortex_internal_benchmark", "benchmark", "filetable",
+        ".sys.", "sys]", "[sys]", "master.", "msdb.", "tempdb.", "model."
     ]
-    if any(noise in s for noise in system_noise):
+    if any(noise in s or noise in clean_s for noise in system_noise):
         return False
 
     if not (s.startswith("select") or s.startswith("insert") or s.startswith("update") or s.startswith("delete") or s.startswith("with")):
