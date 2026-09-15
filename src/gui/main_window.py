@@ -1484,14 +1484,32 @@ class MainWindow(QMainWindow):
                                 if not target_cols or target_cols.issubset(set(idx.columns)) or set(idx.columns).issubset(target_cols):
                                     applied_idx_name = idx.index_name
                                     break
+                        if not applied_idx_name:
+                            # Check SQL Server sys.indexes directly
+                            with conn.cursor(as_dict=True) as cur_check:
+                                cur_check.execute("""
+                                    SELECT i.name AS index_name, STRING_AGG(c.name, ', ') AS cols
+                                    FROM sys.indexes i
+                                    JOIN sys.tables t ON t.object_id = i.object_id
+                                    JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
+                                    JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+                                    WHERE t.name = %s AND i.is_primary_key = 0 AND i.is_unique_constraint = 0 AND i.name NOT IN ('idx_orders_customer_id', 'idx_customers_email')
+                                    GROUP BY i.name
+                                """, (target_tbl,))
+                                for dbi in (cur_check.fetchall() or []):
+                                    db_cols = set(c.strip() for c in dbi["cols"].split(",")) if dbi.get("cols") else set()
+                                    if not target_cols or target_cols.issubset(db_cols) or target_cols.intersection(db_cols):
+                                        applied_idx_name = dbi["index_name"]
+                                        break
                     except Exception:
                         pass
 
+                    import uuid
                     title = generate_descriptive_title(query, target_tbl, q_count)
                     if applied_idx_name:
                         title += " (İndeksli Test)"
 
-                    q_name = f"editor_q_{q_count:02d}"
+                    q_name = f"editor_q_{q_count:02d}_{uuid.uuid4().hex[:6]}"
                     add_captured_query(title, query, target_tbl, elapsed_ms, query_name=q_name, applied_index=applied_idx_name)
                     if applied_idx_name:
                         record_benchmark(q_name, elapsed_ms, elapsed_ms, "editor_indexed")
@@ -2046,23 +2064,21 @@ class MainWindow(QMainWindow):
             # Determine baseline (unindexed execution time)
             baseline_ms = get_latest_baseline(q_id)
             if baseline_ms is None:
-                if not has_applied_idx:
-                    baseline_ms = item.get("initial_ms", 50.0)
+                if not has_applied_idx and not has_index:
+                    baseline_ms = item.get("initial_ms")
                 else:
-                    # Find a previous unindexed run of the same query/table if available
-                    prev_unindexed = next((p for p in queries_to_display if not p.get("applied_index") and p.get("target_table") == target_table), None)
-                    if prev_unindexed and prev_unindexed.get("initial_ms"):
-                        baseline_ms = prev_unindexed["initial_ms"]
-                    else:
-                        baseline_ms = round(max(50.0, (current_ms or 1.0) * 35.0), 1)
+                    baseline_ms = None
 
-            if has_index and current_ms is not None:
+            if has_index and current_ms is not None and baseline_ms is not None:
                 if baseline_ms > 0 and current_ms < baseline_ms:
                     speedup_pct = round(((baseline_ms - current_ms) / baseline_ms) * 100.0, 1)
                     multiplier = round(baseline_ms / current_ms, 1)
                 else:
                     speedup_pct = 0.0
                     multiplier = 1.0
+            else:
+                speedup_pct = None
+                multiplier = None
 
 
             # 0. Title & Table
@@ -2326,6 +2342,7 @@ class MainWindow(QMainWindow):
 
     def benchmark_single_index_query(self, item, show_dialog=True):
         query_sql = item["query_sql"]
+        target_table = item.get("table", "") or ("orders" if "orders" in query_sql.lower() else ("customers" if "customers" in query_sql.lower() else ""))
         times = []
         try:
             from src.db_connection import measure_query_server_time
@@ -2333,8 +2350,30 @@ class MainWindow(QMainWindow):
             from db_connection import measure_query_server_time
 
         try:
+            # 1. Always execute unindexed version (force Table Scan) to measure and record baseline
+            import re
+            clean_sql = re.sub(r"\bWITH\s*\(\s*INDEX\s*\([^)]*\)\s*\)", "", query_sql, flags=re.IGNORECASE)
+            unindexed_sql = ""
+            if target_table:
+                pattern = re.compile(rf"\bFROM\s+((?:\[?\w+\]?\.)?\[?{re.escape(target_table)}\]?)(?!\s*WITH\s*\(\s*INDEX)", re.IGNORECASE)
+                if pattern.search(clean_sql):
+                    unindexed_sql = pattern.sub(r"FROM \1 WITH (INDEX(0))", clean_sql, count=1)
+            
+            if not unindexed_sql:
+                pattern_gen = re.compile(r"\bFROM\s+((?:\[?\w+\]?\.)?\[?\w+\]?)(?!\s*WITH\s*\(\s*INDEX)", re.IGNORECASE)
+                if pattern_gen.search(clean_sql):
+                    unindexed_sql = pattern_gen.sub(r"FROM \1 WITH (INDEX(0))", clean_sql, count=1)
+
+            if unindexed_sql:
+                tagged_unindexed = f"-- VTX_BENCHMARK_TEST\n{unindexed_sql}"
+                u_ms, _ = measure_query_server_time(tagged_unindexed)
+                if u_ms and u_ms > 0:
+                    record_baseline(item["id"], round(u_ms, 2))
+
+            # 2. Measure indexed execution time
+            tagged_indexed = f"-- VTX_BENCHMARK_TEST\n{query_sql}"
             for _ in range(3):
-                s_ms, _ = measure_query_server_time(query_sql)
+                s_ms, _ = measure_query_server_time(tagged_indexed)
                 times.append(s_ms)
 
             times.sort()
@@ -2342,7 +2381,13 @@ class MainWindow(QMainWindow):
             record_benchmark(item["id"], measured, measured, "single_bench")
 
             if show_dialog:
-                self.show_toast("BENCHMARK TAMAMLANDI", f"[{item['title']}] saf motor süresi: {measured} ms", "info")
+                b_now = get_latest_baseline(item["id"])
+                if b_now and b_now > measured:
+                    mult = round(b_now / measured, 1)
+                    pct = round(((b_now - measured) / b_now) * 100, 1)
+                    self.show_toast("BENCHMARK TAMAMLANDI", f"[{item['title']}]\nİndekssiz: {b_now} ms ➔ İndeksli: {measured} ms ({mult}x Hızlı, %{pct} Kazanç)", "info")
+                else:
+                    self.show_toast("BENCHMARK TAMAMLANDI", f"[{item['title']}] saf motor süresi: {measured} ms", "info")
             self.load_index_mgmt_table()
             self.refresh_mgmt_page()
         except Exception as e:

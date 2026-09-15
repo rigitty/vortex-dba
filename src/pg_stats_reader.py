@@ -413,7 +413,7 @@ def get_live_workload_matrix(limit: int = 15) -> list[dict]:
             "recommended_sql": recommended_sql or "",
             "reason": reason,
             "query_sql": sql_text,
-            "baseline_ms": stat.mean_exec_time,
+            "baseline_ms": None if has_index else stat.mean_exec_time,
             "current_ms": stat.mean_exec_time if has_index else None,
             "speedup_pct": None,
             "multiplier": None,

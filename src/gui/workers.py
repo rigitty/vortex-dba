@@ -83,8 +83,12 @@ class SimulateWorker(QThread):
                 success_count += 1
                 total_time += duration_ms
 
-                record_baseline(name, duration_ms)
-                self.log_signal.emit(f"    ⏱ Süre: {duration_ms:.1f} ms | Satır: {len(rows):,} | 📌 Baseline Kaydedildi\n")
+                if not has_custom_indexes or get_latest_baseline(name) is None:
+                    record_baseline(name, duration_ms)
+                    self.log_signal.emit(f"    ⏱ Süre: {duration_ms:.1f} ms | Satır: {len(rows):,} | 📌 Baseline Kaydedildi\n")
+                else:
+                    record_benchmark(name, duration_ms, duration_ms, "simulation_run")
+                    self.log_signal.emit(f"    ⏱ Süre: {duration_ms:.1f} ms | Satır: {len(rows):,} | ⚡ İndeksli Ölçüm Güncellendi\n")
 
             except Exception as e:
                 self.log_signal.emit(f"    ❌ HATA: {e}\n")
@@ -223,8 +227,32 @@ class BenchmarkWorker(QThread):
 
 
             self.log_signal.emit(f"📋 Tablodaki {len(queries)} adet aktif sorgu test ediliyor...\n")
-            results = run_benchmark_suite(queries, runs=3)
+            
+            import re
+            from src.db_connection import measure_query_server_time
 
+            def _get_unindexed_sql(sql_text: str) -> str:
+                clean_sql = re.sub(r"\bWITH\s*\(\s*INDEX\s*\([^)]*\)\s*\)", "", sql_text, flags=re.IGNORECASE)
+                pattern_gen = re.compile(r"\bFROM\s+((?:\[?\w+\]?\.)?\[?\w+\]?)(?!\s*WITH\s*\(\s*INDEX)", re.IGNORECASE)
+                if pattern_gen.search(clean_sql):
+                    return pattern_gen.sub(r"FROM \1 WITH (INDEX(0))", clean_sql, count=1)
+                return clean_sql
+
+            # Pre-measure unindexed baselines on demand
+            for q_item in queries:
+                q_n = q_item["name"]
+                q_s = q_item["query"]
+                if get_latest_baseline(q_n) is None:
+                    try:
+                        u_sql = _get_unindexed_sql(q_s)
+                        if u_sql:
+                            u_ms, _ = measure_query_server_time(f"-- VTX_BENCHMARK\n{u_sql}")
+                            if u_ms and u_ms > 0:
+                                record_baseline(q_n, round(u_ms, 2))
+                    except Exception:
+                        pass
+
+            results = run_benchmark_suite(queries, runs=3)
 
             total_base = 0.0
             total_curr = 0.0

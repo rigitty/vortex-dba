@@ -227,6 +227,7 @@ def is_real_user_query(sql: str) -> bool:
         "autocommit", "select @@", "set transaction", "set nocount",
         "alter table", "create table", "select count_big(*)", "fn_",
         "vortex_internal_benchmark", "benchmark", "filetable",
+        "vtx_", "vortex", "index(0)", "index (0)", "with (index",
         ".sys.", "sys]", "[sys]", "master.", "msdb.", "tempdb.", "model."
     ]
     if any(noise in s or noise in clean_s for noise in system_noise):
@@ -298,6 +299,10 @@ def poll_and_capture_live_dmv_queries() -> list[dict]:
               AND st.text NOT LIKE '%DROP INDEX%'
               AND st.text NOT LIKE '%INFORMATION_SCHEMA%'
               AND st.text NOT LIKE '%VORTEX_INTERNAL_BENCHMARK%'
+              AND st.text NOT LIKE '%VTX_%'
+              AND st.text NOT LIKE '%INDEX(0)%'
+              AND st.text NOT LIKE '%INDEX (0)%'
+              AND st.text NOT LIKE '%BENCH%'
               AND CONVERT(VARCHAR(19), qs.last_execution_time, 120) >= '{watermark}'
             ORDER BY qs.last_execution_time DESC
         """
@@ -354,15 +359,38 @@ def poll_and_capture_live_dmv_queries() -> list[dict]:
                         if not target_cols or target_cols.issubset(set(idx.columns)) or set(idx.columns).issubset(target_cols):
                             applied_idx_name = idx.index_name
                             break
+                if not applied_idx_name:
+                    # Check SQL Server sys.indexes directly
+                    try:
+                        conn_chk = get_connection(autocommit=True)
+                        with conn_chk.cursor(as_dict=True) as cur_chk:
+                            cur_chk.execute("""
+                                SELECT i.name AS index_name, STRING_AGG(c.name, ', ') AS cols
+                                FROM sys.indexes i
+                                JOIN sys.tables t ON t.object_id = i.object_id
+                                JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
+                                JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+                                WHERE t.name = %s AND i.is_primary_key = 0 AND i.is_unique_constraint = 0 AND i.name NOT IN ('idx_orders_customer_id', 'idx_customers_email')
+                                GROUP BY i.name
+                            """, (target_table,))
+                            for dbi in (cur_chk.fetchall() or []):
+                                db_cols = set(c.strip() for c in dbi["cols"].split(",")) if dbi.get("cols") else set()
+                                if not target_cols or target_cols.issubset(db_cols) or target_cols.intersection(db_cols):
+                                    applied_idx_name = dbi["index_name"]
+                                    break
+                        conn_chk.close()
+                    except Exception:
+                        pass
             except Exception:
                 pass
 
+            import uuid
             q_num = len(existing) + len(new_captured) + 1
             title = generate_descriptive_title(raw_sql, target_table, q_num)
             if is_rerun:
                 title += " (Tekrar Çalıştırma)"
 
-            q_name = f"q_dmv_{q_num:02d}"
+            q_name = f"q_dmv_{q_num:02d}_{uuid.uuid4().hex[:6]}"
             add_captured_query(title, raw_sql, target_table, mean_ms, query_name=q_name, applied_index=applied_idx_name)
             if applied_idx_name:
                 try:

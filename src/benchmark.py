@@ -45,8 +45,10 @@ def run_benchmark(name: str, query: str, params: tuple | None = None,
     durations = []
     row_count = 0
 
+    tagged_query = f"-- VTX_BENCHMARK\n{query}" if not query.strip().startswith("--") else query
+
     for _ in range(runs):
-        server_ms, count = measure_query_server_time(query, params)
+        server_ms, count = measure_query_server_time(tagged_query, params)
         durations.append(round(server_ms, 3))
         row_count = count
 
