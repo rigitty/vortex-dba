@@ -249,3 +249,49 @@ def apply_schema_script(script_path: str | None = None) -> tuple[bool, str]:
         return False, f"Şema oluşturma hatası: {str(e)}"
 
 
+def measure_query_server_time(query: str, params: tuple | None = None) -> tuple[float, int]:
+    """Execute a query and measure exact SQL Server engine execution time via sys.dm_exec_query_stats.
+    
+    Eliminates client-side data transfer and Python object deserialization lag for large result sets.
+    
+    Returns:
+        tuple[float, int]: (server_elapsed_ms, row_count)
+    """
+    import uuid
+    import time
+
+    clean_tag = f"VTX_{uuid.uuid4().hex[:8]}"
+    tagged_sql = f"-- {clean_tag}\n{query}"
+
+    conn = get_connection(autocommit=True)
+    try:
+        with conn.cursor(as_dict=True) as cur:
+            t0 = time.perf_counter()
+            cur.execute(tagged_sql, params)
+            rows = cur.fetchall() if cur.description else []
+            client_elapsed = (time.perf_counter() - t0) * 1000.0
+            row_count = len(rows)
+
+            # Query SQL Server DMV for pure engine execution time
+            dmv_sql = f"""
+                SELECT TOP 1 
+                    qs.last_elapsed_time / 1000.0 AS server_ms,
+                    qs.last_worker_time / 1000.0 AS cpu_ms
+                FROM sys.dm_exec_query_stats qs
+                CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) st
+                WHERE st.text LIKE '%{clean_tag}%' AND st.text NOT LIKE '%dm_exec_query_stats%'
+                ORDER BY qs.last_execution_time DESC
+            """
+            cur.execute(dmv_sql)
+            row = cur.fetchone()
+
+            if row and row.get("server_ms") is not None:
+                server_ms = float(row["server_ms"])
+            else:
+                server_ms = client_elapsed
+
+            return round(server_ms, 2), row_count
+    finally:
+        conn.close()
+
+

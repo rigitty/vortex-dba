@@ -283,6 +283,11 @@ def recommend_index_for_query(query_sql: str) -> IndexRecommendation | None:
     # Strip brackets like [customers], [city]
     clean_norm = re.sub(r"\[(\w+)\]", r"\1", clean)
 
+    # Extract SELECT clause and aliases
+    select_match = re.search(r"SELECT\s+(.*?)\s+FROM", clean_norm, re.IGNORECASE | re.DOTALL)
+    select_text = select_match.group(1) if select_match else ""
+    select_aliases = {a.lower() for a in re.findall(r"\bAS\s+\[?(\w+)\]?", select_text, re.IGNORECASE)}
+
     # Extract WHERE clause
     where_match = re.search(r"WHERE\s+(.*?)(?:GROUP\s+BY|ORDER\s+BY|HAVING|$)", clean_norm, re.IGNORECASE | re.DOTALL)
     where_clause = where_match.group(1) if where_match else ""
@@ -315,7 +320,7 @@ def recommend_index_for_query(query_sql: str) -> IndexRecommendation | None:
 
     for alias, col, op in predicates:
         col_lower = col.lower()
-        if col_lower in ("id", "text", "numeric", "varchar", "nvarchar", "count", "sum", "avg", "top", "distinct"):
+        if col_lower in select_aliases or col_lower in ("id", "text", "numeric", "varchar", "nvarchar", "count", "sum", "avg", "top", "distinct"):
             continue
 
         if single_from_table:
@@ -331,6 +336,10 @@ def recommend_index_for_query(query_sql: str) -> IndexRecommendation | None:
             if not tbl:
                 tbl = "orders" if "orders" in clean_norm.lower() else "customers"
 
+        # Validate against known table columns
+        if tbl in known_table_cols and col_lower not in known_table_cols[tbl]:
+            continue
+
         if op.upper() in ("=", "IS"):
             if tbl not in table_equality_cols:
                 table_equality_cols[tbl] = []
@@ -342,14 +351,13 @@ def recommend_index_for_query(query_sql: str) -> IndexRecommendation | None:
             if col_lower not in table_range_cols[tbl]:
                 table_range_cols[tbl].append(col_lower)
 
-    # Check ORDER BY columns
-    order_match = re.search(r"ORDER\s+BY\s+(.*?)$", clean_norm, re.IGNORECASE | re.DOTALL)
-    table_order_cols: dict[str, list[str]] = {}
-    if order_match:
-        order_cols = re.findall(r"(?:(\w+)\.)?(\w+)(?:\s+DESC|\s+ASC)?", order_match.group(1), re.IGNORECASE)
-        for alias, col in order_cols:
+    # Check GROUP BY columns
+    group_match = re.search(r"GROUP\s+BY\s+(.*?)(?:HAVING|ORDER\s+BY|$)", clean_norm, re.IGNORECASE | re.DOTALL)
+    table_group_cols: dict[str, list[str]] = {}
+    if group_match:
+        for alias, col in re.findall(r"(?:(\w+)\.)?(\w+)", group_match.group(1), re.IGNORECASE):
             col_lower = col.lower()
-            if col_lower in ("id", "count", "sum", "avg", "desc", "asc", "total_spent", "order_count", "daily_total", "total_revenue"):
+            if col_lower in select_aliases or col_lower in ("id", "count", "sum", "avg", "min", "max", "desc", "asc"):
                 continue
             if single_from_table:
                 tbl = single_from_table
@@ -364,17 +372,50 @@ def recommend_index_for_query(query_sql: str) -> IndexRecommendation | None:
                 if not tbl:
                     tbl = "orders" if "orders" in clean_norm.lower() else "customers"
 
+            if tbl in known_table_cols and col_lower not in known_table_cols[tbl]:
+                continue
+
+            if tbl not in table_group_cols:
+                table_group_cols[tbl] = []
+            if col_lower not in table_group_cols[tbl]:
+                table_group_cols[tbl].append(col_lower)
+
+    # Check ORDER BY columns
+    order_match = re.search(r"ORDER\s+BY\s+(.*?)$", clean_norm, re.IGNORECASE | re.DOTALL)
+    table_order_cols: dict[str, list[str]] = {}
+    if order_match:
+        order_cols = re.findall(r"(?:(\w+)\.)?(\w+)(?:\s+DESC|\s+ASC)?", order_match.group(1), re.IGNORECASE)
+        for alias, col in order_cols:
+            col_lower = col.lower()
+            if col_lower in select_aliases or col_lower in ("id", "count", "sum", "avg", "desc", "asc", "total_spent", "order_count", "daily_total", "total_revenue"):
+                continue
+            if single_from_table:
+                tbl = single_from_table
+            elif alias and alias.lower() in table_alias:
+                tbl = table_alias[alias.lower()]
+            else:
+                tbl = None
+                for t_name, t_cols in known_table_cols.items():
+                    if col_lower in t_cols:
+                        tbl = t_name
+                        break
+                if not tbl:
+                    tbl = "orders" if "orders" in clean_norm.lower() else "customers"
+
+            # Validate against known columns (prevents indexing on computed aliases like toplam_ciro!)
+            if tbl in known_table_cols and col_lower not in known_table_cols[tbl]:
+                continue
 
             if tbl not in table_order_cols:
                 table_order_cols[tbl] = []
             if col_lower not in table_order_cols[tbl]:
                 table_order_cols[tbl].append(col_lower)
 
-    all_target_tables = set(table_equality_cols.keys()) | set(table_range_cols.keys()) | set(table_order_cols.keys())
+    all_target_tables = set(table_equality_cols.keys()) | set(table_range_cols.keys()) | set(table_group_cols.keys()) | set(table_order_cols.keys())
     if not all_target_tables:
         primary_tbl = "orders" if "orders" in clean.lower() else "customers"
     else:
-        primary_tbl = max(all_target_tables, key=lambda t: len(table_equality_cols.get(t, [])) * 2 + len(table_range_cols.get(t, [])) + len(table_order_cols.get(t, [])))
+        primary_tbl = max(all_target_tables, key=lambda t: len(table_equality_cols.get(t, [])) * 3 + len(table_group_cols.get(t, [])) * 2 + len(table_range_cols.get(t, [])) + len(table_order_cols.get(t, [])))
 
     # Reject system tables/views
     system_tables_blacklist = {"sys", "system", "tables", "indexes", "columns", "databases", "filetable", "dmv", "information_schema"}
@@ -383,6 +424,9 @@ def recommend_index_for_query(query_sql: str) -> IndexRecommendation | None:
 
     keys: list[str] = []
     for c in table_equality_cols.get(primary_tbl, []):
+        if c not in keys:
+            keys.append(c)
+    for c in table_group_cols.get(primary_tbl, []):
         if c not in keys:
             keys.append(c)
     for c in table_range_cols.get(primary_tbl, []):
@@ -396,14 +440,29 @@ def recommend_index_for_query(query_sql: str) -> IndexRecommendation | None:
         # Fallback default key if none extracted
         keys = ["status"] if primary_tbl == "orders" else ["email"]
 
+    # Detect covering columns for INCLUDE clause
+    include_cols: list[str] = []
+    if primary_tbl in known_table_cols:
+        for c in known_table_cols[primary_tbl]:
+            if c in keys or c in ("shipping_address", "id"):
+                continue
+            # If the column appears in SELECT text, include it to prevent Key Lookups
+            if re.search(r"\b" + c + r"\b", select_text, re.IGNORECASE):
+                include_cols.append(c)
+
     idx_name = generate_index_name(primary_tbl, keys)
     cols_str = ", ".join(keys)
-    create_stmt = f"CREATE NONCLUSTERED INDEX [{idx_name}] ON [{primary_tbl}] ({cols_str}) WITH (ONLINE = ON);"
+    if include_cols:
+        inc_str = ", ".join(include_cols)
+        create_stmt = f"CREATE NONCLUSTERED INDEX [{idx_name}] ON [{primary_tbl}] ({cols_str}) INCLUDE ({inc_str}) WITH (ONLINE = ON);"
+    else:
+        create_stmt = f"CREATE NONCLUSTERED INDEX [{idx_name}] ON [{primary_tbl}] ({cols_str}) WITH (ONLINE = ON);"
 
     return IndexRecommendation(
         table=primary_tbl,
         columns=keys,
         index_type="nonclustered",
+        include_columns=include_cols,
         reason=f"{primary_tbl} tablosundaki ({cols_str}) arama filtreleri için dinamik oluşturulan indeks",
         priority=1 if len(keys) > 1 else 2,
         estimated_impact="~5-50x hızlanma",

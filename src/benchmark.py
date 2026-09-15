@@ -8,7 +8,7 @@ import statistics
 import time
 from dataclasses import dataclass
 
-from db_connection import get_connection
+from db_connection import get_connection, measure_query_server_time
 
 
 @dataclass
@@ -41,24 +41,14 @@ DEFAULT_RUNS = 3
 
 def run_benchmark(name: str, query: str, params: tuple | None = None,
                   runs: int = DEFAULT_RUNS) -> BenchmarkResult:
-    """Run a query multiple times and collect timing statistics."""
+    """Run a query multiple times and collect timing statistics via SQL Server DMV."""
     durations = []
     row_count = 0
-    bench_sql = f"-- VORTEX_INTERNAL_BENCHMARK\n{query}" if not query.strip().startswith("--") else query
 
     for _ in range(runs):
-        conn = get_connection(autocommit=True)
-        try:
-            with conn.cursor(as_dict=True) as cur:
-                start = time.perf_counter()
-                cur.execute(bench_sql, params)
-                rows = cur.fetchall()
-                elapsed_ms = (time.perf_counter() - start) * 1000
-
-                durations.append(round(elapsed_ms, 3))
-                row_count = len(rows)
-        finally:
-            conn.close()
+        server_ms, count = measure_query_server_time(query, params)
+        durations.append(round(server_ms, 3))
+        row_count = count
 
 
     return BenchmarkResult(

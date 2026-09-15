@@ -1624,7 +1624,10 @@ async def api_management_summary():
 
 
 if __name__ == "__main__":
+    import os
     import uvicorn
-    print("VortexDBA Dashboard baslatiliyor: http://localhost:8050")
-    uvicorn.run("web_app:app", host="127.0.0.1", port=8050, reload=True)
+    host = os.getenv("VORTEX_WEB_HOST", os.getenv("HOST", "0.0.0.0"))
+    port = int(os.getenv("VORTEX_WEB_PORT", os.getenv("PORT", "8000")))
+    print(f"VortexDBA Dashboard baslatiliyor: http://localhost:{port}")
+    uvicorn.run("web_app:app", host=host, port=port, reload=False)
 

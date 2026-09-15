@@ -163,7 +163,8 @@ class MainWindow(QMainWindow):
         self.current_worker = None
         self.is_connected = False
         self.is_light_theme = False
-        self.engine_active = True  # Autonomous engine toggle
+        cfg = get_config()
+        self.engine_active = (getattr(cfg, "operating_mode", "advisor") == "autonomous")  # Synced with config
         self.max_indexes_limit = 5  # Configurable autonomous quota limit
         self.active_editor_rec = None
         self.selected_query_ids = set()
@@ -303,6 +304,7 @@ class MainWindow(QMainWindow):
     def toggle_engine_state(self):
         """Toggles the autonomous indexing engine ON/OFF and updates all UI badges and buttons."""
         self.engine_active = not self.engine_active
+        update_operating_mode("autonomous" if self.engine_active else "advisor")
         if self.engine_active:
             self.show_toast(t("toast.engine_active_title"), t("toast.engine_active_msg"), "success")
             if hasattr(self, "term_log"):
@@ -2324,29 +2326,23 @@ class MainWindow(QMainWindow):
 
     def benchmark_single_index_query(self, item, show_dialog=True):
         query_sql = item["query_sql"]
-        bench_sql = f"-- VORTEX_INTERNAL_BENCHMARK\n{query_sql}"
         times = []
         try:
-            conn = get_connection(autocommit=True)
-            with conn.cursor() as cur:
-                cur.execute(bench_sql)
-                if cur.description:
-                    cur.fetchall()
-                for _ in range(3):
-                    t0 = time.perf_counter()
-                    cur.execute(bench_sql)
-                    if cur.description:
-                        cur.fetchall()
-                    t1 = time.perf_counter()
-                    times.append((t1 - t0) * 1000.0)
-            conn.close()
+            from src.db_connection import measure_query_server_time
+        except ImportError:
+            from db_connection import measure_query_server_time
+
+        try:
+            for _ in range(3):
+                s_ms, _ = measure_query_server_time(query_sql)
+                times.append(s_ms)
 
             times.sort()
             measured = round(times[1], 2)
             record_benchmark(item["id"], measured, measured, "single_bench")
 
             if show_dialog:
-                self.show_toast("BENCHMARK TAMAMLANDI", f"[{item['title']}] canlı yürütme süresi: {measured} ms", "info")
+                self.show_toast("BENCHMARK TAMAMLANDI", f"[{item['title']}] saf motor süresi: {measured} ms", "info")
             self.load_index_mgmt_table()
             self.refresh_mgmt_page()
         except Exception as e:

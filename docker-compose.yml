@@ -1,6 +1,16 @@
 version: '3.8'
 
 services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: vortex_primary_db
+    restart: unless-stopped
+    ports:
+      - "1433:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=VortexPassword123!
+
   vortexdba:
     build: .
     container_name: vortex_dba_agent
@@ -21,3 +31,5 @@ services:
       - ./config.yaml:/app/config.yaml
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    depends_on:
+      - sqlserver
