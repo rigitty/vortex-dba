@@ -1,6 +1,6 @@
 operating_mode: advisor
 traffic_source: simulation
-language: tr
+language: en
 database:
   host: localhost
   port: 1433
