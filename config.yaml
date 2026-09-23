@@ -3,10 +3,10 @@ traffic_source: simulation
 language: en
 database:
   host: localhost
-  port: 1433
-  dbname: vortex_db
+  port: 14333
+  dbname: WideWorldImporters
   user: sa
-  password: VortexPassword123!
+  password: Password123!
   pool_min: 2
   pool_max: 10
 detection:
@@ -19,10 +19,10 @@ detection:
   top_queries_limit: 20
 remediation:
   enabled: true
-  dry_run_default: true
-  max_indexes_per_table: 5
-  max_indexes_total: 20
-  cooldown_minutes: 60
+  dry_run_default: false
+  max_indexes_per_table: 20
+  max_indexes_total: 250
+  cooldown_minutes: 0
   rollback_policy: per_index
 benchmark:
   runs: 3

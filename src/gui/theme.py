@@ -11,19 +11,23 @@ def get_theme_color(is_light: bool, key: str) -> str:
         "text_dim": "#64748b" if is_light else "#525266",
         
         # Accents
+        "accent_primary": "#0284c7" if is_light else "#38bdf8",
         "accent_success": "#047857" if is_light else "#10b981",
         "accent_danger": "#be123c" if is_light else "#f43f5e",
         "accent_warning": "#b45309" if is_light else "#f59e0b",
         "accent_cyan": "#0369a1" if is_light else "#06b6d4",
         "accent_blue": "#1d4ed8" if is_light else "#38bdf8",
 
-        # Panels & Cards
+        # Panels, Cards & Widgets
         "bg_main": "#f8fafc" if is_light else "#000000",
         "bg_card": "#ffffff" if is_light else "#07070a",
         "bg_header": "#ffffff" if is_light else "#07070a",
         "bg_subtle": "#f1f5f9" if is_light else "#040407",
+        "bg_tertiary": "#e2e8f0" if is_light else "#111118",
+        "bg_hover": "#cbd5e1" if is_light else "#1e1e2d",
         "border_card": "#cbd5e1" if is_light else "#1a1a24",
         "border_subtle": "#cbd5e1" if is_light else "#111118",
+        "border_color": "#cbd5e1" if is_light else "#2a2a3c",
 
         # Badges
         "badge_online_bg": "#d1fae5" if is_light else "#041a12",
@@ -51,7 +55,7 @@ def get_theme_color(is_light: bool, key: str) -> str:
         "rec_border": "#0891b2" if is_light else "#06b6d4",
         "rec_text": "#0e7490" if is_light else "#6ee7b7",
     }
-    return palette.get(key, "#ffffff" if not is_light else "#000000")
+    return palette.get(key, "#0f172a" if is_light else "#f8fafc")
 
 
 DARK_THEME_QSS = """

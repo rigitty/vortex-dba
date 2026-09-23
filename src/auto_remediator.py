@@ -103,23 +103,31 @@ def apply_index(rec: IndexRecommendation) -> RemediationResult:
 
 
 def drop_index(index_name: str, table_name: str | None = None) -> bool:
-    """Drop an index by name in SQL Server."""
+    """Drop an index by name in SQL Server with schema qualification."""
     try:
         conn = get_connection(autocommit=True)
         with conn.cursor(as_dict=True) as cur:
-            if not table_name:
-                cur.execute("""
-                    SELECT t.name AS tablename
-                    FROM sys.indexes i
-                    JOIN sys.tables t ON t.object_id = i.object_id
-                    WHERE i.name = %s
-                """, (index_name,))
-                rows = cur.fetchall()
-                if rows:
-                    table_name = rows[0]["tablename"]
+            target_schema = None
+            target_table = None
 
-            if table_name:
-                cur.execute(f"DROP INDEX IF EXISTS [{index_name}] ON [{table_name}]")
+            cur.execute("""
+                SELECT SCHEMA_NAME(t.schema_id) AS schemaname, t.name AS tablename
+                FROM sys.indexes i
+                JOIN sys.tables t ON t.object_id = i.object_id
+                WHERE i.name = %s
+            """, (index_name,))
+            rows = cur.fetchall()
+            if rows:
+                target_schema = rows[0]["schemaname"]
+                target_table = rows[0]["tablename"]
+            elif table_name:
+                from index_advisor import resolve_table_schema
+                target_schema, target_table = resolve_table_schema(table_name)
+
+            if target_schema and target_table:
+                cur.execute(f"DROP INDEX IF EXISTS [{index_name}] ON [{target_schema}].[{target_table}]")
+            elif target_table:
+                cur.execute(f"DROP INDEX IF EXISTS [{index_name}] ON [{target_table}]")
             else:
                 cur.execute(f"DROP INDEX IF EXISTS [{index_name}]")
         conn.close()

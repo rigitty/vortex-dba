@@ -48,7 +48,8 @@ jobs:
       - name: Create GitHub Release and Upload Asset
         uses: softprops/action-gh-release@v2
         with:
+          name: VortexDBA ${{ github.ref_name }}
           files: ${{ env.RELEASE_ZIP }}
-          generate_release_notes: true
+          body_path: .github/release_template.md
           draft: false
           prerelease: false

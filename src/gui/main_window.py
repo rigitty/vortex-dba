@@ -168,6 +168,7 @@ class MainWindow(QMainWindow):
         self.max_indexes_limit = 5  # Configurable autonomous quota limit
         self.active_editor_rec = None
         self.selected_query_ids = set()
+        self.expanded_sql_ids = set()
 
         # Apply QSS Dark Theme
         self.setStyleSheet(DARK_THEME_QSS)
@@ -182,6 +183,66 @@ class MainWindow(QMainWindow):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.auto_refresh)
         self.timer.start(3000)
+
+    def create_expandable_sql_cell(self, q_id: str, full_sql: str, parent_table: QTableWidget, max_collapsed_len: int = 70) -> QWidget:
+        """Create a compact SQL cell widget with an interactive expand/collapse arrow toggle."""
+        widget = QWidget()
+        layout = QHBoxLayout(widget)
+        layout.setContentsMargins(6, 4, 6, 4)
+        layout.setSpacing(6)
+
+        is_expanded = q_id in self.expanded_sql_ids
+
+        # Clean single-line summary
+        one_line = " ".join(full_sql.split())
+        summary_text = one_line if len(one_line) <= max_collapsed_len else one_line[:max_collapsed_len - 3] + "..."
+
+        lbl_sql = QLabel(full_sql if is_expanded else summary_text)
+        lbl_sql.setStyleSheet(f"font-family: 'JetBrains Mono', 'Consolas', monospace; font-size: 11px; color: {self.c('text_code')};")
+        lbl_sql.setWordWrap(is_expanded)
+        lbl_sql.setToolTip(full_sql)
+        lbl_sql.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+
+        btn_toggle = QPushButton("▼" if is_expanded else "▶")
+        btn_toggle.setFixedSize(20, 20)
+        btn_toggle.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_toggle.setToolTip("Daralt (Küçült)" if is_expanded else "Genişlet (Büyüt)" if get_language() == "tr" else ("Collapse" if is_expanded else "Expand"))
+        btn_toggle.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {self.c('bg_tertiary')};
+                color: {self.c('text_secondary')};
+                border: 1px solid {self.c('border_color')};
+                border-radius: 4px;
+                font-size: 10px;
+                font-weight: bold;
+                padding: 0px;
+            }}
+            QPushButton:hover {{
+                background-color: {self.c('bg_hover')};
+                color: {self.c('accent_primary')};
+                border-color: {self.c('accent_primary')};
+            }}
+        """)
+
+        def _toggle():
+            if q_id in self.expanded_sql_ids:
+                self.expanded_sql_ids.remove(q_id)
+            else:
+                self.expanded_sql_ids.add(q_id)
+
+            expanded_now = q_id in self.expanded_sql_ids
+            btn_toggle.setText("▼" if expanded_now else "▶")
+            btn_toggle.setToolTip("Daralt (Küçült)" if expanded_now else "Genişlet (Büyüt)" if get_language() == "tr" else ("Collapse" if expanded_now else "Expand"))
+            lbl_sql.setText(full_sql if expanded_now else summary_text)
+            lbl_sql.setWordWrap(expanded_now)
+            parent_table.resizeRowsToContents()
+
+        btn_toggle.clicked.connect(_toggle)
+
+        layout.addWidget(btn_toggle, 0, Qt.AlignmentFlag.AlignTop if is_expanded else Qt.AlignmentFlag.AlignVCenter)
+        layout.addWidget(lbl_sql, 1)
+
+        return widget
 
     def c(self, key: str) -> str:
         """Returns theme-aware hex color for the active theme."""
@@ -1721,10 +1782,9 @@ class MainWindow(QMainWindow):
             it_1.setForeground(QColor(self.c("text_primary")))
             self.table_queries_only.setItem(row_idx, 1, it_1)
 
-            # 2. SQL
-            it_2 = QTableWidgetItem(query_sql)
-            it_2.setForeground(QColor(self.c("text_code")))
-            self.table_queries_only.setItem(row_idx, 2, it_2)
+            # 2. SQL (Expandable / Collapsible)
+            sql_cell = self.create_expandable_sql_cell(f"qonly_{q_id}", query_sql, self.table_queries_only, max_collapsed_len=85)
+            self.table_queries_only.setCellWidget(row_idx, 2, sql_cell)
 
             # 3. Index Status (Preserves execution time snapshot - NEVER changes retroactively)
             applied_idx = q.get("applied_index", "")
@@ -1936,6 +1996,7 @@ class MainWindow(QMainWindow):
         DEFAULT_SCHEMA_INDEXES = {"idx_orders_customer_id", "idx_customers_email"}
         q_idx = """
             SELECT 
+                SCHEMA_NAME(t.schema_id) AS schema_name,
                 t.name AS table_name,
                 i.name AS index_name,
                 STRING_AGG(c.name, ', ') WITHIN GROUP (ORDER BY ic.key_ordinal) AS columns
@@ -1945,7 +2006,7 @@ class MainWindow(QMainWindow):
             JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
             WHERE t.is_ms_shipped = 0 AND i.name IS NOT NULL 
               AND i.is_primary_key = 0 AND i.is_unique_constraint = 0 AND ic.is_included_column = 0
-            GROUP BY t.name, i.name
+            GROUP BY SCHEMA_NAME(t.schema_id), t.name, i.name
         """
         all_active_rows = execute_query(q_idx) or [] if self.is_connected else []
         active_custom_rows = [r for r in all_active_rows if r["index_name"] not in DEFAULT_SCHEMA_INDEXES]
@@ -1953,10 +2014,14 @@ class MainWindow(QMainWindow):
         active_by_table = {}
         for r in active_custom_rows:
             tbl = r["table_name"]
+            sch = r.get("schema_name", "dbo")
             cols = [c.strip() for c in r["columns"].split(",")] if r["columns"] else []
-            if tbl not in active_by_table:
-                active_by_table[tbl] = []
-            active_by_table[tbl].append({"name": r["index_name"], "columns": set(cols), "cols_str": r["columns"]})
+            entry = {"name": r["index_name"], "columns": set(cols), "cols_str": r["columns"]}
+            for k in [tbl, f"{sch}.{tbl}", tbl.lower(), f"{sch}.{tbl}".lower()]:
+                if k not in active_by_table:
+                    active_by_table[k] = []
+                if entry not in active_by_table[k]:
+                    active_by_table[k].append(entry)
 
         # Load persisted queries
         persisted = get_captured_queries()
@@ -2086,10 +2151,9 @@ class MainWindow(QMainWindow):
             it_0.setForeground(QColor(self.c("text_primary")))
             self.table_idx_mgmt.setItem(row_idx, 0, it_0)
 
-            # 1. SQL Query Summary
-            it_1 = QTableWidgetItem(query_sql)
-            it_1.setForeground(QColor(self.c("text_code")))
-            self.table_idx_mgmt.setItem(row_idx, 1, it_1)
+            # 1. SQL Query Summary (Expandable / Collapsible)
+            sql_cell = self.create_expandable_sql_cell(f"mgmt_{q_id}", query_sql, self.table_idx_mgmt, max_collapsed_len=60)
+            self.table_idx_mgmt.setCellWidget(row_idx, 1, sql_cell)
 
             # 2. Matched Index Number Badge
             if idx_meta:
@@ -2352,17 +2416,38 @@ class MainWindow(QMainWindow):
         try:
             # 1. Always execute unindexed version (force Table Scan) to measure and record baseline
             import re
-            clean_sql = re.sub(r"\bWITH\s*\(\s*INDEX\s*\([^)]*\)\s*\)", "", query_sql, flags=re.IGNORECASE)
-            unindexed_sql = ""
-            if target_table:
-                pattern = re.compile(rf"\bFROM\s+((?:\[?\w+\]?\.)?\[?{re.escape(target_table)}\]?)(?!\s*WITH\s*\(\s*INDEX)", re.IGNORECASE)
-                if pattern.search(clean_sql):
-                    unindexed_sql = pattern.sub(r"FROM \1 WITH (INDEX(0))", clean_sql, count=1)
-            
-            if not unindexed_sql:
-                pattern_gen = re.compile(r"\bFROM\s+((?:\[?\w+\]?\.)?\[?\w+\]?)(?!\s*WITH\s*\(\s*INDEX)", re.IGNORECASE)
-                if pattern_gen.search(clean_sql):
-                    unindexed_sql = pattern_gen.sub(r"FROM \1 WITH (INDEX(0))", clean_sql, count=1)
+            def _inject_table_scan_hint(sql_text: str, tbl_target: str = "") -> str:
+                clean_s = re.sub(r",\s*INDEX\s*\([^)]*\)", "", sql_text, flags=re.IGNORECASE)
+                clean_s = re.sub(r"\bINDEX\s*\([^)]*\)\s*,?", "", clean_s, flags=re.IGNORECASE)
+                clean_s = re.sub(r"\bWITH\s*\(\s*\)", "", clean_s, flags=re.IGNORECASE)
+                ctes = {c.lower() for c in re.findall(r"\b(?:WITH|,)\s*\[?(\w+)\]?\s+AS\s*\(", clean_s, re.IGNORECASE)}
+                t_pat = re.escape(tbl_target.strip("[] ")) if tbl_target else r"\w+"
+
+                def _rep(m):
+                    verb, tbl, alias, existing_with = m.group(1), m.group(2), m.group(3) or "", m.group(4)
+                    t_clean = re.sub(r"\W+", "", tbl.split(".")[-1]).lower()
+                    if t_clean in ctes or t_clean in ("where", "on", "join", "group", "order", "inner", "left", "right", "outer", "cross", "select", "apply"):
+                        return m.group(0)
+                    alias_str = f" {alias}" if alias and alias.lower() not in ("with", "where", "on", "join", "group", "order", "inner", "left", "right", "outer", "cross", "as") else ""
+                    if existing_with:
+                        with_hints = [h.strip() for h in existing_with.split(",") if h.strip() and not h.strip().upper().startswith("INDEX")]
+                        with_hints.append("INDEX(0)")
+                        new_with = f" WITH ({', '.join(with_hints)})"
+                    else:
+                        new_with = " WITH (INDEX(0))"
+                    return f"{verb} {tbl}{alias_str}{new_with}"
+
+                if tbl_target:
+                    pat = re.compile(rf"\b(FROM|JOIN)\s+((?:\[?\w+\]?\.)?\[?{t_pat}\]?)(?:\s+(?:AS\s+)?\[?(\w+)\]?)?(?:\s+WITH\s*\(([^)]*)\))?", re.IGNORECASE)
+                    new_sql, count = pat.subn(_rep, clean_s, count=1)
+                    if count > 0:
+                        return new_sql
+
+                pat_gen = re.compile(r"\b(FROM)\s+((?:\[?\w+\]?\.)?\[?\w+\]?)(?:\s+(?:AS\s+)?\[?(\w+)\]?)?(?:\s+WITH\s*\(([^)]*)\))?", re.IGNORECASE)
+                new_sql, count = pat_gen.subn(_rep, clean_s, count=1)
+                return new_sql
+
+            unindexed_sql = _inject_table_scan_hint(query_sql, target_table)
 
             if unindexed_sql:
                 tagged_unindexed = f"-- VTX_BENCHMARK_TEST\n{unindexed_sql}"
@@ -2403,7 +2488,23 @@ class MainWindow(QMainWindow):
         try:
             conn = get_connection(autocommit=True)
             with conn.cursor() as cur:
-                cur.execute(f"IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = '{idx_name}') DROP INDEX [{idx_name}] ON [{table_name}]")
+                cur.execute("""
+                    SELECT SCHEMA_NAME(t.schema_id) AS schemaname, t.name AS tablename
+                    FROM sys.indexes i
+                    JOIN sys.tables t ON t.object_id = i.object_id
+                    WHERE i.name = %s
+                """, (idx_name,))
+                rows = cur.fetchall()
+                if rows:
+                    target_schema = rows[0][0] if isinstance(rows[0], (list, tuple)) else rows[0]["schemaname"]
+                    target_table = rows[0][1] if isinstance(rows[0], (list, tuple)) else rows[0]["tablename"]
+                    cur.execute(f"DROP INDEX [{idx_name}] ON [{target_schema}].[{target_table}]")
+                elif table_name:
+                    if "." in str(table_name):
+                        parts = [p.strip("[] ") for p in str(table_name).split(".", 1)]
+                        cur.execute(f"DROP INDEX IF EXISTS [{idx_name}] ON [{parts[0]}].[{parts[1]}]")
+                    else:
+                        cur.execute(f"DROP INDEX IF EXISTS [{idx_name}] ON [{table_name}]")
                 try:
                     cur.execute("DBCC FREEPROCCACHE")
                     cur.execute("DBCC DROPCLEANBUFFERS")
@@ -2714,7 +2815,7 @@ class MainWindow(QMainWindow):
                 conn = get_connection(autocommit=True)
                 with conn.cursor(as_dict=True) as cur:
                     cur.execute("""
-                        SELECT i.name AS index_name, t.name AS table_name
+                        SELECT i.name AS index_name, t.name AS table_name, SCHEMA_NAME(t.schema_id) AS schema_name
                         FROM sys.indexes i
                         JOIN sys.tables t ON i.object_id = t.object_id
                         WHERE i.is_primary_key = 0 
@@ -2754,11 +2855,12 @@ class MainWindow(QMainWindow):
                         break
                     nm = act["index_name"]
                     tbl = act["table_name"]
+                    sch = act.get("schema_name", "dbo")
                     if nm not in top_names:
                         try:
                             conn = get_connection(autocommit=True)
                             with conn.cursor() as cur:
-                                cur.execute(f"DROP INDEX [{nm}] ON [{tbl}]")
+                                cur.execute(f"DROP INDEX [{nm}] ON [{sch}].[{tbl}]")
                                 try:
                                     cur.execute("DBCC FREEPROCCACHE")
                                     cur.execute("DBCC DROPCLEANBUFFERS")

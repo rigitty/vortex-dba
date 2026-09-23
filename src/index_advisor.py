@@ -33,6 +33,67 @@ EXISTING_INDEXES = {
     "idx_customers_email": ("customers", ["email"]),
 }
 
+_table_schema_cache: dict[str, tuple[str, str]] = {}
+_table_columns_cache: dict[str, dict[str, str]] = {}
+
+
+def resolve_table_schema(table_name: str) -> tuple[str, str]:
+    """Resolve SQL Server (schema, exact_table_name).
+    
+    If table_name is already 'Sales.Orders' or '[Sales].[Orders]', parses and returns ('Sales', 'Orders').
+    Otherwise, checks dynamic database schema cache (or queries INFORMATION_SCHEMA.TABLES).
+    Defaults to ('dbo', clean_table_name) if not found.
+    """
+    global _table_schema_cache
+    if not table_name:
+        return ("dbo", table_name)
+
+    clean_t = table_name.strip("[] ")
+    if "." in clean_t:
+        parts = [p.strip("[] ") for p in clean_t.split(".", 1)]
+        return (parts[0], parts[1])
+
+    t_low = clean_t.lower()
+    if t_low in _table_schema_cache:
+        return _table_schema_cache[t_low]
+
+    try:
+        from db_connection import execute_query
+        rows = execute_query("SELECT TABLE_SCHEMA, TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE='BASE TABLE'")
+        if rows:
+            for r in rows:
+                _table_schema_cache[r["TABLE_NAME"].lower()] = (r["TABLE_SCHEMA"], r["TABLE_NAME"])
+            if t_low in _table_schema_cache:
+                return _table_schema_cache[t_low]
+    except Exception:
+        pass
+
+    return ("dbo", clean_t)
+
+
+def get_table_columns(table_name: str) -> dict[str, str]:
+    """Get {col_lower: exact_col_name} for a table. Cached."""
+    global _table_columns_cache
+    schema, tbl = resolve_table_schema(table_name)
+    key = f"{schema}.{tbl}".lower()
+    if key in _table_columns_cache:
+        return _table_columns_cache[key]
+
+    cols_map: dict[str, str] = {}
+    try:
+        from db_connection import execute_query
+        rows = execute_query(
+            "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s",
+            (schema, tbl)
+        )
+        for r in (rows or []):
+            cols_map[r["COLUMN_NAME"].lower()] = r["COLUMN_NAME"]
+        _table_columns_cache[key] = cols_map
+    except Exception:
+        pass
+
+    return cols_map
+
 
 def extract_columns_from_filter(filter_expr: str) -> list[str]:
     """Extract column names from a filter expression."""
@@ -169,17 +230,21 @@ def generate_recommendations(issues: list[Issue], online: bool = True, concurren
                 seen.add(key)
 
                 if not is_index_redundant(table, sorted_columns):
-                    idx_name = generate_index_name(table, sorted_columns)
-                    create_stmt = f"CREATE NONCLUSTERED INDEX {idx_name} ON {table} ({', '.join(sorted_columns)});"
+                    schema, exact_tbl = resolve_table_schema(table)
+                    full_tbl_ref = f"[{schema}].[{exact_tbl}]" if schema else f"[{exact_tbl}]"
+                    idx_name = generate_index_name(exact_tbl.lower(), sorted_columns)
+                    cols_str = ", ".join(f"[{c}]" for c in sorted_columns)
+                    create_stmt = f"CREATE NONCLUSTERED INDEX [{idx_name}] ON {full_tbl_ref} ({cols_str}) WITH (ONLINE = ON);"
 
                     max_rows = max(columns_with_issues.values())
                     priority = 1 if max_rows > 100000 else 2
+                    display_tbl = f"{schema}.{exact_tbl}" if schema else exact_tbl
 
                     recommendations.append(IndexRecommendation(
-                        table=table,
+                        table=display_tbl,
                         columns=sorted_columns,
                         index_type="nonclustered",
-                        reason=f"Multiple filter conditions on {table}: {', '.join(sorted_columns)}",
+                        reason=f"Multiple filter conditions on {display_tbl}: {', '.join(sorted_columns)}",
                         priority=priority,
                         estimated_impact=estimate_impact_from_rows(max_rows),
                         create_statement=create_stmt,
@@ -198,17 +263,20 @@ def generate_recommendations(issues: list[Issue], online: bool = True, concurren
                 seen.add(key)
 
                 if not is_index_redundant(table, [col]):
-                    idx_name = generate_index_name(table, [col])
-                    create_stmt = f"CREATE NONCLUSTERED INDEX {idx_name} ON {table} ({col});"
+                    schema, exact_tbl = resolve_table_schema(table)
+                    full_tbl_ref = f"[{schema}].[{exact_tbl}]" if schema else f"[{exact_tbl}]"
+                    idx_name = generate_index_name(exact_tbl.lower(), [col])
+                    create_stmt = f"CREATE NONCLUSTERED INDEX [{idx_name}] ON {full_tbl_ref} ([{col}]) WITH (ONLINE = ON);"
 
                     max_rows = columns_with_issues[col]
                     priority = 1 if max_rows > 100000 else 2
+                    display_tbl = f"{schema}.{exact_tbl}" if schema else exact_tbl
 
                     recommendations.append(IndexRecommendation(
-                        table=table,
+                        table=display_tbl,
                         columns=[col],
                         index_type="nonclustered",
-                        reason=f"Filter condition on {table}.{col}",
+                        reason=f"Filter condition on {display_tbl}.{col}",
                         priority=priority,
                         estimated_impact=estimate_impact_from_rows(max_rows),
                         create_statement=create_stmt,
@@ -292,18 +360,26 @@ def recommend_index_for_query(query_sql: str) -> IndexRecommendation | None:
     where_match = re.search(r"WHERE\s+(.*?)(?:GROUP\s+BY|ORDER\s+BY|HAVING|$)", clean_norm, re.IGNORECASE | re.DOTALL)
     where_clause = where_match.group(1) if where_match else ""
 
-    # Extract FROM/JOIN tables (handling optional schema prefix like dbo.customers)
-    tables = re.findall(r"(?:FROM|JOIN)\s+(?:(\w+)\.)?(\w+)(?:\s+(?:AS\s+)?(\w+))?", clean_norm, re.IGNORECASE)
+    # Extract CTE names (e.g. WITH ReportData AS (...) or , SubCte AS (...))
+    cte_names = {c.lower() for c in re.findall(r"\b(?:WITH|,)\s*\[?(\w+)\]?\s+AS\s*\(", clean, re.IGNORECASE)}
+
+    # Extract FROM/JOIN tables (handling optional schema prefix like Sales.Orders or dbo.customers)
+    tables = re.findall(r"(?:FROM|JOIN)\s+(?:\[?(\w+)\]?\.)?\[?(\w+)\]?(?:\s+(?:AS\s+)?\[?(\w+)\]?)?", clean, re.IGNORECASE)
     table_alias: dict[str, str] = {}
     from_tables = []
+    table_explicit_schema: dict[str, str] = {}
     for schema, tbl, alias in tables:
         t_low = tbl.lower()
-        if t_low in ("where", "on", "join", "group", "order", "inner", "left", "right", "outer", "cross", "select"):
+        if t_low in cte_names or t_low in ("where", "on", "join", "group", "order", "inner", "left", "right", "outer", "cross", "select", "apply"):
             continue
         from_tables.append(t_low)
         table_alias[t_low] = t_low
-        if alias and alias.lower() not in ("where", "on", "join", "group", "order", "inner", "left", "right", "outer", "cross", "as"):
+        if schema:
+            table_explicit_schema[t_low] = schema
+        if alias and alias.lower() not in ("where", "on", "join", "group", "order", "inner", "left", "right", "outer", "cross", "as", "with", "nolock"):
             table_alias[alias.lower()] = t_low
+            if schema:
+                table_explicit_schema[alias.lower()] = schema
 
     single_from_table = from_tables[0] if len(from_tables) == 1 else None
 
@@ -312,6 +388,24 @@ def recommend_index_for_query(query_sql: str) -> IndexRecommendation | None:
         "customers": {"city", "country", "email", "status", "phone", "created_at", "first_name", "last_name"}
     }
 
+    def resolve_valid_column(tbl_name: str, col_name: str) -> str | None:
+        """Validate and return canonical column name if real column."""
+        c_low = col_name.lower()
+        if c_low in select_aliases or c_low in (
+            "id", "text", "numeric", "varchar", "nvarchar", "count", "sum", "avg",
+            "top", "distinct", "min", "max", "desc", "asc", "null", "not", "and",
+            "or", "case", "when", "then", "else", "end", "with", "nolock", "as",
+            "total_spent", "order_count", "daily_total", "total_revenue", "toplam_ciro", "toplam_ciro_tl",
+            "__totalmatchingcount"
+        ):
+            return None
+        db_cols = get_table_columns(tbl_name)
+        if db_cols:
+            return db_cols.get(c_low)
+        if tbl_name in known_table_cols:
+            return c_low if c_low in known_table_cols[tbl_name] else None
+        return col_name
+
     # Extract filter predicates (equality vs range)
     predicates = re.findall(r"(?:(\w+)\.)?(\w+)\s*(=|>|<|>=|<=|BETWEEN|LIKE)", where_clause, re.IGNORECASE)
 
@@ -319,66 +413,77 @@ def recommend_index_for_query(query_sql: str) -> IndexRecommendation | None:
     table_range_cols: dict[str, list[str]] = {}
 
     for alias, col, op in predicates:
-        col_lower = col.lower()
-        if col_lower in select_aliases or col_lower in ("id", "text", "numeric", "varchar", "nvarchar", "count", "sum", "avg", "top", "distinct"):
-            continue
-
         if single_from_table:
             tbl = single_from_table
         elif alias and alias.lower() in table_alias:
             tbl = table_alias[alias.lower()]
         else:
             tbl = None
-            for t_name, t_cols in known_table_cols.items():
-                if col_lower in t_cols:
+            for t_name in list(table_alias.values()) + list(known_table_cols.keys()):
+                if resolve_valid_column(t_name, col):
                     tbl = t_name
                     break
             if not tbl:
-                tbl = "orders" if "orders" in clean_norm.lower() else "customers"
+                tbl = from_tables[0] if from_tables else ("orders" if "orders" in clean_norm.lower() else "customers")
 
-        # Validate against known table columns
-        if tbl in known_table_cols and col_lower not in known_table_cols[tbl]:
+        valid_col = resolve_valid_column(tbl, col)
+        if not valid_col:
             continue
 
         if op.upper() in ("=", "IS"):
             if tbl not in table_equality_cols:
                 table_equality_cols[tbl] = []
-            if col_lower not in table_equality_cols[tbl]:
-                table_equality_cols[tbl].append(col_lower)
+            if valid_col not in table_equality_cols[tbl]:
+                table_equality_cols[tbl].append(valid_col)
         else:
             if tbl not in table_range_cols:
                 table_range_cols[tbl] = []
-            if col_lower not in table_range_cols[tbl]:
-                table_range_cols[tbl].append(col_lower)
+            if valid_col not in table_range_cols[tbl]:
+                table_range_cols[tbl].append(valid_col)
+
+    # Extract JOIN ON conditions
+    on_conditions = re.findall(r"ON\s+(.*?)(?:LEFT|RIGHT|INNER|OUTER|CROSS|JOIN|WHERE|GROUP\s+BY|ORDER\s+BY|$)", clean_norm, re.IGNORECASE | re.DOTALL)
+    for on_clause in on_conditions:
+        for m in re.finditer(r"(?:(\w+)\.)?(\w+)\s*=\s*(?:(\w+)\.)?(\w+)", on_clause):
+            a1, c1, a2, c2 = m.groups()
+            for a, c in [(a1, c1), (a2, c2)]:
+                tbl = table_alias.get(a.lower()) if a else None
+                if not tbl and single_from_table:
+                    tbl = single_from_table
+                if tbl:
+                    valid_c = resolve_valid_column(tbl, c)
+                    if valid_c:
+                        if tbl not in table_equality_cols:
+                            table_equality_cols[tbl] = []
+                        if valid_c not in table_equality_cols[tbl]:
+                            table_equality_cols[tbl].append(valid_c)
 
     # Check GROUP BY columns
     group_match = re.search(r"GROUP\s+BY\s+(.*?)(?:HAVING|ORDER\s+BY|$)", clean_norm, re.IGNORECASE | re.DOTALL)
     table_group_cols: dict[str, list[str]] = {}
     if group_match:
         for alias, col in re.findall(r"(?:(\w+)\.)?(\w+)", group_match.group(1), re.IGNORECASE):
-            col_lower = col.lower()
-            if col_lower in select_aliases or col_lower in ("id", "count", "sum", "avg", "min", "max", "desc", "asc"):
-                continue
             if single_from_table:
                 tbl = single_from_table
             elif alias and alias.lower() in table_alias:
                 tbl = table_alias[alias.lower()]
             else:
                 tbl = None
-                for t_name, t_cols in known_table_cols.items():
-                    if col_lower in t_cols:
+                for t_name in list(table_alias.values()) + list(known_table_cols.keys()):
+                    if resolve_valid_column(t_name, col):
                         tbl = t_name
                         break
                 if not tbl:
                     tbl = "orders" if "orders" in clean_norm.lower() else "customers"
 
-            if tbl in known_table_cols and col_lower not in known_table_cols[tbl]:
+            valid_col = resolve_valid_column(tbl, col)
+            if not valid_col:
                 continue
 
             if tbl not in table_group_cols:
                 table_group_cols[tbl] = []
-            if col_lower not in table_group_cols[tbl]:
-                table_group_cols[tbl].append(col_lower)
+            if valid_col not in table_group_cols[tbl]:
+                table_group_cols[tbl].append(valid_col)
 
     # Check ORDER BY columns
     order_match = re.search(r"ORDER\s+BY\s+(.*?)$", clean_norm, re.IGNORECASE | re.DOTALL)
@@ -386,30 +491,27 @@ def recommend_index_for_query(query_sql: str) -> IndexRecommendation | None:
     if order_match:
         order_cols = re.findall(r"(?:(\w+)\.)?(\w+)(?:\s+DESC|\s+ASC)?", order_match.group(1), re.IGNORECASE)
         for alias, col in order_cols:
-            col_lower = col.lower()
-            if col_lower in select_aliases or col_lower in ("id", "count", "sum", "avg", "desc", "asc", "total_spent", "order_count", "daily_total", "total_revenue"):
-                continue
             if single_from_table:
                 tbl = single_from_table
             elif alias and alias.lower() in table_alias:
                 tbl = table_alias[alias.lower()]
             else:
                 tbl = None
-                for t_name, t_cols in known_table_cols.items():
-                    if col_lower in t_cols:
+                for t_name in list(table_alias.values()) + list(known_table_cols.keys()):
+                    if resolve_valid_column(t_name, col):
                         tbl = t_name
                         break
                 if not tbl:
                     tbl = "orders" if "orders" in clean_norm.lower() else "customers"
 
-            # Validate against known columns (prevents indexing on computed aliases like toplam_ciro!)
-            if tbl in known_table_cols and col_lower not in known_table_cols[tbl]:
+            valid_col = resolve_valid_column(tbl, col)
+            if not valid_col:
                 continue
 
             if tbl not in table_order_cols:
                 table_order_cols[tbl] = []
-            if col_lower not in table_order_cols[tbl]:
-                table_order_cols[tbl].append(col_lower)
+            if valid_col not in table_order_cols[tbl]:
+                table_order_cols[tbl].append(valid_col)
 
     all_target_tables = set(table_equality_cols.keys()) | set(table_range_cols.keys()) | set(table_group_cols.keys()) | set(table_order_cols.keys())
     if not all_target_tables:
@@ -438,32 +540,47 @@ def recommend_index_for_query(query_sql: str) -> IndexRecommendation | None:
 
     if not keys:
         # Fallback default key if none extracted
-        keys = ["status"] if primary_tbl == "orders" else ["email"]
+        db_cols = get_table_columns(primary_tbl)
+        if db_cols:
+            keys = [next(iter(db_cols.values()))]
+        else:
+            keys = ["status"] if primary_tbl == "orders" else ["email"]
+
+    # Resolve schema and table naming
+    explicit_sch = table_explicit_schema.get(primary_tbl)
+    if explicit_sch:
+        schema, exact_tbl = explicit_sch, primary_tbl
+    else:
+        schema, exact_tbl = resolve_table_schema(primary_tbl)
+
+    full_tbl_ref = f"[{schema}].[{exact_tbl}]" if schema else f"[{exact_tbl}]"
+    display_table = f"{schema}.{exact_tbl}" if schema else exact_tbl
 
     # Detect covering columns for INCLUDE clause
     include_cols: list[str] = []
-    if primary_tbl in known_table_cols:
-        for c in known_table_cols[primary_tbl]:
-            if c in keys or c in ("shipping_address", "id"):
-                continue
-            # If the column appears in SELECT text, include it to prevent Key Lookups
-            if re.search(r"\b" + c + r"\b", select_text, re.IGNORECASE):
-                include_cols.append(c)
+    candidate_inc = get_table_columns(primary_tbl) or (known_table_cols.get(primary_tbl, {}))
+    for c_raw in (candidate_inc.values() if isinstance(candidate_inc, dict) else candidate_inc):
+        if c_raw in keys or c_raw.lower() in [k.lower() for k in keys] or c_raw.lower() in ("shipping_address", "id"):
+            continue
+        # If the column appears in SELECT text, include it to prevent Key Lookups
+        if re.search(r"\b" + re.escape(c_raw) + r"\b", select_text, re.IGNORECASE):
+            include_cols.append(c_raw)
 
-    idx_name = generate_index_name(primary_tbl, keys)
-    cols_str = ", ".join(keys)
+    clean_keys_for_name = [re.sub(r"\W+", "", k.lower()) for k in keys]
+    idx_name = generate_index_name(exact_tbl.lower(), clean_keys_for_name)
+    cols_str = ", ".join(f"[{c}]" for c in keys)
     if include_cols:
-        inc_str = ", ".join(include_cols)
-        create_stmt = f"CREATE NONCLUSTERED INDEX [{idx_name}] ON [{primary_tbl}] ({cols_str}) INCLUDE ({inc_str}) WITH (ONLINE = ON);"
+        inc_str = ", ".join(f"[{c}]" for c in include_cols)
+        create_stmt = f"CREATE NONCLUSTERED INDEX [{idx_name}] ON {full_tbl_ref} ({cols_str}) INCLUDE ({inc_str}) WITH (ONLINE = ON);"
     else:
-        create_stmt = f"CREATE NONCLUSTERED INDEX [{idx_name}] ON [{primary_tbl}] ({cols_str}) WITH (ONLINE = ON);"
+        create_stmt = f"CREATE NONCLUSTERED INDEX [{idx_name}] ON {full_tbl_ref} ({cols_str}) WITH (ONLINE = ON);"
 
     return IndexRecommendation(
-        table=primary_tbl,
+        table=display_table,
         columns=keys,
         index_type="nonclustered",
         include_columns=include_cols,
-        reason=f"{primary_tbl} tablosundaki ({cols_str}) arama filtreleri için dinamik oluşturulan indeks",
+        reason=f"{display_table} tablosundaki ({cols_str}) arama filtreleri için dinamik oluşturulan indeks",
         priority=1 if len(keys) > 1 else 2,
         estimated_impact="~5-50x hızlanma",
         create_statement=create_stmt,

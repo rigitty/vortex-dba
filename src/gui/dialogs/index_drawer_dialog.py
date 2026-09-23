@@ -213,7 +213,10 @@ class IndexDrawerDialog(QDialog):
         )
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                execute_query(f"DROP INDEX [{index_name}] ON [{table_name}];")
+                from auto_remediator import drop_index as do_drop
+                ok = do_drop(index_name, table_name)
+                if not ok:
+                    raise RuntimeError(f"SQL Server üzerinde [{index_name}] silinemedi.")
                 record_index_rolled_back(index_name)
                 QMessageBox.information(self, "Silindi", f"[{index_name}] indeksi başarıyla silindi.")
                 self.load_data()

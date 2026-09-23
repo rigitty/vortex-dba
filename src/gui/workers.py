@@ -232,11 +232,28 @@ class BenchmarkWorker(QThread):
             from src.db_connection import measure_query_server_time
 
             def _get_unindexed_sql(sql_text: str) -> str:
-                clean_sql = re.sub(r"\bWITH\s*\(\s*INDEX\s*\([^)]*\)\s*\)", "", sql_text, flags=re.IGNORECASE)
-                pattern_gen = re.compile(r"\bFROM\s+((?:\[?\w+\]?\.)?\[?\w+\]?)(?!\s*WITH\s*\(\s*INDEX)", re.IGNORECASE)
-                if pattern_gen.search(clean_sql):
-                    return pattern_gen.sub(r"FROM \1 WITH (INDEX(0))", clean_sql, count=1)
-                return clean_sql
+                clean_s = re.sub(r",\s*INDEX\s*\([^)]*\)", "", sql_text, flags=re.IGNORECASE)
+                clean_s = re.sub(r"\bINDEX\s*\([^)]*\)\s*,?", "", clean_s, flags=re.IGNORECASE)
+                clean_s = re.sub(r"\bWITH\s*\(\s*\)", "", clean_s, flags=re.IGNORECASE)
+                ctes = {c.lower() for c in re.findall(r"\b(?:WITH|,)\s*\[?(\w+)\]?\s+AS\s*\(", clean_s, re.IGNORECASE)}
+
+                def _rep(m):
+                    verb, tbl, alias, existing_with = m.group(1), m.group(2), m.group(3) or "", m.group(4)
+                    t_clean = re.sub(r"\W+", "", tbl.split(".")[-1]).lower()
+                    if t_clean in ctes or t_clean in ("where", "on", "join", "group", "order", "inner", "left", "right", "outer", "cross", "select", "apply"):
+                        return m.group(0)
+                    alias_str = f" {alias}" if alias and alias.lower() not in ("with", "where", "on", "join", "group", "order", "inner", "left", "right", "outer", "cross", "as") else ""
+                    if existing_with:
+                        with_hints = [h.strip() for h in existing_with.split(",") if h.strip() and not h.strip().upper().startswith("INDEX")]
+                        with_hints.append("INDEX(0)")
+                        new_with = f" WITH ({', '.join(with_hints)})"
+                    else:
+                        new_with = " WITH (INDEX(0))"
+                    return f"{verb} {tbl}{alias_str}{new_with}"
+
+                pat_gen = re.compile(r"\b(FROM)\s+((?:\[?\w+\]?\.)?\[?\w+\]?)(?:\s+(?:AS\s+)?\[?(\w+)\]?)?(?:\s+WITH\s*\(([^)]*)\))?", re.IGNORECASE)
+                new_sql, count = pat_gen.subn(_rep, clean_s, count=1)
+                return new_sql
 
             # Pre-measure unindexed baselines on demand
             for q_item in queries:

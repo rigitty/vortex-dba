@@ -27,7 +27,7 @@ class SafetyViolation(Exception):
 def get_existing_indexes_from_db() -> dict[str, list[str]]:
     """Query SQL Server sys.indexes to get all existing indexes dynamically."""
     query = """
-        SELECT i.name AS indexname, t.name AS tablename
+        SELECT i.name AS indexname, t.name AS tablename, SCHEMA_NAME(t.schema_id) AS schemaname
         FROM sys.indexes i
         JOIN sys.tables t ON t.object_id = i.object_id
         WHERE t.is_ms_shipped = 0 AND i.name IS NOT NULL
@@ -37,9 +37,12 @@ def get_existing_indexes_from_db() -> dict[str, list[str]]:
     for r in (results or []):
         idx_name = r["indexname"]
         tbl_name = r["tablename"]
-        if tbl_name not in index_map:
-            index_map[tbl_name] = []
-        index_map[tbl_name].append(idx_name)
+        sch_name = r.get("schemaname", "dbo")
+        for k in [tbl_name.lower(), f"{sch_name}.{tbl_name}".lower()]:
+            if k not in index_map:
+                index_map[k] = []
+            if idx_name not in index_map[k]:
+                index_map[k].append(idx_name)
     return index_map
 
 
@@ -79,15 +82,21 @@ def can_apply_index(table_name: str, index_name: str, ignore_cooldown: bool = Fa
             return False, f"Index {index_name} already exists in database"
 
     # Check max indexes per table (in SQL Server)
-    db_table_indexes = len(existing.get(table_name, []))
+    clean_tbl = table_name.strip("[] ").lower()
+    table_idxs = existing.get(clean_tbl, [])
+    if not table_idxs and "." in clean_tbl:
+        table_idxs = existing.get(clean_tbl.split(".", 1)[1], [])
+    db_table_indexes = len(table_idxs)
+
     if db_table_indexes >= config.remediation.max_indexes_per_table:
         return False, (
             f"Table {table_name} already has {db_table_indexes} indexes "
             f"(max: {config.remediation.max_indexes_per_table})"
         )
 
-    # Check total index limit (in SQL Server)
-    total_db_indexes = sum(len(idxs) for idxs in existing.values())
+    # Check total unique index limit (in SQL Server)
+    unique_db_indexes = {idx for idxs in existing.values() for idx in idxs}
+    total_db_indexes = len(unique_db_indexes)
     if total_db_indexes >= config.remediation.max_indexes_total:
         return False, (
             f"Total database indexes: {total_db_indexes} "
