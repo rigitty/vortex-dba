@@ -3,7 +3,7 @@ traffic_source: simulation
 language: en
 database:
   host: localhost
-  port: 14333
+  port: 1433
   dbname: WideWorldImporters
   user: sa
   password: Password123!
